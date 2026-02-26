@@ -6,7 +6,8 @@ const Usuario = require('../models/Usuario');
 const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
-const clientGoogle = process.env.GOOGLE_CLIENT_ID ? new OAuth2Client(process.env.GOOGLE_CLIENT_ID) : null;
+const googleClientIds = [process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_WEB_CLIENT_ID].filter(Boolean);
+const clientGoogle = googleClientIds.length ? new OAuth2Client(googleClientIds[0]) : null;
 
 function toPerfil(doc) {
   if (!doc) return null;
@@ -64,7 +65,7 @@ router.post('/login-google', async (req, res) => {
   try {
     const { idToken } = req.body;
     if (!clientGoogle || !idToken) return res.status(400).json({ error: 'Falta idToken' });
-    const ticket = await clientGoogle.verifyIdToken({ idToken, audience: process.env.GOOGLE_CLIENT_ID });
+    const ticket = await clientGoogle.verifyIdToken({ idToken, audience: googleClientIds });
     const payload = ticket.getPayload();
     const email = payload.email;
     let usuario = await Usuario.findOne({ email });
@@ -84,6 +85,7 @@ router.post('/login-google', async (req, res) => {
         verificado: false,
       });
       await usuario.save();
+      console.log('Usuario Google creado:', email);
     } else {
       await Usuario.updateOne({ _id: usuario._id }, { ultimaConexion: new Date() });
     }
@@ -91,6 +93,7 @@ router.post('/login-google', async (req, res) => {
     const token = jwt.sign({ userId: usuario._id.toString() }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ perfil, token });
   } catch (e) {
+    console.error('login-google error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });

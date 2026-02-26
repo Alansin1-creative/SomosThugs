@@ -7,7 +7,11 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  ScrollView,
+  Linking,
+  Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { iniciarSesionEmail, iniciarSesionConTokenGoogle } from '../servicios/auth';
@@ -15,15 +19,25 @@ import { puedeVerContenidoExclusivo } from '../constantes/nivelesAcceso';
 
 WebBrowser.maybeCompleteAuthSession();
 
+const GOOGLE_CLIENT_ID = '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID = '844963020835-b7pt28vp1upelsefhapf22qsksjecj3l.apps.googleusercontent.com';
+
 export default function Login({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [mostrarPassword, setMostrarPassword] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [cargandoGoogle, setCargandoGoogle] = useState(false);
 
-  const [request, , promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com',
-  });
+  const [request, , promptAsync] = Google.useIdTokenAuthRequest(
+    {
+      clientId: GOOGLE_CLIENT_ID,
+      webClientId: Platform.OS === 'web' ? GOOGLE_WEB_CLIENT_ID : undefined,
+      iosClientId: Platform.OS === 'ios' ? GOOGLE_CLIENT_ID : undefined,
+      androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined,
+    },
+    { useProxy: false }
+  );
 
   const enviarEmail = async () => {
     if (!email.trim() || !password.trim()) {
@@ -50,14 +64,21 @@ export default function Login({ navigation }) {
   };
 
   const enviarGoogle = async () => {
-    if (!request) return;
+    if (!request) {
+      Alert.alert(
+        'Google',
+        'Google no está listo. En web: entra desde el navegador (no Expo Go) y en Google Cloud Console añade esta URL en "Orígenes autorizados" y "URIs de redirección": ' +
+          (typeof window !== 'undefined' ? window.location.origin : 'tu origen')
+      );
+      return;
+    }
     setCargandoGoogle(true);
     try {
       const result = await promptAsync();
-      if (result?.type !== 'success' || !result.params.id_token) {
-        if (result?.type !== 'cancel') {
-          Alert.alert('Error', 'Inicio de sesión con Google cancelado o fallido.');
-        }
+      if (result?.type === 'cancel' || result?.type === 'dismiss') return;
+      if (result?.type !== 'success' || !result.params?.id_token) {
+        const err = result?.params?.error_description || result?.params?.error || 'Google falló.';
+        Alert.alert('Error', err);
         return;
       }
       const perfil = await iniciarSesionConTokenGoogle(result.params.id_token);
@@ -67,89 +88,152 @@ export default function Login({ navigation }) {
         navigation.replace('ContenidoGeneral');
       }
     } catch (e) {
-      Alert.alert('Error', e.message);
+      Alert.alert('Error', e?.message || String(e));
     } finally {
       setCargandoGoogle(false);
     }
   };
 
   return (
-    <View style={estilos.contenedor}>
-      <Text style={estilos.titulo}>Iniciar sesión</Text>
+    <ScrollView
+      style={estilos.contenedor}
+      contentContainerStyle={estilos.scrollContenido}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={estilos.logoContenedor}>
+        <Text style={estilos.logoPequeño}>LOS</Text>
+        <Text style={estilos.logoGrande}>THUGS</Text>
+      </View>
+
+      <Text style={estilos.titulo}>iniciar sesión</Text>
+
       <TextInput
         style={estilos.input}
-        placeholder="Email"
-        placeholderTextColor="#666"
+        placeholder="correo"
+        placeholderTextColor="#9ca3af"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
       />
-      <TextInput
-        style={estilos.input}
-        placeholder="Contraseña"
-        placeholderTextColor="#666"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+      <View style={estilos.inputContenedorPassword}>
+        <TextInput
+          style={estilos.inputPassword}
+          placeholder="contraseña"
+          placeholderTextColor="#9ca3af"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry={!mostrarPassword}
+        />
+        <TouchableOpacity
+          style={estilos.ojo}
+          onPress={() => setMostrarPassword((v) => !v)}
+        >
+          <Ionicons
+            name={mostrarPassword ? 'eye-off-outline' : 'eye-outline'}
+            size={22}
+            color="#6b7280"
+          />
+        </TouchableOpacity>
+      </View>
+
       <TouchableOpacity
         style={[estilos.boton, cargando && estilos.botonDeshabilitado]}
         onPress={enviarEmail}
         disabled={cargando}
       >
         {cargando ? (
-          <ActivityIndicator color="#000" />
+          <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={estilos.botonTexto}>Entrar</Text>
+          <Text style={estilos.botonTexto}>iniciar sesión</Text>
         )}
       </TouchableOpacity>
-      <Text style={estilos.separador}>o</Text>
+
+      <Text style={estilos.legal}>
+        Al iniciar sesión y usar SomosThugs, aceptas nuestros{' '}
+        <Text style={estilos.enlaceLegal} onPress={() => Linking.openURL('https://example.com/terminos')}>
+          Términos de servicio
+        </Text>
+        {' '}y{' '}
+        <Text style={estilos.enlaceLegal} onPress={() => Linking.openURL('https://example.com/privacidad')}>
+          Política de privacidad
+        </Text>
+        .
+      </Text>
+
+      <TouchableOpacity onPress={() => {}}>
+        <Text style={estilos.olvidaste}>¿Has olvidado tu contraseña?</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={[estilos.botonGoogle, cargandoGoogle && estilos.botonDeshabilitado]}
         onPress={enviarGoogle}
         disabled={!request || cargandoGoogle}
       >
         {cargandoGoogle ? (
-          <ActivityIndicator color="#000" />
+          <ActivityIndicator color="#fff" />
         ) : (
           <Text style={estilos.botonTexto}>Entrar con Google</Text>
         )}
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={estilos.enlace}>Atrás</Text>
+
+      <TouchableOpacity style={estilos.registro} onPress={() => navigation.navigate('Registro')}>
+        <Text style={estilos.registroTexto}>Regístrate</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const estilos = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: '#0d0d0d', padding: 24, paddingTop: 60 },
-  titulo: { fontSize: 24, color: '#fff', marginBottom: 24, textAlign: 'center' },
+  contenedor: { flex: 1, backgroundColor: '#000' },
+  scrollContenido: { padding: 24, paddingTop: 48, paddingBottom: 48 },
+  logoContenedor: { marginBottom: 32, alignItems: 'flex-start' },
+  logoPequeño: { fontSize: 18, color: '#fff', letterSpacing: 2, marginBottom: -4 },
+  logoGrande: { fontSize: 42, color: '#fff', fontWeight: '800', letterSpacing: 2 },
+  titulo: { fontSize: 20, color: '#fff', marginBottom: 20, textAlign: 'left' },
   input: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    padding: 14,
-    color: '#fff',
-    marginBottom: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    color: '#111',
+    marginBottom: 14,
     fontSize: 16,
   },
-  boton: {
-    backgroundColor: '#c9a227',
+  inputContenedorPassword: { position: 'relative', marginBottom: 14 },
+  inputPassword: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
     padding: 16,
-    borderRadius: 8,
+    paddingRight: 48,
+    color: '#111',
+    fontSize: 16,
+  },
+  ojo: { position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' },
+  boton: {
+    backgroundColor: '#22c55e',
+    padding: 16,
+    borderRadius: 12,
     alignItems: 'center',
     marginTop: 8,
   },
   botonGoogle: {
     backgroundColor: '#4285f4',
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 24,
   },
   botonDeshabilitado: { opacity: 0.7 },
   botonTexto: { color: '#fff', fontWeight: '600', fontSize: 16 },
-  separador: { color: '#666', textAlign: 'center', marginTop: 20, fontSize: 14 },
-  enlace: { color: '#c9a227', textAlign: 'center', marginTop: 24, fontSize: 14 },
+  legal: {
+    color: '#9ca3af',
+    fontSize: 12,
+    marginTop: 20,
+    lineHeight: 18,
+  },
+  enlaceLegal: { color: '#3b82f6', textDecorationLine: 'underline' },
+  olvidaste: { color: '#9ca3af', fontSize: 14, marginTop: 16, textAlign: 'center' },
+  registro: { marginTop: 28, alignItems: 'center' },
+  registroTexto: { color: '#22c55e', fontSize: 16, fontWeight: '600' },
 });

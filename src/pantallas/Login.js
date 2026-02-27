@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,10 +14,16 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import { iniciarSesionEmail, iniciarSesionConTokenGoogle } from '../servicios/auth';
 import { puedeVerContenidoExclusivo } from '../constantes/nivelesAcceso';
 
 WebBrowser.maybeCompleteAuthSession();
+
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  const redirectUri = makeRedirectUri({ useProxy: false });
+  console.log('[Google] Añade esta URI en Google Cloud Console > Credenciales > URIs de redirección:', redirectUri);
+}
 
 const GOOGLE_CLIENT_ID = '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
 const GOOGLE_WEB_CLIENT_ID = '844963020835-b7pt28vp1upelsefhapf22qsksjecj3l.apps.googleusercontent.com';

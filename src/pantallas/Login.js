@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -14,16 +14,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 import { iniciarSesionEmail, iniciarSesionConTokenGoogle } from '../servicios/auth';
 import { puedeVerContenidoExclusivo } from '../constantes/nivelesAcceso';
 
 WebBrowser.maybeCompleteAuthSession();
-
-if (Platform.OS === 'web' && typeof window !== 'undefined') {
-  const redirectUri = makeRedirectUri({ useProxy: false });
-  console.log('[Google] Añade esta URI en Google Cloud Console > Credenciales > URIs de redirección:', redirectUri);
-}
 
 const GOOGLE_CLIENT_ID = '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
 const GOOGLE_WEB_CLIENT_ID = '844963020835-b7pt28vp1upelsefhapf22qsksjecj3l.apps.googleusercontent.com';
@@ -34,11 +28,14 @@ export default function Login({ navigation }) {
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [cargandoGoogle, setCargandoGoogle] = useState(false);
+  const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined'
+    ? window.location.origin
+    : undefined;
 
   const [request, , promptAsync] = Google.useIdTokenAuthRequest(
     {
-      clientId: GOOGLE_CLIENT_ID,
       webClientId: Platform.OS === 'web' ? GOOGLE_WEB_CLIENT_ID : undefined,
+      redirectUri: webRedirectUri,
       iosClientId: Platform.OS === 'ios' ? GOOGLE_CLIENT_ID : undefined,
       androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined,
     },
@@ -70,6 +67,10 @@ export default function Login({ navigation }) {
   };
 
   const enviarGoogle = async () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.origin !== 'https://somosthugs.netlify.app') {
+      Alert.alert('Google', 'Abre la app desde https://somosthugs.netlify.app para iniciar con Google.');
+      return;
+    }
     if (!request) {
       Alert.alert(
         'Google',

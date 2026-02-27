@@ -31,11 +31,14 @@ export default function Registro({ navigation }) {
   const [fotoUri, setFotoUri] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [cargandoGoogle, setCargandoGoogle] = useState(false);
+  const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined'
+    ? window.location.origin
+    : undefined;
 
   const [request, , promptAsync] = Google.useIdTokenAuthRequest(
     {
-      clientId: GOOGLE_CLIENT_ID,
       webClientId: Platform.OS === 'web' ? GOOGLE_WEB_CLIENT_ID : undefined,
+      redirectUri: webRedirectUri,
       iosClientId: Platform.OS === 'ios' ? GOOGLE_CLIENT_ID : undefined,
       androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined,
     },
@@ -83,6 +86,10 @@ export default function Registro({ navigation }) {
   };
 
   const enviarGoogle = async () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.origin !== 'https://somosthugs.netlify.app') {
+      Alert.alert('Google', 'Abre la app desde https://somosthugs.netlify.app para registrarte con Google.');
+      return;
+    }
     if (!request) {
       Alert.alert('Google', 'Google no está listo. Prueba desde el navegador.');
       return;

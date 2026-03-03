@@ -26,6 +26,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '5mb' }));
 
+// Health check: Railway y el navegador pueden comprobar que el servidor responde (evita 502)
+app.get('/health', (_, res) => res.status(200).json({ ok: true }));
+
 app.use('/auth', authRoutes);
 app.use('/eventos', eventosRoutes);
 app.use('/publicaciones', publicacionesRoutes);
@@ -34,11 +37,9 @@ app.use('/contenido-exclusivo', contenidoExclusivoRoutes);
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/somos-thugs';
 
-mongoose.connect(MONGO_URI).then(() => {
-  console.log('MongoDB conectado');
-  // 0.0.0.0 para que Railway/proxy pueda conectar (evita 502)
-  app.listen(PORT, '0.0.0.0', () => console.log('Servidor en puerto', PORT));
-}).catch((e) => {
-  console.error('MongoDB error:', e.message);
-  process.exit(1);
-});
+// Arrancar el servidor primero para que Railway reciba respuesta (OPTIONS, health). Así no hay 502.
+app.listen(PORT, '0.0.0.0', () => console.log('Servidor en puerto', PORT));
+
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('MongoDB conectado'))
+  .catch((e) => console.error('MongoDB error:', e.message));

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BASE_URL } from '../config/api';
+import { getBaseUrl } from '../config/api';
 
 const TOKEN_KEY = 'somos_thugs_token';
 
@@ -11,7 +11,8 @@ async function request(path, options = {}) {
   const token = await getToken();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const base = getBaseUrl();
+  const res = await fetch(`${base}${path}`, { ...options, headers });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;

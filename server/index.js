@@ -10,7 +10,20 @@ const publicacionesRoutes = require('./routes/publicaciones');
 const contenidoExclusivoRoutes = require('./routes/contenidoExclusivo');
 
 const app = express();
-app.use(cors());
+// CORS explícito para Netlify; evita 502 en preflight y error CORS en el navegador
+const corsOptions = {
+  origin: [
+    'https://somosthugs.netlify.app',
+    /\.netlify\.app$/,
+    'http://localhost:8081',
+    'http://localhost:19006',
+    'http://127.0.0.1:8081',
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+};
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '5mb' }));
 
 app.use('/auth', authRoutes);
@@ -23,7 +36,8 @@ const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/somos-th
 
 mongoose.connect(MONGO_URI).then(() => {
   console.log('MongoDB conectado');
-  app.listen(PORT, () => console.log('Servidor en puerto', PORT));
+  // 0.0.0.0 para que Railway/proxy pueda conectar (evita 502)
+  app.listen(PORT, '0.0.0.0', () => console.log('Servidor en puerto', PORT));
 }).catch((e) => {
   console.error('MongoDB error:', e.message);
   process.exit(1);

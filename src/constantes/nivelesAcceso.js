@@ -14,6 +14,13 @@ export function puedeVerContenidoGeneral(nivel) {
   return nivel === NIVEL_REGISTRADO || nivel === NIVEL_THUG;
 }
 
-export function puedeVerContenidoExclusivo(nivel) {
+/** Quien puede ver contenido exclusivo (Zona Thug): nivel thug o rol admin */
+export function puedeVerContenidoExclusivo(nivel, rol) {
+  if (rol === ROL_ADMIN) return true;
   return nivel === NIVEL_THUG;
+}
+
+export const ROL_ADMIN = 'admin';
+export function esAdmin(perfil) {
+  return perfil?.rol === ROL_ADMIN;
 }

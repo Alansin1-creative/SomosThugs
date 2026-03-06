@@ -1,4 +1,6 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
@@ -6,41 +8,78 @@ const Usuario = require('../models/Usuario');
 const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
+const UPLOADS_AVATAR = path.join(__dirname, '..', 'uploads', 'avatars');
+
+function guardarAvatarBase64(base64) {
+  if (!base64) return undefined;
+  const match = base64.match(/^data:image\/(\w+);base64,(.+)$/);
+  const ext = match ? (match[1] === 'jpeg' ? 'jpg' : match[1]) : 'jpg';
+  const data = match ? match[2] : base64;
+  const buffer = Buffer.from(data, 'base64');
+  if (!fs.existsSync(UPLOADS_AVATAR)) fs.mkdirSync(UPLOADS_AVATAR, { recursive: true });
+  const nombre = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
+  const ruta = path.join(UPLOADS_AVATAR, nombre);
+  fs.writeFileSync(ruta, buffer);
+  return `/uploads/avatars/${nombre}`;
+}
 const googleClientIds = [process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_WEB_CLIENT_ID].filter(Boolean);
 const clientGoogle = googleClientIds.length ? new OAuth2Client(googleClientIds[0]) : null;
 
 function toPerfil(doc) {
   if (!doc) return null;
   const o = doc.toObject ? doc.toObject() : doc;
-  const { passwordHash, __v, ...rest } = o;
+  const { passwordHash, uid, __v, ...rest } = o;
   return { id: o._id.toString(), ...rest, _id: undefined };
 }
 
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, nombreCompleto, fotoUrl } = req.body;
-    const existente = await Usuario.findOne({ email });
-    if (existente) return res.status(400).json({ error: 'Email ya registrado' });
-    const passwordHash = await bcrypt.hash(password, 10);
-    const usuario = new Usuario({
+    const {
       email,
+      password,
+      nombreCompleto,
+      username,
+      telefono,
+      fotoBase64,
+      aceptaNotificaciones,
+    } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Email y contraseña son obligatorios' });
+    const usernameTrim = (username || '').trim();
+    if (!usernameTrim) return res.status(400).json({ error: 'Usuario es obligatorio' });
+    const existenteEmail = await Usuario.findOne({ email });
+    if (existenteEmail) return res.status(400).json({ error: 'Email ya registrado' });
+    const existenteUsername = await Usuario.findOne({ username: usernameTrim });
+    if (existenteUsername) return res.status(400).json({ error: 'Usuario ya está en uso' });
+    const passwordHash = await bcrypt.hash(password, 10);
+    let fotoUrl;
+    if (fotoBase64) {
+      try {
+        fotoUrl = guardarAvatarBase64(fotoBase64);
+      } catch (e) {
+        console.error('Avatar base64:', e.message);
+      }
+    }
+    const usuario = new Usuario({
+      email: email.trim(),
       passwordHash,
-      nombreCompleto: nombreCompleto || '',
-      fotoUrl: fotoUrl || '',
+      nombreCompleto: (nombreCompleto || '').trim(),
+      username: usernameTrim,
+      telefono: (telefono || '').trim() || undefined,
+      fotoUrl: fotoUrl || undefined,
       nivelAcceso: 'registrado',
       fechaRegistro: new Date(),
-      provider: 'email',
-      aceptaNotificaciones: true,
       ultimaConexion: new Date(),
+      proveedor: 'email',
+      aceptaNotificaciones: aceptaNotificaciones !== false,
       activo: true,
       rol: 'fan',
-      verificado: false,
     });
     await usuario.save();
     const perfil = toPerfil(usuario);
     const token = jwt.sign({ userId: usuario._id.toString() }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({ perfil, token });
   } catch (e) {
+    if (e.code === 11000 && e.keyPattern?.username) return res.status(400).json({ error: 'Usuario ya está en uso' });
     res.status(500).json({ error: e.message });
   }
 });
@@ -77,12 +116,11 @@ router.post('/login-google', async (req, res) => {
         fotoUrl: payload.picture || '',
         nivelAcceso: 'registrado',
         fechaRegistro: new Date(),
-        provider: 'google',
+        proveedor: 'google',
         aceptaNotificaciones: true,
         ultimaConexion: new Date(),
         activo: true,
         rol: 'fan',
-        verificado: false,
       });
       await usuario.save();
       console.log('Usuario Google creado:', email);

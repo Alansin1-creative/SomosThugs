@@ -3,11 +3,14 @@ import { NavigationContainer, NavigationIndependentTree } from '@react-navigatio
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../contexto/AuthContext';
 import InicioPresskit from '../pantallas/InicioPresskit';
-import Registro from '../pantallas/Registro';
-import Login from '../pantallas/Login';
+import MenuAdmin from '../pantallas/MenuAdmin';
+import ModoAdmin from '../pantallas/ModoAdmin';
+import AdminUsuarios from '../pantallas/AdminUsuarios';
+import AdminContenidoExclusivo from '../pantallas/AdminContenidoExclusivo';
+import AdminEventos from '../pantallas/AdminEventos';
 import ContenidoGeneral from '../pantallas/ContenidoGeneral';
 import ContenidoExclusivo from '../pantallas/ContenidoExclusivo';
-import { puedeVerContenidoGeneral, puedeVerContenidoExclusivo } from '../constantes/nivelesAcceso';
+import { puedeVerContenidoGeneral, puedeVerContenidoExclusivo, esAdmin } from '../constantes/nivelesAcceso';
 
 const Stack = createNativeStackNavigator();
 
@@ -25,9 +28,12 @@ export default function Navegador() {
 
   const estaAutenticado = !!perfil;
   const puedeGeneral = estaAutenticado && puedeVerContenidoGeneral(nivelAcceso);
-  const puedeExclusivo = estaAutenticado && puedeVerContenidoExclusivo(nivelAcceso);
+  const puedeExclusivo = estaAutenticado && puedeVerContenidoExclusivo(nivelAcceso, perfil?.rol);
+  const admin = estaAutenticado && esAdmin(perfil);
 
-  const rutaInicial = puedeExclusivo
+  const rutaInicial = admin
+    ? 'ModoAdmin'
+    : puedeExclusivo
     ? 'ContenidoExclusivo'
     : puedeGeneral
     ? 'ContenidoGeneral'
@@ -38,8 +44,11 @@ export default function Navegador() {
       <NavigationContainer>
         <Stack.Navigator screenOptions={opcionesBase} initialRouteName={rutaInicial}>
           <Stack.Screen name="Inicio" component={InicioPresskit} />
-          <Stack.Screen name="Registro" component={Registro} />
-          <Stack.Screen name="Login" component={Login} />
+          <Stack.Screen name="MenuAdmin" component={MenuAdmin} />
+          <Stack.Screen name="ModoAdmin" component={ModoAdmin} />
+          <Stack.Screen name="AdminUsuarios" component={AdminUsuarios} />
+          <Stack.Screen name="AdminContenidoExclusivo" component={AdminContenidoExclusivo} />
+          <Stack.Screen name="AdminEventos" component={AdminEventos} />
           <Stack.Screen name="ContenidoGeneral" component={ContenidoGeneral} />
           <Stack.Screen name="ContenidoExclusivo" component={ContenidoExclusivo} />
         </Stack.Navigator>

@@ -1,6 +1,6 @@
 const express = require('express');
 const ContenidoExclusivo = require('../models/ContenidoExclusivo');
-const { authMiddleware, requireThug } = require('../middleware/auth');
+const { authMiddleware, requireThug, requireAdmin, requireThugOrAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -10,7 +10,7 @@ function toDoc(doc) {
   return { id: o._id.toString(), ...o, _id: undefined };
 }
 
-router.get('/', authMiddleware, requireThug, async (req, res) => {
+router.get('/', authMiddleware, requireThugOrAdmin, async (req, res) => {
   try {
     const lista = await ContenidoExclusivo.find().sort({ fechaSubida: -1 }).limit(50).lean();
     res.json(lista.map((d) => ({ id: d._id.toString(), ...d, _id: undefined })));
@@ -28,7 +28,7 @@ router.get('/:id', authMiddleware, requireThug, async (req, res) => {
   }
 });
 
-router.post('/', authMiddleware, requireThug, async (req, res) => {
+router.post('/', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const item = new ContenidoExclusivo(req.body);
     await item.save();
@@ -48,7 +48,7 @@ router.put('/:id', authMiddleware, requireThug, async (req, res) => {
   }
 });
 
-router.delete('/:id', authMiddleware, requireThug, async (req, res) => {
+router.delete('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const doc = await ContenidoExclusivo.findByIdAndDelete(req.params.id);
     if (!doc) return res.status(404).json({ error: 'No encontrado' });

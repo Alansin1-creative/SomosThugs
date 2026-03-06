@@ -11,6 +11,7 @@ export const AuthContext = createContext({
   nivelAcceso: NIVEL_LIBRE,
   cargando: true,
   cerrarSesion: async () => {},
+  establecerPerfil: () => {},
 });
 
 export function AuthProvider({ children }) {
@@ -31,7 +32,10 @@ export function AuthProvider({ children }) {
         const p = await obtenerPerfil();
         if (!cancel) setPerfil(p);
       } catch (_) {
-        if (!cancel) setPerfil(null);
+        if (!cancel) {
+          setPerfil(null);
+          await authSignOut();
+        }
       } finally {
         if (!cancel) setCargando(false);
       }
@@ -44,12 +48,17 @@ export function AuthProvider({ children }) {
     setPerfil(null);
   };
 
+  const establecerPerfil = (p) => {
+    setPerfil(p);
+  };
+
   const value = {
     usuario: perfil,
     perfil,
     nivelAcceso,
     cargando,
     cerrarSesion,
+    establecerPerfil,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

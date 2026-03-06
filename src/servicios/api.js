@@ -34,6 +34,18 @@ export async function apiPerfil() {
   return request('/auth/perfil');
 }
 
+export async function listarUsuarios() {
+  return request('/usuarios');
+}
+
+export async function actualizarUsuario(id, body) {
+  return request(`/usuarios/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export async function eliminarUsuario(id) {
+  return request(`/usuarios/${id}`, { method: 'DELETE' });
+}
+
 export async function setToken(token) {
   await AsyncStorage.setItem(TOKEN_KEY, token);
 }
@@ -44,6 +56,11 @@ export async function removeToken() {
 
 export async function listarEventosPublicos() {
   return request('/eventos/publicos');
+}
+
+/** Lista todos los eventos (solo admin) */
+export async function listarEventos() {
+  return request('/eventos');
 }
 
 export async function listarPublicaciones() {

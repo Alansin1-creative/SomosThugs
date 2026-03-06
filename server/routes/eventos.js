@@ -1,6 +1,6 @@
 const express = require('express');
 const Evento = require('../models/Evento');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -37,7 +37,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/', authMiddleware, async (req, res) => {
+router.post('/', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const evento = new Evento(req.body);
     await evento.save();
@@ -47,7 +47,7 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-router.put('/:id', authMiddleware, async (req, res) => {
+router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const doc = await Evento.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!doc) return res.status(404).json({ error: 'No encontrado' });
@@ -57,7 +57,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
   }
 });
 
-router.delete('/:id', authMiddleware, async (req, res) => {
+router.delete('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const doc = await Evento.findByIdAndDelete(req.params.id);
     if (!doc) return res.status(404).json({ error: 'No encontrado' });

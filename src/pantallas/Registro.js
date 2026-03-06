@@ -10,13 +10,17 @@ import {
   Image,
   ScrollView,
   Platform,
+  ImageBackground,
 } from 'react-native';
+
+const FONDO_IMAGEN = require('../../assets/fondo-thugs.png');
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
+import { useAuth } from '../contexto/AuthContext';
 import { registrarEmail, iniciarSesionConTokenGoogle } from '../servicios/auth';
-import { puedeVerContenidoExclusivo } from '../constantes/nivelesAcceso';
+import { puedeVerContenidoExclusivo, esAdmin } from '../constantes/nivelesAcceso';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -24,6 +28,7 @@ const GOOGLE_CLIENT_ID = '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.goo
 const GOOGLE_WEB_CLIENT_ID = '844963020835-b7pt28vp1upelsefhapf22qsksjecj3l.apps.googleusercontent.com';
 
 export default function Registro({ navigation }) {
+  const { establecerPerfil } = useAuth();
   const [nombreCompleto, setNombreCompleto] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,7 +50,7 @@ export default function Registro({ navigation }) {
     { useProxy: false }
   );
 
-  const elegirImagen = async () => {
+  const elegirDeGaleria = async () => {
     const permiso = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permiso.granted) {
       Alert.alert('Permiso', 'Activa la galería.');
@@ -62,6 +67,30 @@ export default function Registro({ navigation }) {
     }
   };
 
+  const tomarFoto = async () => {
+    const permiso = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permiso.granted) {
+      Alert.alert('Permiso', 'Activa la cámara.');
+      return;
+    }
+    const resultado = await ImagePicker.launchCameraAsync({
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (!resultado.canceled && resultado.assets[0]) {
+      setFotoUri(resultado.assets[0].uri);
+    }
+  };
+
+  const elegirOrigenFoto = () => {
+    Alert.alert('Foto de perfil', 'Elige el origen', [
+      { text: 'Galería', onPress: elegirDeGaleria },
+      { text: 'Tomar foto', onPress: tomarFoto },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+  };
+
   const enviar = async () => {
     if (!email.trim() || !password.trim()) {
       Alert.alert('', 'Email y contraseña.');
@@ -73,11 +102,18 @@ export default function Registro({ navigation }) {
     }
     setCargando(true);
     try {
-      await registrarEmail(email.trim(), password, {
+      const perfil = await registrarEmail(email.trim(), password, {
         nombreCompleto: nombreCompleto.trim(),
         fotoUrl: fotoUri || '',
       });
-      navigation.replace('ContenidoGeneral');
+      establecerPerfil(perfil);
+      if (esAdmin(perfil)) {
+        navigation.replace('ModoAdmin');
+      } else if (puedeVerContenidoExclusivo(perfil.nivelAcceso)) {
+        navigation.replace('ContenidoExclusivo');
+      } else {
+        navigation.replace('ContenidoGeneral');
+      }
     } catch (e) {
       Alert.alert('Error', e.message);
     } finally {
@@ -86,10 +122,6 @@ export default function Registro({ navigation }) {
   };
 
   const enviarGoogle = async () => {
-    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location.origin !== 'https://somosthugs.netlify.app') {
-      Alert.alert('Google', 'Abre la app desde https://somosthugs.netlify.app para registrarte con Google.');
-      return;
-    }
     if (!request) {
       Alert.alert('Google', 'Google no está listo. Prueba desde el navegador.');
       return;
@@ -103,7 +135,10 @@ export default function Registro({ navigation }) {
         return;
       }
       const perfil = await iniciarSesionConTokenGoogle(result.params.id_token);
-      if (puedeVerContenidoExclusivo(perfil.nivelAcceso)) {
+      establecerPerfil(perfil);
+      if (esAdmin(perfil)) {
+        navigation.replace('ModoAdmin');
+      } else if (puedeVerContenidoExclusivo(perfil.nivelAcceso)) {
         navigation.replace('ContenidoExclusivo');
       } else {
         navigation.replace('ContenidoGeneral');
@@ -116,20 +151,24 @@ export default function Registro({ navigation }) {
   };
 
   return (
-    <ScrollView
-      style={estilos.contenedor}
-      contentContainerStyle={estilos.scrollContenido}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      <View style={estilos.logoContenedor}>
-        <Text style={estilos.logoPequeño}>LOS</Text>
-        <Text style={estilos.logoGrande}>THUGS</Text>
-      </View>
+    <ImageBackground source={FONDO_IMAGEN} style={estilos.fondo} resizeMode="cover">
+      <View style={estilos.mitades}>
+        <View style={estilos.mitadIzquierda} />
+        <View style={estilos.mitadDerecha}>
+          <ScrollView
+            style={estilos.contenedor}
+            contentContainerStyle={estilos.scrollContenido}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={estilos.logoContenedor}>
+              <Text style={estilos.logoPequeño}>LOS</Text>
+              <Text style={estilos.logoGrande}>THUGS</Text>
+            </View>
 
-      <Text style={estilos.titulo}>registro</Text>
+            <Text style={estilos.titulo}>registro</Text>
 
-      <TouchableOpacity style={estilos.contenedorFoto} onPress={elegirImagen}>
+      <TouchableOpacity style={estilos.contenedorFoto} onPress={elegirOrigenFoto}>
         {fotoUri ? (
           <Image source={{ uri: fotoUri }} style={estilos.foto} />
         ) : (
@@ -203,12 +242,19 @@ export default function Registro({ navigation }) {
       <TouchableOpacity style={estilos.enlaceContenedor} onPress={() => navigation.goBack()}>
         <Text style={estilos.enlace}>Atrás</Text>
       </TouchableOpacity>
-    </ScrollView>
+          </ScrollView>
+        </View>
+      </View>
+    </ImageBackground>
   );
 }
 
 const estilos = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: '#000' },
+  fondo: { flex: 1, width: '100%' },
+  mitades: { flex: 1, flexDirection: 'row', width: '100%' },
+  mitadIzquierda: { width: '50%', minWidth: '50%', overflow: 'hidden' },
+  mitadDerecha: { width: '50%', minWidth: '50%', maxWidth: '50%', overflow: 'hidden' },
+  contenedor: { flex: 1, backgroundColor: 'transparent', maxWidth: '100%' },
   scrollContenido: { padding: 24, paddingTop: 48, paddingBottom: 48 },
   logoContenedor: { marginBottom: 32, alignItems: 'flex-start' },
   logoPequeño: { fontSize: 18, color: '#fff', letterSpacing: 2, marginBottom: -4 },

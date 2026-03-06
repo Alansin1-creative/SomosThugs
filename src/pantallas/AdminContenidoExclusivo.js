@@ -12,15 +12,15 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import { listarContenidoExclusivo, crearContenidoExclusivo } from '../servicios/api';
 import { useAuth } from '../contexto/AuthContext';
-import { puedeVerContenidoExclusivo, esAdmin } from '../constantes/nivelesAcceso';
+import { esAdmin } from '../constantes/nivelesAcceso';
 
-export default function ContenidoExclusivo({ navigation }) {
-  const { perfil, cerrarSesion } = useAuth();
+export default function AdminContenidoExclusivo({ navigation }) {
+  const { perfil } = useAuth();
   const [lista, setLista] = useState([]);
   const [refrescando, setRefrescando] = useState(false);
 
   useEffect(() => {
-    if (perfil && !puedeVerContenidoExclusivo(perfil.nivelAcceso, perfil.rol)) {
+    if (perfil && !esAdmin(perfil)) {
       navigation.replace('ContenidoGeneral');
     }
   }, [perfil, navigation]);
@@ -28,9 +28,8 @@ export default function ContenidoExclusivo({ navigation }) {
   const cargar = async () => {
     try {
       const datos = await listarContenidoExclusivo();
-      setLista(datos);
+      setLista(Array.isArray(datos) ? datos : []);
     } catch (e) {
-      console.warn(e);
       setLista([]);
     }
   };
@@ -45,7 +44,7 @@ export default function ContenidoExclusivo({ navigation }) {
     setRefrescando(false);
   };
 
-  const abrirCamara = async () => {
+  const subirDesdeCamara = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permiso', 'Activa la cámara.');
@@ -65,7 +64,7 @@ export default function ContenidoExclusivo({ navigation }) {
         tipo: 'foto',
         urlArchivo: uri,
         thumbnailUrl: uri,
-        subidoPor: perfil?.id || perfil?._id || '',
+        subidoPor: perfil?.id || '',
         duracionSegundos: 0,
         pesoBytes: 0,
         estado: 'publicado',
@@ -81,30 +80,61 @@ export default function ContenidoExclusivo({ navigation }) {
     }
   };
 
+  const subirDesdeGaleria = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso', 'Activa la galería.');
+      return;
+    }
+    const resultado = await ImagePicker.launchImageLibraryAsync({
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+    if (resultado.canceled || !resultado.assets[0]) return;
+    const uri = resultado.assets[0].uri;
+    try {
+      await crearContenidoExclusivo({
+        titulo: 'Foto',
+        descripcion: '',
+        tipo: 'foto',
+        urlArchivo: uri,
+        thumbnailUrl: uri,
+        subidoPor: perfil?.id || '',
+        duracionSegundos: 0,
+        pesoBytes: 0,
+        estado: 'publicado',
+        visibilidad: 'thug',
+        etiquetas: [],
+        fechaGrabacion: new Date().toISOString(),
+        version: 1,
+        notas: '',
+      });
+      cargar();
+    } catch (e) {
+      Alert.alert('Error', e.message);
+    }
+  };
+
+  const elegirSubir = () => {
+    Alert.alert('Subir contenido', 'Elige el origen', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Cámara', onPress: subirDesdeCamara },
+      { text: 'Galería', onPress: subirDesdeGaleria },
+    ]);
+  };
+
   return (
     <View style={estilos.contenedor}>
       <View style={estilos.header}>
-        <Text style={estilos.titulo}>Thug</Text>
-        <View style={estilos.headerBotones}>
-          {esAdmin(perfil) && (
-            <TouchableOpacity style={estilos.botonCamara} onPress={abrirCamara}>
-              <Text style={estilos.botonCamaraTexto}>Cámara</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ContenidoGeneral')}
-            style={estilos.botonVolver}
-          >
-            <Text style={estilos.botonVolverTexto}>General</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => cerrarSesion().then(() => navigation.replace('Inicio'))}
-            style={estilos.botonCerrar}
-          >
-            <Text style={estilos.botonCerrarTexto}>Salir</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={estilos.botonAtras}>
+          <Text style={estilos.botonAtrasTexto}>← Atrás</Text>
+        </TouchableOpacity>
+        <Text style={estilos.titulo}>Contenido exclusivo</Text>
       </View>
+      <TouchableOpacity style={estilos.botonSubir} onPress={elegirSubir}>
+        <Text style={estilos.botonSubirTexto}>+ Subir (cámara o galería)</Text>
+      </TouchableOpacity>
       <ScrollView
         style={estilos.scroll}
         contentContainerStyle={estilos.scrollContenido}
@@ -113,13 +143,15 @@ export default function ContenidoExclusivo({ navigation }) {
         }
       >
         {lista.length === 0 && (
-          <Text style={estilos.vacio}>Nada aún.</Text>
+          <Text style={estilos.vacio}>Aún no hay contenido. Usa el botón de arriba para subir.</Text>
         )}
         {lista.map((item) => (
           <View key={item.id} style={estilos.card}>
             <Text style={estilos.cardTitulo}>{item.titulo || item.tipo}</Text>
             <Text style={estilos.cardTexto}>{item.descripcion || ''}</Text>
-            <Text style={estilos.cardTipo}>{item.tipo} — {item.fechaSubida ? new Date(item.fechaSubida).toLocaleDateString() : ''}</Text>
+            <Text style={estilos.cardMeta}>
+              {item.tipo} — {item.fechaSubida ? new Date(item.fechaSubida).toLocaleDateString() : ''}
+            </Text>
             {item.urlArchivo && (
               <TouchableOpacity onPress={() => Linking.openURL(item.urlArchivo)}>
                 <Text style={estilos.enlace}>Ver</Text>
@@ -137,24 +169,27 @@ const estilos = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingTop: 48,
-    paddingBottom: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
   },
+  botonAtras: { padding: 8, marginRight: 8 },
+  botonAtrasTexto: { color: '#c9a227', fontSize: 14 },
   titulo: { fontSize: 20, color: '#fff', fontWeight: '600' },
-  headerBotones: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  botonCamara: { padding: 8 },
-  botonCamaraTexto: { color: '#c9a227', fontSize: 14 },
-  botonVolver: { padding: 8 },
-  botonVolverTexto: { color: '#888', fontSize: 14 },
-  botonCerrar: { padding: 8 },
-  botonCerrarTexto: { color: '#666', fontSize: 14 },
+  botonSubir: {
+    backgroundColor: '#c9a227',
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  botonSubirTexto: { color: '#000', fontWeight: '600', fontSize: 16 },
   scroll: { flex: 1 },
   scrollContenido: { padding: 16, paddingBottom: 40 },
-  vacio: { color: '#666', fontSize: 14 },
+  vacio: { color: '#666', fontSize: 14, marginTop: 16 },
   card: {
     backgroundColor: '#1a1a1a',
     borderRadius: 8,
@@ -163,6 +198,6 @@ const estilos = StyleSheet.create({
   },
   cardTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 4 },
   cardTexto: { color: '#aaa', fontSize: 14, marginBottom: 4 },
-  cardTipo: { color: '#666', fontSize: 12 },
+  cardMeta: { color: '#666', fontSize: 12 },
   enlace: { color: '#c9a227', marginTop: 6, fontSize: 14 },
 });

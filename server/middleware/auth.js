@@ -24,4 +24,20 @@ async function requireThug(req, res, next) {
   next();
 }
 
-module.exports = { authMiddleware, requireThug };
+async function requireAdmin(req, res, next) {
+  const u = await Usuario.findById(req.userId);
+  if (!u || u.rol !== 'admin') {
+    return res.status(403).json({ error: 'Solo administradores' });
+  }
+  next();
+}
+
+/** Thug o admin pueden ver contenido exclusivo; solo admin puede crear/editar/borrar */
+async function requireThugOrAdmin(req, res, next) {
+  const u = await Usuario.findById(req.userId);
+  if (!u) return res.status(403).json({ error: 'No autorizado' });
+  if (u.nivelAcceso === 'thug' || u.rol === 'admin') return next();
+  return res.status(403).json({ error: 'Solo Thug o admin' });
+}
+
+module.exports = { authMiddleware, requireThug, requireAdmin, requireThugOrAdmin };

@@ -48,13 +48,13 @@ const estilos = StyleSheet.create({
   titulo: { fontSize: 28, color: '#fff', fontWeight: '700', marginBottom: 8 },
   subtitulo: { fontSize: 16, color: '#888', marginBottom: 32 },
   boton: {
-    backgroundColor: '#c9a227',
+    backgroundColor: '#00dc57',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
     marginBottom: 16,
   },
-  botonSecundario: { backgroundColor: '#2a2a2a', borderWidth: 1, borderColor: '#c9a227' },
+  botonSecundario: { backgroundColor: '#2a2a2a', borderWidth: 1, borderColor: '#00dc57' },
   botonTexto: { color: '#000', fontSize: 18, fontWeight: '600' },
-  botonSecundarioTexto: { color: '#c9a227', fontSize: 18, fontWeight: '600' },
+  botonSecundarioTexto: { color: '#00dc57', fontSize: 18, fontWeight: '600' },
 });

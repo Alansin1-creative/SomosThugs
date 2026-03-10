@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -53,17 +53,12 @@ const LINKS_PRENSA = [
   { titulo: 'Ay Claudia!', url: 'https://www.youtube.com/watch?v=MDAXTpsKNE' },
 ];
 
-const LINKS_VIDEOS = [
-  { titulo: 'Es un llamado - Aguardianes Ft Delay Dealers', url: 'https://www.youtube.com' },
-  { titulo: 'The Song of the Thug Life Ft Delay Castillo - Sergio Marin', url: 'https://www.youtube.com' },
-  { titulo: 'Los Thugs - El Último Tren', url: 'https://www.youtube.com' },
-  { titulo: 'Playeras pa Detonar - Los Thugs', url: 'https://www.youtube.com' },
-  { titulo: 'México Mágico - Los Thugs', url: 'https://www.youtube.com' },
-  { titulo: '(Megan studios 2023)', url: 'https://www.youtube.com' },
-  { titulo: 'Los Thugs - Live Rimas Y Chingazos Episodio 1', url: 'https://www.youtube.com' },
-  { titulo: 'One Last Time Party II', url: 'https://www.youtube.com' },
-  { titulo: 'Thugs Sessionz Cap 1 - Segunda sesión programada de consumo cannábico', url: 'https://www.youtube.com' },
-  { titulo: 'Thugs Sessionz Cap 2', url: 'https://www.youtube.com' },
+// Singles: agrega uno por uno { titulo, url, cover? }. cover = require('../../assets/nombre.png') si añades imagen en assets/
+const SINGLES = [
+  { titulo: 'Mr Pipeins (Live)', url: 'https://open.spotify.com/album/1JnRG3WRJRNRqgNHw85gWj', cover: require('../../assets/pipeins.png') },
+  { titulo: 'Méjico Mágico', url: 'https://open.spotify.com/album/3IMLWcl5o6bXfME4LNoJG9', cover: require('../../assets/mijicomajico.png') },
+  { titulo: 'El Último Tren', url: 'https://open.spotify.com/album/16zmKIQJ1CGwfwtQlgzAJs', cover: require('../../assets/ultimotren.png') },
+  { titulo: 'El Song De La Thug Life', url: 'https://open.spotify.com/album/5up5lvNRgiNBXg1J5aOtv7', cover: require('../../assets/elsong.png') },
 ];
 
 const WHATSAPP_NUMERO = '3315873924';
@@ -82,8 +77,56 @@ function navegarSegunPerfil(navigation, perfil) {
   else navigation.replace('ContenidoGeneral');
 }
 
+const PRESENTACIONES_ITEMS = 6;
+const CARRUSEL_GAP = 12;
+
+// Añade álbumes: id único, titulo, spotifyUrl (ej: https://open.spotify.com/album/xxxxx)
+const ALBUMS = [
+  { id: '1', titulo: 'Rolando Calles', spotifyUrl: 'https://open.spotify.com/album/6C5iPRNs1pbrZuyVkmJLBd' },
+];
+
+function extraerAlbumIdSpotify(url) {
+  if (!url) return null;
+  const m = url.match(/spotify\.com\/album\/([a-zA-Z0-9]+)/);
+  return m ? m[1] : null;
+}
+
+const spotifyEmbedContenedor = { width: '100%', height: 352, marginTop: 12, borderRadius: 12, overflow: 'hidden' };
+const spotifyEmbedBoton = { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, paddingVertical: 14, paddingHorizontal: 20, backgroundColor: 'rgba(0,220,87,0.15)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,220,87,0.4)' };
+const spotifyEmbedBotonTexto = { color: '#00dc57', fontSize: 15, fontWeight: '600' };
+
+function SpotifyEmbed({ albumId, spotifyUrl }) {
+  const contenedorRef = useRef(null);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !albumId || typeof document === 'undefined') return;
+    const container = contenedorRef.current;
+    if (!container || typeof container.appendChild !== 'function') return;
+    const el = document.createElement('iframe');
+    el.src = `https://open.spotify.com/embed/album/${albumId}?utm_source=generator`;
+    el.style.width = '100%';
+    el.style.height = '352px';
+    el.style.border = 'none';
+    el.style.borderRadius = '12px';
+    el.setAttribute('allow', 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture');
+    el.setAttribute('loading', 'lazy');
+    container.appendChild(el);
+    return () => { try { container.removeChild(el); } catch (_) {} };
+  }, [albumId]);
+  if (Platform.OS === 'web') {
+    return <View ref={contenedorRef} style={spotifyEmbedContenedor} collapsable={false} />;
+  }
+  return (
+    <TouchableOpacity style={spotifyEmbedBoton} onPress={() => spotifyUrl && Linking.openURL(spotifyUrl)}>
+      <Ionicons name="musical-notes" size={24} color="#00dc57" />
+      <Text style={spotifyEmbedBotonTexto}>Abrir en Spotify</Text>
+    </TouchableOpacity>
+  );
+}
+
 export default function InicioPresskit({ navigation }) {
   const { width } = useWindowDimensions();
+  const carruselItemWidth = Math.min((width - 32 - 48) * 0.52, 220);
+  const carruselSnapInterval = carruselItemWidth + CARRUSEL_GAP;
   const { perfil, cerrarSesion, establecerPerfil } = useAuth();
   const estaAutenticado = !!perfil;
 
@@ -100,6 +143,7 @@ export default function InicioPresskit({ navigation }) {
   const [loginCargando, setLoginCargando] = useState(false);
   const [regCargando, setRegCargando] = useState(false);
   const [cargandoGoogle, setCargandoGoogle] = useState(false);
+  const [albumExpandidoId, setAlbumExpandidoId] = useState(null);
   const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : undefined;
   const [request, , promptAsync] = Google.useIdTokenAuthRequest(
     {
@@ -283,7 +327,7 @@ export default function InicioPresskit({ navigation }) {
                       </View>
                     ) : null}
                     <TouchableOpacity style={estilos.botonFotoUnico} onPress={elegirOrigenFoto}>
-                      <Ionicons name="camera-outline" size={28} color="#c9a227" />
+                      <Ionicons name="camera-outline" size={28} color="#00dc57" />
                       <Text style={estilos.botonFotoTexto}>Agregar foto</Text>
                     </TouchableOpacity>
                   </View>
@@ -347,7 +391,7 @@ export default function InicioPresskit({ navigation }) {
                     <Ionicons
                       name={aceptaNotificaciones ? 'checkbox' : 'square-outline'}
                       size={22}
-                      color={aceptaNotificaciones ? '#c9a227' : '#6b7280'}
+                      color={aceptaNotificaciones ? '#00dc57' : '#6b7280'}
                     />
                     <Text style={estilos.checkboxTexto}>Acepto notificaciones</Text>
                   </TouchableOpacity>
@@ -445,63 +489,140 @@ export default function InicioPresskit({ navigation }) {
           </View>
         </View>
 
-        <View style={[estilos.bloqueAncho, { width: width - 32 }]}>
-          <Text style={estilos.tituloSeccionVerde}>PRESENTACIONES</Text>
-          <View style={estilos.lineaFlechas} />
-          <View style={estilos.filaPosters}>
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <View key={i} style={estilos.posterPlaceholder} />
-            ))}
+        <View style={[estilos.bloqueAncho, estilos.bloqueArtistInfoCard, { width: width - 32 }]}>
+          <View style={estilos.bloqueArtistInfoContenido}>
+            <View style={estilos.filaArtistInfo}>
+              <Text style={estilos.artistInfoTitulo}>PRESENTACIONES</Text>
+              <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToInterval={carruselSnapInterval}
+              snapToAlignment="start"
+              contentContainerStyle={estilos.carruselPresentacionesContenido}
+              style={estilos.carruselPresentaciones}
+            >
+              {Array.from({ length: PRESENTACIONES_ITEMS }, (_, i) => i + 1).map((i) => (
+                <View key={i} style={[estilos.carruselPresentacionesItem, { width: carruselItemWidth }]}>
+                  <View style={estilos.carruselPresentacionesPlaceholder}>
+                    <Ionicons name="images-outline" size={40} color="rgba(34,197,94,0.5)" />
+                    <Text style={estilos.carruselPresentacionesLabel}>Presentación {i}</Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            <Text style={estilos.bioTexto}>
+              Hemos tenido presentaciones en el foro cultural más importante de Chihuahua "Don Burro", también estuvimos en el Bazar Libertad en la Plaza del Ángel, colaboraciones con el "Movimiento Cannábico de Chihuahua." Tuvimos la oportunidad de tocar fuera de nuestra ciudad. Visitamos Meoqui, Cd. Aldama, Cd. Delicias y Cd. Juárez.
+            </Text>
+            <Text style={estilos.bioTextoVerde}>
+              Hicimos un evento en la ciudad de Zapopan y fuimos artistas invitados en la Cd. de Guadalajara Jalisco en Marzo del 2022.
+            </Text>
+            <Text style={estilos.bioTextoVerdeDestacado}>
+              Además hemos tenido intervenciones en la Radio local Chihuahuense. En "Métrica Radio" y "Radio Universidad Chihuahua".
+            </Text>
+            <View style={[estilos.filaTituloLogo, estilos.filaTituloLogoDerecha]}>
+              <View>
+                <Text style={estilos.tituloSeccionVerdeGrande}>CREANDO COSAS GRANDES</Text>
+                <Text style={estilos.subtituloSeccionDestacado}>SUEÑOS RAROS</Text>
+              </View>
+            </View>
+            <View style={estilos.lineaFlechas} />
           </View>
-          <Text style={estilos.bioTexto}>
-            Hemos tenido presentaciones en el foro cultural más importante de Chihuahua "Don Burro", también estuvimos en el Bazar Libertad en la Plaza del Ángel, colaboraciones con el "Movimiento Cannábico de Chihuahua." Tuvimos la oportunidad de tocar fuera de nuestra ciudad. Visitamos Meoqui, Cd. Aldama, Cd. Delicias y Cd. Juárez.
-          </Text>
-          <Text style={estilos.bioTextoVerde}>
-            Hicimos un evento en la ciudad de Zapopan y fuimos artistas invitados en la Cd. de Guadalajara Jalisco en Marzo del 2022.
-          </Text>
-          <Text style={estilos.bioTextoVerde}>
-            Además hemos tenido intervenciones en la Radio local Chihuahuense. En "Métrica Radio" y "Radio Universidad Chihuahua".
-          </Text>
         </View>
 
-        <View style={[estilos.bloqueAncho, { width: width - 32 }]}>
-          <View style={estilos.filaTituloLogo}>
-            <View>
-              <Text style={estilos.tituloSeccionVerde}>CREANDO COSAS GRANDES</Text>
-              <Text style={estilos.subtituloSeccion}>SUEÑOS RAROS</Text>
+        <View style={[estilos.bloqueAncho, estilos.bloqueArtistInfoCard, { width: width - 32 }]}>
+          <View style={estilos.bloqueArtistInfoContenido}>
+            <View style={estilos.filaArtistInfo}>
+              <Text style={estilos.artistInfoTitulo}>ALBUMS</Text>
+              <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
             </View>
+            <Text style={estilos.bioTexto}>
+              En Abril del 2023 presentamos nuestro primer álbum llamado "Rolando Calles" en un show privado monitoreado en circuito cerrado y show de fuegos artificiales.
+            </Text>
+            <View style={estilos.listaAlbums}>
+              {ALBUMS.map((album) => {
+                const expandido = albumExpandidoId === album.id;
+                const albumIdSpotify = extraerAlbumIdSpotify(album.spotifyUrl);
+                return (
+                  <View key={album.id} style={estilos.listaAlbumsItem}>
+                    <TouchableOpacity
+                      style={estilos.listaAlbumsFila}
+                      onPress={() => setAlbumExpandidoId(expandido ? null : album.id)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={estilos.listaAlbumsFilaIzq}>
+                        <Ionicons name="musical-notes" size={22} color="#00dc57" />
+                        <Text style={estilos.listaAlbumsTitulo}>{album.titulo}</Text>
+                      </View>
+                      <Ionicons name={expandido ? 'chevron-up' : 'chevron-down'} size={22} color="#00dc57" />
+                    </TouchableOpacity>
+                    {expandido && albumIdSpotify && (
+                      <SpotifyEmbed albumId={albumIdSpotify} spotifyUrl={album.spotifyUrl} />
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+            <Text style={estilos.bioTexto}>
+              El contenido de canciones abordan aventuras por los caminos de la república, patinando desde las calles hasta las galaxias, multiversos de graffiti y hierbas, creando negocios de los sueños que cada uno moldea con sus talentos y reviviendo las historias de este par de callejeros.
+            </Text>
+            <Text style={estilos.bioTexto}>
+              Te sumergirás a este universo llamado: <Text style={estilos.bioDestacado}>LOS THUGS</Text>.
+            </Text>
+            <View style={estilos.filaTituloLogo}>
+              <View>
+                <Text style={estilos.tituloSeccionVerde}>PODER NORTEÑO</Text>
+                <Text style={estilos.subtituloSeccion}>DEL MÉJICO MÁGICO</Text>
+              </View>
+            </View>
+            <View style={estilos.lineaFlechas} />
           </View>
-          <View style={estilos.lineaFlechas} />
         </View>
 
-        <View style={[estilos.bloqueAncho, { width: width - 32 }]}>
-          <Text style={estilos.tituloSeccionVerde}>CANCIONES</Text>
-          <View style={estilos.lineaFlechas} />
-          <Text style={estilos.bioTexto}>
-            En Abril del 2023 presentamos nuestro primer álbum llamado "Rolando Calles" en un show privado monitoreado en circuito cerrado y show de fuegos artificiales.
-          </Text>
-          <View style={estilos.filaAlbum}>
-            <View style={estilos.albumPlaceholder}>
-              <Text style={estilos.albumPlaceholderTexto}>-ROLANDO CALLES-</Text>
+        <View style={[estilos.bloqueAncho, estilos.bloqueArtistInfoCard, { width: width - 32 }]}>
+          <View style={estilos.bloqueArtistInfoContenido}>
+            <View style={estilos.filaLinksHeader}>
+              <View style={estilos.filaArtistInfo}>
+                <Text style={estilos.artistInfoTitulo}>SINGLES</Text>
+                <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
+              </View>
+              <View style={estilos.qrPlaceholder}>
+                <Ionicons name="qr-code-outline" size={56} color="#22c55e" />
+                <Text style={estilos.qrPlaceholderTexto}>SCAN ME</Text>
+              </View>
             </View>
-            <View style={estilos.albumPlaceholderPeq} />
-          </View>
-          <Text style={estilos.bioTexto}>
-            El contenido de canciones abordan aventuras por los caminos de la república, patinando desde las calles hasta las galaxias, multiversos de graffiti y hierbas, creando negocios de los sueños que cada uno moldea con sus talentos y reviviendo las historias de este par de callejeros.
-          </Text>
-          <Text style={estilos.bioTexto}>
-            Te sumergirás a este universo llamado: <Text style={estilos.bioDestacado}>LOS THUGS</Text>.
-          </Text>
-        </View>
-
-        <View style={[estilos.bloqueAncho, { width: width - 32 }]}>
-          <View style={estilos.filaTituloLogo}>
-            <View>
-              <Text style={estilos.tituloSeccionVerde}>PODER NORTEÑO</Text>
-              <Text style={estilos.subtituloSeccion}>DEL MÉJICO MÁGICO</Text>
+            <View style={estilos.lineaFlechas} />
+            <View style={estilos.listaLinks}>
+              {SINGLES.length === 0 ? (
+                <Text style={estilos.listaLinksVacio}>Aún no hay singles. Agrega canciones en la constante SINGLES del código.</Text>
+              ) : (
+                SINGLES.map((link, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => link.url && Linking.openURL(link.url)}
+                    style={estilos.linkItem}
+                    activeOpacity={0.7}
+                  >
+                    {link.cover != null && (
+                      <Image source={link.cover} style={estilos.linkItemCover} resizeMode="cover" />
+                    )}
+                    <View style={estilos.linkItemTexto}>
+                      <Text style={estilos.linkTitulo}>{link.titulo}</Text>
+                      <Text style={estilos.linkUrl} numberOfLines={1}>{link.url}</Text>
+                      <Text style={estilos.linkVerEn}>Escuchar en Spotify →</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
+            <View style={estilos.ctaSection}>
+              <Text style={estilos.ctaTitulo}>ANDAMOS ROLANDO CALLES</Text>
+              <Text style={estilos.ctaSubtitulo}>¡NOMÁS A VER QUE SE VE!</Text>
+            </View>
+            <View style={estilos.lineaFlechas} />
           </View>
-          <View style={estilos.lineaFlechas} />
         </View>
 
         <View style={[estilos.bloqueAncho, { width: width - 32 }]}>
@@ -556,36 +677,6 @@ export default function InicioPresskit({ navigation }) {
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
-
-        <View style={[estilos.bloqueAncho, { width: width - 32 }]}>
-          <View style={estilos.filaLinksHeader}>
-            <Text style={estilos.tituloSeccionVerde}>LINKS</Text>
-            <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
-            <View style={estilos.qrPlaceholder}>
-              <Ionicons name="qr-code-outline" size={56} color="#22c55e" />
-              <Text style={estilos.qrPlaceholderTexto}>SCAN ME</Text>
-            </View>
-          </View>
-          <View style={estilos.lineaFlechas} />
-          <View style={estilos.listaLinks}>
-            {LINKS_VIDEOS.map((link, idx) => (
-              <TouchableOpacity
-                key={idx}
-                onPress={() => link.url && Linking.openURL(link.url)}
-                style={estilos.linkItem}
-                activeOpacity={0.7}
-              >
-                <Text style={estilos.linkTitulo}>{link.titulo}</Text>
-                <Text style={estilos.linkUrl} numberOfLines={1}>{link.url}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={estilos.ctaSection}>
-            <Text style={estilos.ctaTitulo}>ANDAMOS ROLANDO CALLES</Text>
-            <Text style={estilos.ctaSubtitulo}>¡NOMÁS A VER QUE SE VE!</Text>
-          </View>
-          <View style={estilos.lineaFlechas} />
         </View>
 
         <View style={[estilos.bloqueAncho, estilos.bloqueLinksPrensa, { width: width - 32 }]}>
@@ -695,7 +786,7 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#c9a227',
+    backgroundColor: '#00dc57',
   },
   botonPrimarioTexto: { color: '#000', fontSize: 14, fontWeight: '600' },
   botonCerrar: { padding: 8 },
@@ -814,9 +905,50 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(34,197,94,0.3)',
   },
+  carruselPresentaciones: { marginBottom: 24 },
+  carruselPresentacionesContenido: { paddingRight: 24, paddingVertical: 4 },
+  carruselPresentacionesItem: { marginRight: 12 },
+  carruselPresentacionesPlaceholder: {
+    aspectRatio: 0.72,
+    backgroundColor: 'rgba(26,26,26,0.95)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+    ...(Platform.OS === 'web' && {
+      boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+    }),
+  },
+  carruselPresentacionesLabel: {
+    color: 'rgba(34,197,94,0.8)',
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 12,
+  },
   bioTextoVerde: { color: '#22c55e', fontSize: 15, lineHeight: 24, marginBottom: 14, fontWeight: '500' },
+  bioTextoVerdeDestacado: {
+    color: '#00dc57',
+    fontSize: 17,
+    lineHeight: 26,
+    marginBottom: 20,
+    marginTop: 4,
+    fontWeight: '700',
+    ...(Platform.OS === 'web' && { textShadow: '0 0 12px rgba(0,220,87,0.4)' }),
+  },
   filaTituloLogo: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
+  filaTituloLogoDerecha: { justifyContent: 'flex-end' },
   subtituloSeccion: { fontSize: 16, color: '#fff', fontWeight: '400', marginTop: 2 },
+  tituloSeccionVerdeGrande: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#00dc57',
+    marginBottom: 4,
+    textAlign: 'right',
+    ...(Platform.OS === 'web' && { textShadow: '0 0 14px rgba(0,220,87,0.5)' }),
+  },
+  subtituloSeccionDestacado: { fontSize: 15, color: '#00dc57', fontWeight: '700', marginTop: 4, textAlign: 'right' },
   filaAlbum: { flexDirection: 'row', alignItems: 'center', gap: 16, marginVertical: 20 },
   albumPlaceholder: {
     width: 140,
@@ -837,6 +969,39 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(34,197,94,0.4)',
   },
+  listaAlbums: { marginBottom: 20 },
+  listaAlbumsItem: { marginBottom: 8 },
+  listaAlbumsFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    backgroundColor: 'rgba(42,42,42,0.6)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,220,87,0.3)',
+  },
+  listaAlbumsFilaIzq: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  listaAlbumsTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1 },
+  carruselAlbums: { marginBottom: 20 },
+  carruselAlbumsContenido: { paddingRight: 24, paddingVertical: 4 },
+  carruselAlbumsItem: { marginRight: CARRUSEL_GAP, width: 140, alignItems: 'center' },
+  carruselAlbumsPortada: {
+    width: 140,
+    height: 140,
+    borderRadius: 12,
+    backgroundColor: 'rgba(34,197,94,0.15)',
+    borderWidth: 2,
+    borderColor: 'rgba(34,197,94,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 12,
+    ...(Platform.OS === 'web' && { boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }),
+  },
+  carruselAlbumsPortadaTexto: { color: '#fff', fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  carruselAlbumsTitulo: { color: '#fff', fontSize: 14, fontWeight: '600', marginTop: 10, textAlign: 'center' },
+  carruselAlbumsSpotify: { color: '#00dc57', fontSize: 12, marginTop: 4 },
   socialSectionTitulo: { fontSize: 18, color: '#fff', marginBottom: 12 },
   handlesLista: { marginBottom: 16 },
   handleRow: { flexDirection: 'row', marginBottom: 6, alignItems: 'baseline' },
@@ -853,7 +1018,7 @@ const estilos = StyleSheet.create({
   },
   integrantesTitulo: { fontSize: 16, color: '#fff', marginTop: 20, marginBottom: 8 },
   integranteRow: { marginBottom: 4 },
-  filaLinksHeader: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
+  filaLinksHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   qrPlaceholder: {
     marginLeft: 'auto',
     width: 80,
@@ -868,9 +1033,13 @@ const estilos = StyleSheet.create({
   qrPlaceholderTexto: { color: '#22c55e', fontSize: 10, marginTop: 4 },
   qrDerecha: { marginLeft: 'auto' },
   listaLinks: { marginTop: 8 },
-  linkItem: { marginBottom: 14, paddingVertical: 4 },
+  listaLinksVacio: { color: '#888', fontSize: 14, fontStyle: 'italic', marginVertical: 12 },
+  linkItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, paddingVertical: 8, gap: 12 },
+  linkItemCover: { width: 56, height: 56, borderRadius: 8 },
+  linkItemTexto: { flex: 1 },
   linkTitulo: { color: '#fff', fontSize: 14, marginBottom: 2 },
   linkUrl: { color: '#9ca3af', fontSize: 12 },
+  linkVerEn: { color: '#00dc57', fontSize: 12, marginTop: 4, fontWeight: '600' },
   bloqueLinksPrensa: { paddingRight: 24 },
   filaLinksPrensaHeader: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   linkPrensaItem: { marginBottom: 14, paddingVertical: 4 },
@@ -935,7 +1104,7 @@ const estilos = StyleSheet.create({
   formularioUnico: { padding: 20 },
   tituloMitad: { fontSize: 16, fontWeight: '600', color: '#fff', marginBottom: 12 },
   toggle: { marginTop: 12, alignItems: 'center' },
-  toggleTexto: { color: '#c9a227', fontSize: 14, fontWeight: '500' },
+  toggleTexto: { color: '#00dc57', fontSize: 14, fontWeight: '500' },
   input: {
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 8,
@@ -960,13 +1129,13 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(201,162,39,0.4)',
   },
-  botonFotoTexto: { color: '#c9a227', fontSize: 14 },
+  botonFotoTexto: { color: '#00dc57', fontSize: 14 },
   filaCheckbox: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
   checkboxTexto: { color: '#ccc', fontSize: 14 },
   inputContenedorPassword: { position: 'relative', marginBottom: 10 },
   ojo: { position: 'absolute', right: 12, top: 10 },
   boton: {
-    backgroundColor: '#c9a227',
+    backgroundColor: '#00dc57',
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',

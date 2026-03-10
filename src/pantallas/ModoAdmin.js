@@ -68,7 +68,7 @@ const estilos = StyleSheet.create({
   },
   titulo: { fontSize: 20, color: '#fff', fontWeight: '600' },
   botonApp: { padding: 8 },
-  botonAppTexto: { color: '#c9a227', fontSize: 14, fontWeight: '600' },
+  botonAppTexto: { color: '#00dc57', fontSize: 14, fontWeight: '600' },
   scroll: { flex: 1 },
   contenido: { padding: 24, paddingTop: 16, paddingBottom: 40 },
   mensaje: { fontSize: 18, color: '#fff', marginBottom: 4 },

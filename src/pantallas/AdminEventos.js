@@ -153,7 +153,7 @@ export default function AdminEventos({ navigation }) {
           style={estilos.scroll}
           contentContainerStyle={estilos.scrollContenido}
           refreshControl={
-            <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#c9a227" />
+            <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
           }
         >
           {eventos.length === 0 && !mostrarForm && (
@@ -186,10 +186,10 @@ const estilos = StyleSheet.create({
     borderBottomColor: '#2a2a2a',
   },
   botonAtras: { padding: 8, marginRight: 8 },
-  botonAtrasTexto: { color: '#c9a227', fontSize: 14 },
+  botonAtrasTexto: { color: '#00dc57', fontSize: 14 },
   titulo: { fontSize: 20, color: '#fff', fontWeight: '600' },
   botonAgregar: {
-    backgroundColor: '#c9a227',
+    backgroundColor: '#00dc57',
     marginHorizontal: 16,
     marginTop: 16,
     padding: 14,

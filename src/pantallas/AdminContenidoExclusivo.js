@@ -139,7 +139,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
         style={estilos.scroll}
         contentContainerStyle={estilos.scrollContenido}
         refreshControl={
-          <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#c9a227" />
+          <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
         }
       >
         {lista.length === 0 && (
@@ -176,10 +176,10 @@ const estilos = StyleSheet.create({
     borderBottomColor: '#2a2a2a',
   },
   botonAtras: { padding: 8, marginRight: 8 },
-  botonAtrasTexto: { color: '#c9a227', fontSize: 14 },
+  botonAtrasTexto: { color: '#00dc57', fontSize: 14 },
   titulo: { fontSize: 20, color: '#fff', fontWeight: '600' },
   botonSubir: {
-    backgroundColor: '#c9a227',
+    backgroundColor: '#00dc57',
     marginHorizontal: 16,
     marginTop: 16,
     padding: 14,
@@ -199,5 +199,5 @@ const estilos = StyleSheet.create({
   cardTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 4 },
   cardTexto: { color: '#aaa', fontSize: 14, marginBottom: 4 },
   cardMeta: { color: '#666', fontSize: 12 },
-  enlace: { color: '#c9a227', marginTop: 6, fontSize: 14 },
+  enlace: { color: '#00dc57', marginTop: 6, fontSize: 14 },
 });

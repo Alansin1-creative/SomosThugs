@@ -109,7 +109,7 @@ export default function ContenidoExclusivo({ navigation }) {
         style={estilos.scroll}
         contentContainerStyle={estilos.scrollContenido}
         refreshControl={
-          <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#c9a227" />
+          <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
         }
       >
         {lista.length === 0 && (
@@ -147,7 +147,7 @@ const estilos = StyleSheet.create({
   titulo: { fontSize: 20, color: '#fff', fontWeight: '600' },
   headerBotones: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   botonCamara: { padding: 8 },
-  botonCamaraTexto: { color: '#c9a227', fontSize: 14 },
+  botonCamaraTexto: { color: '#00dc57', fontSize: 14 },
   botonVolver: { padding: 8 },
   botonVolverTexto: { color: '#888', fontSize: 14 },
   botonCerrar: { padding: 8 },
@@ -164,5 +164,5 @@ const estilos = StyleSheet.create({
   cardTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 4 },
   cardTexto: { color: '#aaa', fontSize: 14, marginBottom: 4 },
   cardTipo: { color: '#666', fontSize: 12 },
-  enlace: { color: '#c9a227', marginTop: 6, fontSize: 14 },
+  enlace: { color: '#00dc57', marginTop: 6, fontSize: 14 },
 });

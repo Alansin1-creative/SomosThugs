@@ -94,7 +94,7 @@ export default function ContenidoGeneral({ navigation }) {
         style={estilos.scroll}
         contentContainerStyle={estilos.scrollContenido}
         refreshControl={
-          <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#c9a227" />
+          <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
         }
       >
         {ubicacion && (
@@ -152,9 +152,9 @@ const estilos = StyleSheet.create({
   },
   titulo: { fontSize: 20, color: '#fff', fontWeight: '600' },
   botonUbicacion: { padding: 8 },
-  botonUbicacionTexto: { color: '#c9a227', fontSize: 14 },
+  botonUbicacionTexto: { color: '#00dc57', fontSize: 14 },
   botonThug: { padding: 8 },
-  botonThugTexto: { color: '#c9a227', fontSize: 14 },
+  botonThugTexto: { color: '#00dc57', fontSize: 14 },
   botonCerrar: { padding: 8 },
   botonCerrarTexto: { color: '#666', fontSize: 14 },
   scroll: { flex: 1 },
@@ -169,6 +169,6 @@ const estilos = StyleSheet.create({
   cardTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 4 },
   cardTexto: { color: '#aaa', fontSize: 14, marginBottom: 4 },
   cardFecha: { color: '#888', fontSize: 12 },
-  enlaceMapa: { color: '#c9a227', marginTop: 6, fontSize: 14 },
+  enlaceMapa: { color: '#00dc57', marginTop: 6, fontSize: 14 },
   vacio: { color: '#666', fontSize: 14, marginBottom: 12 },
 });

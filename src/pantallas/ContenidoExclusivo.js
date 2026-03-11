@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexto/AuthContext';
 import { puedeVerContenidoExclusivo, esAdmin } from '../constantes/nivelesAcceso';
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
+const LOGO_THUGS = require('../../assets/logothugs.png');
 
 export default function ContenidoExclusivo({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -22,6 +23,13 @@ export default function ContenidoExclusivo({ navigation }) {
     }
   }, []);
 
+  const alturaFondoNativo =
+    Platform.OS !== 'web'
+      ? Dimensions.get('window').height -
+        (insets.top + 8 + 48) +
+        insets.bottom
+      : null;
+
   return (
     <View style={[estilos.contenedor, { paddingTop: insets.top + 8 }]}>
       <View style={estilos.header}>
@@ -29,18 +37,39 @@ export default function ContenidoExclusivo({ navigation }) {
           onPress={() => navigation.goBack()}
           style={estilos.headerBack}
           hitSlop={10}
+          activeOpacity={0.8}
         >
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={20} color="#fff" />
+          <Image source={LOGO_THUGS} style={estilos.headerLogoImg} resizeMode="contain" />
         </TouchableOpacity>
-        <Text style={estilos.headerTitulo}>Zona Thug</Text>
-        <View style={{ width: 32 }} />
+        <Text style={estilos.headerTitulo} pointerEvents="none">Zona Thug</Text>
+        <View style={estilos.headerEspacioDer} />
       </View>
       <View style={estilos.cuerpo}>
-        <Image
-          source={FONDO_THUGS}
-          style={estilos.fondoImagen}
-          resizeMode="repeat"
-        />
+        <View
+          style={[
+            estilos.fondoAbsoluto,
+            alturaFondoNativo != null && {
+              top: 0,
+              bottom: undefined,
+              height: alturaFondoNativo,
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Image
+            source={FONDO_THUGS}
+            style={[
+              estilos.fondoImagen,
+              alturaFondoNativo != null && {
+                bottom: undefined,
+                height: alturaFondoNativo,
+              },
+            ]}
+            resizeMode="repeat"
+          />
+        </View>
+        <View style={estilos.cuerpoContenidoConPadding}>
         <View style={estilos.contenidoSobreFondo}>
           <View style={estilos.cuadroGlass}>
             <View style={estilos.cardHero}>
@@ -58,16 +87,22 @@ export default function ContenidoExclusivo({ navigation }) {
             </View>
           </View>
         </View>
+        </View>
       </View>
     </View>
   );
 }
 
 const estilos = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: '#050505' },
+  contenedor: {
+    flex: 1,
+    backgroundColor: '#050505',
+    ...(Platform.OS !== 'web' && { overflow: 'visible' }),
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 8,
     borderBottomWidth: 1,
@@ -75,19 +110,40 @@ const estilos = StyleSheet.create({
     backgroundColor: '#0d0d0d',
   },
   headerBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     padding: 4,
+    width: 80,
+    zIndex: 1,
   },
+  headerLogoImg: { width: 36, height: 36 },
   headerTitulo: {
-    flex: 1,
+    position: 'absolute',
+    left: 0,
+    right: 0,
     textAlign: 'center',
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+    zIndex: 0,
   },
+  headerEspacioDer: { width: 80, zIndex: 1 },
   cuerpo: {
     flex: 1,
-    padding: 32,
     justifyContent: 'center',
+  },
+  cuerpoContenidoConPadding: {
+    flex: 1,
+    padding: 32,
+  },
+  fondoAbsoluto: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 0,
   },
   fondoImagen: {
     position: 'absolute',

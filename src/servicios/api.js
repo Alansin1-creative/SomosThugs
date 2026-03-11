@@ -75,7 +75,15 @@ export async function listarContenidoExclusivo() {
   return request('/contenido-exclusivo');
 }
 
+/** Feed de contenido con nivel requerido fan (para vista Contenido general) */
+export async function listarContenidoExclusivoFeed() {
+  return request('/contenido-exclusivo/feed');
+}
+
 export async function crearContenidoExclusivo(body) {
+  if (__DEV__ && body && typeof body === 'object') {
+    console.log('[API] crearContenidoExclusivo body keys:', Object.keys(body).join(', '));
+  }
   return request('/contenido-exclusivo', { method: 'POST', body: JSON.stringify(body) });
 }
 
@@ -116,6 +124,9 @@ export async function leerContenidoExclusivo(id) {
 }
 
 export async function actualizarContenidoExclusivo(id, body) {
+  if (__DEV__ && body && typeof body === 'object') {
+    console.log('[API] actualizarContenidoExclusivo body keys:', Object.keys(body).join(', '));
+  }
   return request(`/contenido-exclusivo/${id}`, { method: 'PUT', body: JSON.stringify(body) });
 }
 

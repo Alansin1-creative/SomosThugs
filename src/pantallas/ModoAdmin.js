@@ -5,7 +5,7 @@ import { esAdmin } from '../constantes/nivelesAcceso';
 
 const OPCIONES = [
   { id: 'usuarios', titulo: 'Usuarios', descripcion: 'Lista de usuarios, premium, admin, editar y borrar' },
-  { id: 'contenido-exclusivo', titulo: 'Contenido exclusivo', descripcion: 'Subir y gestionar contenido de la Zona Thug' },
+  { id: 'contenido-exclusivo', titulo: 'Subir contenido Thug', descripcion: 'Crear y editar publicaciones exclusivas (texto, media, métricas)' },
   { id: 'eventos', titulo: 'Eventos', descripcion: 'Agregar y editar eventos' },
 ];
 

@@ -188,7 +188,20 @@ function SpotifyEmbed({ albumId, spotifyUrl }) {
 
 export default function InicioPresskit({ navigation }) {
   const insets = useSafeAreaInsets();
-  const { width, height: windowHeight } = useWindowDimensions();
+  const dimensions = useWindowDimensions();
+  const [webSize, setWebSize] = useState(null);
+
+  // En web, useWindowDimensions no siempre se actualiza al redimensionar; escuchamos resize para que el layout (columna/fila) cambie al estrechar el navegador.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const update = () => setWebSize({ width: window.innerWidth, height: window.innerHeight });
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  const width = Platform.OS === 'web' && webSize != null ? webSize.width : dimensions.width;
+  const windowHeight = Platform.OS === 'web' && webSize != null ? webSize.height : dimensions.height;
   const contentWidth = Math.max(width - 64, 320);
   const carruselItemWidth = Math.min((contentWidth - 48) * 0.52, 220);
   const carruselSnapInterval = carruselItemWidth + CARRUSEL_GAP;
@@ -380,7 +393,11 @@ export default function InicioPresskit({ navigation }) {
           <Text style={estilos.logoTexto}>{LOGO_TEXTO}</Text>
         </TouchableOpacity>
         {estaAutenticado && (
-          <View style={estilos.headerAvatarWrap}>
+          <View style={estilos.headerDerecha}>
+            <Text style={estilos.headerUsuario} numberOfLines={1}>
+              {perfil?.username || (perfil?.nombreCompleto || '').trim().split(/\s+/)[0] || 'Usuario'}
+            </Text>
+            <View style={estilos.headerAvatarWrap}>
             <TouchableOpacity
               style={estilos.headerAvatarTouchable}
               onPress={() => setMenuHamburgerVisible(true)}
@@ -435,9 +452,9 @@ export default function InicioPresskit({ navigation }) {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={estilos.menuHamburgerItem}
-                      onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('Inicio'); }}
+                      onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('ContenidoGeneral'); }}
                     >
-                      <Text style={estilos.menuHamburgerItemTexto}>Inicio</Text>
+                      <Text style={estilos.menuHamburgerItemTexto}>Contenido general</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={estilos.menuHamburgerItem}
@@ -458,29 +475,88 @@ export default function InicioPresskit({ navigation }) {
                 </View>
               </View>
             </Modal>
+            </View>
           </View>
         )}
       </View>
       <ScrollView
         ref={scrollRef}
         style={estilos.scroll}
-        contentContainerStyle={[estilos.scrollContenido, estilos.scrollContenidoFondo, estaAutenticado && { paddingTop: 0 }]}
+        contentContainerStyle={[estilos.scrollContenido, estilos.scrollContenidoFondo, estaAutenticado && { paddingTop: 0 }, Platform.OS === 'web' && estilos.scrollContenidoRelative]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Image
-          source={FONDO_THUGS}
-          style={estilos.fondoImagen}
-          resizeMode="repeat"
-        />
+        {Platform.OS === 'web' ? (
+          <View style={estilos.fondoImagenWrapperWeb} pointerEvents="none">
+            <Image source={FONDO_THUGS} style={estilos.fondoImagen} resizeMode="repeat" />
+          </View>
+        ) : (
+          <Image
+            source={FONDO_THUGS}
+            style={estilos.fondoImagen}
+            resizeMode="repeat"
+          />
+        )}
         <View style={estilos.contenidoSobreFondo}>
-        {!estaAutenticado && (
-          <View style={[estilos.mitades, { width: contentWidth, ...(Platform.OS === 'web' ? { minHeight: windowHeight * 0.82 } : { height: windowHeight * 0.58 }) }]}>
-            <View style={[estilos.mitadIzquierda, estilos.mitadIzquierdaLogo, { width: contentWidth / 2, flex: 1 }]}>
-              <Image source={LOGO_BLOQUE} style={estilos.imagenLogoThugsLateral} resizeMode="contain" />
+        {!estaAutenticado && (() => {
+          const esColumna = width < 768 || Platform.OS !== 'web';
+          return (
+          <View
+            style={[
+              estilos.mitades,
+              {
+                width: contentWidth,
+                flexDirection: esColumna ? 'column' : 'row',
+                ...(Platform.OS !== 'web' && { marginTop: 56 }),
+                ...(Platform.OS === 'web' && { marginTop: 32 }),
+                ...(esColumna
+                  ? {}
+                  : Platform.OS === 'web'
+                    ? { minHeight: windowHeight * 0.82 }
+                    : { height: windowHeight * 0.58 }),
+              },
+            ]}
+          >
+            <View
+              style={[
+                estilos.mitadIzquierda,
+                estilos.mitadIzquierdaLogo,
+                esColumna
+                  ? {
+                      width: '100%',
+                      flex: 0,
+                      minHeight: Platform.OS === 'web' ? 680 : undefined,
+                      maxHeight: 720,
+                      marginBottom: 16,
+                    }
+                  : { width: contentWidth / 2, flex: 1 },
+              ]}
+            >
+              <Image
+                source={LOGO_BLOQUE}
+                style={[
+                  estilos.imagenLogoThugsLateral,
+                  esColumna && {
+                    maxHeight: 680,
+                    ...(Platform.OS === 'web' && { marginTop: 0 }),
+                  },
+                ]}
+                resizeMode="contain"
+              />
             </View>
-            <View style={[estilos.mitadDerechaScroll, estilos.mitadDerechaScrollContenido]}>
-            <View style={[estilos.mitadDerecha, { width: contentWidth / 2 }]}>
+            <View
+              style={[
+                estilos.mitadDerechaScroll,
+                estilos.mitadDerechaScrollContenido,
+                esColumna ? { flex: 0, marginTop: 8 } : {},
+              ]}
+            >
+            <View
+              style={[
+                estilos.mitadDerecha,
+                esColumna ? { width: '100%', paddingRight: 0 } : { width: contentWidth / 2 },
+              ]}
+            >
               <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                 style={estilos.cuadroGlass}
@@ -612,7 +688,8 @@ export default function InicioPresskit({ navigation }) {
             </View>
             </View>
           </View>
-        )}
+          );
+        })()}
         {estaAutenticado && (
           <View style={estilos.logoAnchoCompleto}>
             <Image source={LOGO_BLOQUE} style={estilos.logoAnchoCompletoImg} resizeMode="contain" />
@@ -971,6 +1048,20 @@ const estilos = StyleSheet.create({
   botonPrimarioTexto: { color: '#000', fontSize: 14, fontWeight: '600' },
   botonCerrar: { padding: 8 },
   botonCerrarTexto: { color: '#666', fontSize: 14 },
+  headerDerecha: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    justifyContent: 'flex-end',
+    minWidth: 0,
+  },
+  headerUsuario: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+    maxWidth: 140,
+  },
   headerAvatarWrap: { position: 'relative' },
   headerAvatarTouchable: {
     width: 44,
@@ -1028,12 +1119,23 @@ const estilos = StyleSheet.create({
     ...(Platform.OS !== 'web' && { paddingTop: 12, paddingHorizontal: 0 }),
   },
   scrollContenidoFondo: { minHeight: 5800 },
+  scrollContenidoRelative: { position: 'relative' },
+  fondoImagenWrapperWeb: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    zIndex: 0,
+    overflow: 'hidden',
+  },
   fondoImagen: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 5800,
+    height: 11000,
     width: '100%',
     zIndex: 0,
   },

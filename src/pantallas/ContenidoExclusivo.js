@@ -1,23 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  RefreshControl,
-  Linking,
-} from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { listarContenidoExclusivo, crearContenidoExclusivo } from '../servicios/api';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexto/AuthContext';
 import { puedeVerContenidoExclusivo, esAdmin } from '../constantes/nivelesAcceso';
+const FONDO_THUGS = require('../../assets/fondo-thugs.png');
 
 export default function ContenidoExclusivo({ navigation }) {
+  const insets = useSafeAreaInsets();
   const { perfil, cerrarSesion } = useAuth();
-  const [lista, setLista] = useState([]);
-  const [refrescando, setRefrescando] = useState(false);
 
   useEffect(() => {
     if (perfil && !puedeVerContenidoExclusivo(perfil.nivelAcceso, perfil.rol)) {
@@ -25,144 +16,127 @@ export default function ContenidoExclusivo({ navigation }) {
     }
   }, [perfil, navigation]);
 
-  const cargar = async () => {
-    try {
-      const datos = await listarContenidoExclusivo();
-      setLista(datos);
-    } catch (e) {
-      console.warn(e);
-      setLista([]);
-    }
-  };
-
   useEffect(() => {
-    cargar();
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      document.title = 'Zona Thug - Somos Thugs';
+    }
   }, []);
 
-  const onRefresh = async () => {
-    setRefrescando(true);
-    await cargar();
-    setRefrescando(false);
-  };
-
-  const abrirCamara = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permiso', 'Activa la cámara.');
-      return;
-    }
-    const resultado = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
-    if (resultado.canceled || !resultado.assets[0]) return;
-    const uri = resultado.assets[0].uri;
-    try {
-      await crearContenidoExclusivo({
-        titulo: 'Foto',
-        descripcion: '',
-        tipo: 'foto',
-        urlArchivo: uri,
-        thumbnailUrl: uri,
-        subidoPor: perfil?.id || perfil?._id || '',
-        duracionSegundos: 0,
-        pesoBytes: 0,
-        estado: 'publicado',
-        visibilidad: 'thug',
-        etiquetas: [],
-        fechaGrabacion: new Date().toISOString(),
-        version: 1,
-        notas: '',
-      });
-      cargar();
-    } catch (e) {
-      Alert.alert('Error', e.message);
-    }
-  };
-
   return (
-    <View style={estilos.contenedor}>
+    <View style={[estilos.contenedor, { paddingTop: insets.top + 8 }]}>
       <View style={estilos.header}>
-        <Text style={estilos.titulo}>Thug</Text>
-        <View style={estilos.headerBotones}>
-          {esAdmin(perfil) && (
-            <TouchableOpacity style={estilos.botonCamara} onPress={abrirCamara}>
-              <Text style={estilos.botonCamaraTexto}>Cámara</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            onPress={() => navigation.navigate('ContenidoGeneral')}
-            style={estilos.botonVolver}
-          >
-            <Text style={estilos.botonVolverTexto}>General</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => cerrarSesion().then(() => navigation.replace('Inicio'))}
-            style={estilos.botonCerrar}
-          >
-            <Text style={estilos.botonCerrarTexto}>Salir</Text>
-          </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={estilos.headerBack}
+          hitSlop={10}
+        >
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
+        <Text style={estilos.headerTitulo}>Zona Thug</Text>
+        <View style={{ width: 32 }} />
+      </View>
+      <View style={estilos.cuerpo}>
+        <Image
+          source={FONDO_THUGS}
+          style={estilos.fondoImagen}
+          resizeMode="repeat"
+        />
+        <View style={estilos.contenidoSobreFondo}>
+          <View style={estilos.cuadroGlass}>
+            <View style={estilos.cardHero}>
+              <Text style={estilos.heroTitulo}>Contenido exclusivo</Text>
+              <Text style={estilos.heroSubtitulo}>Solo para la banda Thug</Text>
+              <Text style={estilos.heroTexto}>
+                Aquí pronto vas a encontrar sesiones, contenido detrás de cámaras,
+                material inédito y sorpresas solo para quienes apoyan el proyecto.
+              </Text>
+              {esAdmin(perfil) && (
+                <Text style={estilos.heroAdminHint}>
+                  (Como admin, podrás subir y gestionar el contenido desde el panel.)
+                </Text>
+              )}
+            </View>
+          </View>
         </View>
       </View>
-      <ScrollView
-        style={estilos.scroll}
-        contentContainerStyle={estilos.scrollContenido}
-        refreshControl={
-          <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
-        }
-      >
-        {lista.length === 0 && (
-          <Text style={estilos.vacio}>Nada aún.</Text>
-        )}
-        {lista.map((item) => (
-          <View key={item.id} style={estilos.card}>
-            <Text style={estilos.cardTitulo}>{item.titulo || item.tipo}</Text>
-            <Text style={estilos.cardTexto}>{item.descripcion || ''}</Text>
-            <Text style={estilos.cardTipo}>{item.tipo} — {item.fechaSubida ? new Date(item.fechaSubida).toLocaleDateString() : ''}</Text>
-            {item.urlArchivo && (
-              <TouchableOpacity onPress={() => Linking.openURL(item.urlArchivo)}>
-                <Text style={estilos.enlace}>Ver</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ))}
-      </ScrollView>
     </View>
   );
 }
 
 const estilos = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: '#0d0d0d' },
+  contenedor: { flex: 1, backgroundColor: '#050505' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 16,
+    paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#0d0d0d',
   },
-  titulo: { fontSize: 20, color: '#fff', fontWeight: '600' },
-  headerBotones: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  botonCamara: { padding: 8 },
-  botonCamaraTexto: { color: '#00dc57', fontSize: 14 },
-  botonVolver: { padding: 8 },
-  botonVolverTexto: { color: '#888', fontSize: 14 },
-  botonCerrar: { padding: 8 },
-  botonCerrarTexto: { color: '#666', fontSize: 14 },
-  scroll: { flex: 1 },
-  scrollContenido: { padding: 16, paddingBottom: 40 },
-  vacio: { color: '#666', fontSize: 14 },
-  card: {
-    backgroundColor: '#1a1a1a',
-    borderRadius: 8,
-    padding: 14,
-    marginBottom: 12,
+  headerBack: {
+    padding: 4,
   },
-  cardTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 4 },
-  cardTexto: { color: '#aaa', fontSize: 14, marginBottom: 4 },
-  cardTipo: { color: '#666', fontSize: 12 },
-  enlace: { color: '#00dc57', marginTop: 6, fontSize: 14 },
+  headerTitulo: {
+    flex: 1,
+    textAlign: 'center',
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  cuerpo: {
+    flex: 1,
+    padding: 32,
+    justifyContent: 'center',
+  },
+  fondoImagen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    zIndex: 0,
+  },
+  contenidoSobreFondo: {
+    zIndex: 1,
+    alignSelf: 'center',
+    maxWidth: 520,
+    width: '100%',
+  },
+  cuadroGlass: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: Platform.OS === 'web' ? 'rgba(15,23,42,0.86)' : 'rgba(15,23,42,0.92)',
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.35)',
+    ...(Platform.OS === 'web' && { backdropFilter: 'blur(14px)' }),
+  },
+  cardHero: {
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+  },
+  heroTitulo: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  heroSubtitulo: {
+    color: '#22c55e',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+  },
+  heroTexto: {
+    color: '#e5e7eb',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  heroAdminHint: {
+    marginTop: 16,
+    color: '#9ca3af',
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
 });

@@ -31,6 +31,43 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Health check: Railway y el navegador pueden comprobar que el servidor responde (evita 502)
 app.get('/health', (_, res) => res.status(200).json({ ok: true }));
 
+// Caché en memoria para avatares de Google (evita 429 y reduce peticiones)
+const avatarProxyCache = new Map();
+const AVATAR_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hora
+
+// Proxy de avatar para fotos de Google (evita bloqueo por CORS/referrer en web)
+app.get('/avatar-proxy', async (req, res) => {
+  const url = req.query.url;
+  if (!url || typeof url !== 'string') return res.status(400).send('Falta url');
+  try {
+    const parsed = new URL(url);
+    const allowed = parsed.hostname === 'lh3.googleusercontent.com' || parsed.hostname.endsWith('.googleusercontent.com');
+    if (!allowed) return res.status(403).send('Origen no permitido');
+
+    const cached = avatarProxyCache.get(url);
+    if (cached && Date.now() < cached.expiresAt) {
+      res.setHeader('Content-Type', cached.contentType);
+      res.setHeader('Cache-Control', 'private, max-age=3600');
+      return res.send(cached.buffer);
+    }
+
+    const resp = await fetch(url, { headers: { 'User-Agent': 'SomosThugs-Avatar/1' } });
+    if (!resp.ok) {
+      if (resp.status === 404) return res.status(204).end();
+      if (resp.status === 429) return res.status(204).end(); // Too Many Requests → placeholder
+      return res.status(resp.status).send('Error al obtener imagen');
+    }
+    const contentType = resp.headers.get('content-type') || 'image/jpeg';
+    const buf = Buffer.from(await resp.arrayBuffer());
+    avatarProxyCache.set(url, { buffer: buf, contentType, expiresAt: Date.now() + AVATAR_CACHE_TTL_MS });
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(buf);
+  } catch (e) {
+    res.status(500).send(e.message);
+  }
+});
+
 app.use('/auth', authRoutes);
 app.use('/usuarios', usuariosRoutes);
 app.use('/eventos', eventosRoutes);

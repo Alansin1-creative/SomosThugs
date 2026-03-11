@@ -34,6 +34,10 @@ export async function apiPerfil() {
   return request('/auth/perfil');
 }
 
+export async function actualizarPerfil(body) {
+  return request('/auth/perfil', { method: 'PATCH', body: JSON.stringify(body) });
+}
+
 export async function listarUsuarios() {
   return request('/usuarios');
 }

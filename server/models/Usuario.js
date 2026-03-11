@@ -20,7 +20,7 @@ const usuarioSchema = new mongoose.Schema(
     passwordHash: String,
     uid: String,
     // Acceso a contenido (thug = premium)
-    nivelAcceso: { type: String, default: 'registrado' },
+    nivelAcceso: { type: String, default: 'fan' },
   },
   { timestamps: true }
 );

@@ -121,11 +121,11 @@ export default function AdminUsuarios({ navigation }) {
     setAccionandoId(id);
     try {
       await actualizarUsuario(id, {
-        nivelAcceso: esThug ? 'registrado' : 'thug',
+        nivelAcceso: esThug ? 'fan' : 'thug',
       });
       setUsuarios((prev) =>
         prev.map((u) =>
-          getId(u) === id ? { ...u, nivelAcceso: esThug ? 'registrado' : 'thug' } : u
+          getId(u) === id ? { ...u, nivelAcceso: esThug ? 'fan' : 'thug' } : u
         )
       );
     } catch (e) {
@@ -311,7 +311,7 @@ export default function AdminUsuarios({ navigation }) {
                   {u.nombreCompleto || '(sin nombre)'}{u.username ? ` · ${u.username}` : ''}
                 </Text>
                 <Text style={estilos.cardMeta}>
-                  {u.nivelAcceso || 'registrado'} · {u.proveedor || u.provider || 'email'}
+                  {u.nivelAcceso || 'fan'} · {u.proveedor || u.provider || 'email'}
                 </Text>
 
                 <View style={estilos.acciones} pointerEvents="box-none">

@@ -3,6 +3,7 @@ import { NavigationContainer, NavigationIndependentTree } from '@react-navigatio
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../contexto/AuthContext';
 import InicioPresskit from '../pantallas/InicioPresskit';
+import Perfil from '../pantallas/Perfil';
 import MenuAdmin from '../pantallas/MenuAdmin';
 import ModoAdmin from '../pantallas/ModoAdmin';
 import AdminUsuarios from '../pantallas/AdminUsuarios';
@@ -10,7 +11,7 @@ import AdminContenidoExclusivo from '../pantallas/AdminContenidoExclusivo';
 import AdminEventos from '../pantallas/AdminEventos';
 import ContenidoGeneral from '../pantallas/ContenidoGeneral';
 import ContenidoExclusivo from '../pantallas/ContenidoExclusivo';
-import { puedeVerContenidoGeneral, puedeVerContenidoExclusivo, esAdmin } from '../constantes/nivelesAcceso';
+import { esAdmin } from '../constantes/nivelesAcceso';
 
 const Stack = createNativeStackNavigator();
 
@@ -20,30 +21,23 @@ const opcionesBase = {
 };
 
 export default function Navegador() {
-  const { cargando, perfil, nivelAcceso } = useAuth();
+  const { cargando, perfil } = useAuth();
 
   if (cargando) {
     return null;
   }
 
-  const estaAutenticado = !!perfil;
-  const puedeGeneral = estaAutenticado && puedeVerContenidoGeneral(nivelAcceso);
-  const puedeExclusivo = estaAutenticado && puedeVerContenidoExclusivo(nivelAcceso, perfil?.rol);
-  const admin = estaAutenticado && esAdmin(perfil);
+  const admin = !!perfil && esAdmin(perfil);
 
-  const rutaInicial = admin
-    ? 'ModoAdmin'
-    : puedeExclusivo
-    ? 'ContenidoExclusivo'
-    : puedeGeneral
-    ? 'ContenidoGeneral'
-    : 'Inicio';
+  // Solo admin va al panel; fan y thug entran en Inicio (logo + presskit) y desde ahí al menú.
+  const rutaInicial = admin ? 'ModoAdmin' : 'Inicio';
 
   return (
     <NavigationIndependentTree>
       <NavigationContainer>
         <Stack.Navigator screenOptions={opcionesBase} initialRouteName={rutaInicial}>
           <Stack.Screen name="Inicio" component={InicioPresskit} />
+          <Stack.Screen name="Perfil" component={Perfil} />
           <Stack.Screen name="MenuAdmin" component={MenuAdmin} />
           <Stack.Screen name="ModoAdmin" component={ModoAdmin} />
           <Stack.Screen name="AdminUsuarios" component={AdminUsuarios} />

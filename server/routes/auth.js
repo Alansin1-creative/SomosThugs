@@ -66,7 +66,7 @@ router.post('/register', async (req, res) => {
       username: usernameTrim,
       telefono: (telefono || '').trim() || undefined,
       fotoUrl: fotoUrl || undefined,
-      nivelAcceso: 'registrado',
+      nivelAcceso: 'fan',
       fechaRegistro: new Date(),
       ultimaConexion: new Date(),
       proveedor: 'email',
@@ -108,13 +108,15 @@ router.post('/login-google', async (req, res) => {
     const payload = ticket.getPayload();
     const email = payload.email;
     let usuario = await Usuario.findOne({ email });
+    const telefonoGoogle = payload.phone_number || payload.phone || '';
     if (!usuario) {
       usuario = new Usuario({
         email,
         uid: payload.sub,
         nombreCompleto: payload.name || '',
         fotoUrl: payload.picture || '',
-        nivelAcceso: 'registrado',
+        telefono: telefonoGoogle || undefined,
+        nivelAcceso: 'fan',
         fechaRegistro: new Date(),
         proveedor: 'google',
         aceptaNotificaciones: true,
@@ -125,7 +127,11 @@ router.post('/login-google', async (req, res) => {
       await usuario.save();
       console.log('Usuario Google creado:', email);
     } else {
-      await Usuario.updateOne({ _id: usuario._id }, { ultimaConexion: new Date() });
+      const update = { ultimaConexion: new Date() };
+      if (telefonoGoogle && !usuario.telefono) update.telefono = telefonoGoogle;
+      if (payload.picture) update.fotoUrl = payload.picture;
+      await Usuario.updateOne({ _id: usuario._id }, update);
+      if (update.fotoUrl) usuario.fotoUrl = update.fotoUrl;
     }
     const perfil = toPerfil(usuario);
     const token = jwt.sign({ userId: usuario._id.toString() }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -142,6 +148,77 @@ router.get('/perfil', authMiddleware, async (req, res) => {
     if (!usuario) return res.status(404).json({ error: 'No encontrado' });
     res.json(toPerfil(usuario));
   } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Actualizar datos del perfil (solo campos editables por el usuario)
+router.patch('/perfil', authMiddleware, async (req, res) => {
+  try {
+    const {
+      nombreCompleto,
+      username,
+      telefono,
+      biografia,
+      aceptaNotificaciones,
+      fotoBase64,
+    } = req.body;
+
+    const update = {};
+
+    if (fotoBase64) {
+      try {
+        update.fotoUrl = guardarAvatarBase64(fotoBase64);
+      } catch (e) {
+        console.error('Avatar perfil:', e.message);
+      }
+    }
+
+    if (nombreCompleto !== undefined) {
+      update.nombreCompleto = (nombreCompleto || '').trim();
+    }
+
+    if (telefono !== undefined) {
+      const tel = (telefono || '').trim();
+      update.telefono = tel || undefined;
+    }
+
+    if (biografia !== undefined) {
+      update.biografia = (biografia || '').trim();
+    }
+
+    if (typeof aceptaNotificaciones === 'boolean') {
+      update.aceptaNotificaciones = aceptaNotificaciones;
+    }
+
+    if (username !== undefined) {
+      const usernameTrim = (username || '').trim();
+      if (!usernameTrim) {
+        return res.status(400).json({ error: 'Usuario es obligatorio' });
+      }
+      const existenteUsername = await Usuario.findOne({
+        username: usernameTrim,
+        _id: { $ne: req.userId },
+      });
+      if (existenteUsername) {
+        return res.status(400).json({ error: 'Usuario ya está en uso' });
+      }
+      update.username = usernameTrim;
+    }
+
+    const usuario = await Usuario.findByIdAndUpdate(
+      req.userId,
+      { $set: update },
+      { new: true }
+    );
+
+    if (!usuario) return res.status(404).json({ error: 'No encontrado' });
+
+    res.json(toPerfil(usuario));
+  } catch (e) {
+    if (e.code === 11000 && e.keyPattern?.username) {
+      return res.status(400).json({ error: 'Usuario ya está en uso' });
+    }
     res.status(500).json({ error: e.message });
   }
 });

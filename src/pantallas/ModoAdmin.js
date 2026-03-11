@@ -30,7 +30,7 @@ export default function ModoAdmin({ navigation }) {
         <Text style={estilos.titulo}>Modo admin</Text>
         <TouchableOpacity
           style={estilos.botonApp}
-          onPress={() => navigation.replace('ContenidoExclusivo')}
+          onPress={() => navigation.replace('Inicio')}
         >
           <Text style={estilos.botonAppTexto}>Ir a la app</Text>
         </TouchableOpacity>

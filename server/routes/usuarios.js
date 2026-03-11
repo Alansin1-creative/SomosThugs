@@ -21,7 +21,7 @@ router.get('/', authMiddleware, requireAdmin, async (req, res) => {
   }
 });
 
-// Actualizar usuario: nivelAcceso (thug/registrado), rol, o datos editables (solo admin)
+// Actualizar usuario: nivelAcceso (thug/fan), rol, o datos editables (solo admin)
 router.patch('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -41,7 +41,7 @@ router.patch('/:id', authMiddleware, requireAdmin, async (req, res) => {
       nivelAcceso,
     } = req.body;
     const update = {};
-    if (typeof premium === 'boolean') update.nivelAcceso = premium ? 'thug' : 'registrado';
+    if (typeof premium === 'boolean') update.nivelAcceso = premium ? 'thug' : 'fan';
     if (nivelAcceso !== undefined) update.nivelAcceso = nivelAcceso;
     if (rol !== undefined) update.rol = rol;
     if (nombreCompleto !== undefined) update.nombreCompleto = nombreCompleto;

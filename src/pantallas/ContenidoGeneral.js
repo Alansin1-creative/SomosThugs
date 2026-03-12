@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { listarEventosPublicos, listarPublicaciones, listarContenidoExclusivoFeed } from '../servicios/api';
+import { listarEventosPublicos, listarPublicaciones, listarFeedUnificado } from '../servicios/api';
 import { puedeVerContenidoExclusivo } from '../constantes/nivelesAcceso';
 import { useAuth } from '../contexto/AuthContext';
 import { getBaseUrl } from '../config/api';
@@ -28,7 +28,7 @@ export default function ContenidoGeneral({ navigation }) {
   const { perfil, cerrarSesion, cargando: authCargando } = useAuth();
   const [eventos, setEventos] = useState([]);
   const [publicaciones, setPublicaciones] = useState([]);
-  const [contenidoFan, setContenidoFan] = useState([]);
+  const [contenidoUnificado, setContenidoUnificado] = useState([]);
   const [ubicacion, setUbicacion] = useState(null);
   const [refrescando, setRefrescando] = useState(false);
   const [cargando, setCargando] = useState(true);
@@ -44,7 +44,7 @@ export default function ContenidoGeneral({ navigation }) {
       const [resEventos, resPublicaciones, resFeed] = await Promise.allSettled([
         listarEventosPublicos(),
         listarPublicaciones(),
-        listarContenidoExclusivoFeed(),
+        listarFeedUnificado(),
       ]);
       setEventos(
         resEventos.status === 'fulfilled' && Array.isArray(resEventos.value) ? resEventos.value : []
@@ -54,11 +54,11 @@ export default function ContenidoGeneral({ navigation }) {
           ? resPublicaciones.value
           : []
       );
-      setContenidoFan(
+      setContenidoUnificado(
         resFeed.status === 'fulfilled' && Array.isArray(resFeed.value) ? resFeed.value : []
       );
       if (resFeed.status === 'rejected') {
-        console.warn('Feed contenido fan:', resFeed.reason);
+        console.warn('Feed unificado:', resFeed.reason);
       }
     } catch (e) {
       console.warn(e);
@@ -177,15 +177,16 @@ export default function ContenidoGeneral({ navigation }) {
             )}
 
             <Text style={estilos.seccion}>Contenido</Text>
-            {contenidoFan.length === 0 && !cargando && (
+            {contenidoUnificado.length === 0 && !cargando && (
               <View style={estilos.vacioCaja}>
-                <Text style={estilos.vacio}>Sin contenido con nivel «fan».</Text>
+                <Text style={estilos.vacio}>Sin contenido aún.</Text>
                 <Text style={estilos.vacioHint}>
-                  En Subir contenido Thug, crea una publicación y elige «Nivel requerido: fan» para que aparezca aquí. Desliza hacia abajo para actualizar.
+                  Desliza hacia abajo para actualizar.
                 </Text>
               </View>
             )}
-            {contenidoFan.map((item) => {
+            {contenidoUnificado.map((item) => {
+              const bloqueado = item.bloqueado === true || (item.nivelRequerido === 'thug' && !puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol));
               const previewUrl = item.urlMediaPreview || item.urlArchivo;
               const mediaUrl = item.urlMediaCompleta || item.urlMediaPreview || item.urlArchivo;
               const urlCompleta =
@@ -195,36 +196,58 @@ export default function ContenidoGeneral({ navigation }) {
                     ? getBaseUrl() + previewUrl
                     : null;
               return (
-                <View key={item.id} style={estilos.card}>
-                  <Text style={estilos.cardTitulo}>{item.titulo || 'Sin título'}</Text>
-                  {(item.previewTexto || item.descripcion) && (
-                    <Text style={estilos.cardTexto} numberOfLines={4}>
-                      {item.previewTexto || item.descripcion}
+                <View key={item.id} style={estilos.cardContenedor}>
+                  <View style={estilos.card}>
+                    <Text style={estilos.cardTitulo}>{item.titulo || 'Sin título'}</Text>
+                    {!bloqueado && (item.previewTexto || item.descripcion) && (
+                      <Text style={estilos.cardTexto} numberOfLines={4}>
+                        {item.previewTexto || item.descripcion}
+                      </Text>
+                    )}
+                    {!bloqueado && urlCompleta && (
+                      <TouchableOpacity
+                        style={estilos.cardPreviewImg}
+                        onPress={() =>
+                          mediaUrl &&
+                          Linking.openURL(
+                            mediaUrl.startsWith('http') ? mediaUrl : getBaseUrl() + mediaUrl
+                          )
+                        }
+                      >
+                        <Image
+                          source={{ uri: urlCompleta }}
+                          style={estilos.cardPreviewImgInner}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
+                    )}
+                    <Text style={estilos.cardMeta}>
+                      {item.tipoContenido || item.tipo || 'articulo'} •{' '}
+                      {item.fechaPublicacion
+                        ? new Date(item.fechaPublicacion).toLocaleDateString()
+                        : ''}
+                      {item.nivelRequerido === 'thug' && (
+                        <Text style={estilos.cardMetaThug}> • Zona Thug</Text>
+                      )}
                     </Text>
+                  </View>
+                  {bloqueado && (
+                    <View style={estilos.capaOpaca} pointerEvents="box-none">
+                      <View style={estilos.capaOpacaInterior}>
+                        <Ionicons name="lock-closed" size={40} color="rgba(255,255,255,0.9)" />
+                        <Text style={estilos.capaOpacaTexto}>Contenido exclusivo</Text>
+                        <Text style={estilos.capaOpacaSub}>Zona Thug</Text>
+                        {puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol) ? null : (
+                          <TouchableOpacity
+                            style={estilos.capaOpacaBoton}
+                            onPress={() => navigation.navigate('ContenidoExclusivo')}
+                          >
+                            <Text style={estilos.capaOpacaBotonTexto}>Ver Zona Thug</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
                   )}
-                  {urlCompleta && (
-                    <TouchableOpacity
-                      style={estilos.cardPreviewImg}
-                      onPress={() =>
-                        mediaUrl &&
-                        Linking.openURL(
-                          mediaUrl.startsWith('http') ? mediaUrl : getBaseUrl() + mediaUrl
-                        )
-                      }
-                    >
-                      <Image
-                        source={{ uri: urlCompleta }}
-                        style={estilos.cardPreviewImgInner}
-                        resizeMode="cover"
-                      />
-                    </TouchableOpacity>
-                  )}
-                  <Text style={estilos.cardMeta}>
-                    {item.tipoContenido || item.tipo || 'articulo'} •{' '}
-                    {item.fechaPublicacion
-                      ? new Date(item.fechaPublicacion).toLocaleDateString()
-                      : ''}
-                  </Text>
                 </View>
               );
             })}
@@ -344,15 +367,34 @@ const estilos = StyleSheet.create({
     marginBottom: 12,
     marginTop: 16,
   },
+  cardContenedor: { position: 'relative', marginBottom: 12 },
   card: {
     backgroundColor: Platform.OS === 'web' ? 'rgba(26,26,26,0.85)' : 'rgba(26,26,26,0.9)',
     borderRadius: 12,
     padding: 14,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     overflow: 'hidden',
   },
+  capaOpaca: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.88)',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  capaOpacaInterior: { alignItems: 'center', padding: 24 },
+  capaOpacaTexto: { color: '#fff', fontSize: 18, fontWeight: '600', marginTop: 12 },
+  capaOpacaSub: { color: '#00dc57', fontSize: 14, marginTop: 4 },
+  capaOpacaBoton: {
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: '#00dc57',
+    borderRadius: 8,
+  },
+  capaOpacaBotonTexto: { color: '#000', fontWeight: '600', fontSize: 14 },
+  cardMetaThug: { color: '#00dc57' },
   cardTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 6 },
   cardTexto: { color: '#bbb', fontSize: 14, marginBottom: 6, lineHeight: 20 },
   cardFecha: { color: '#888', fontSize: 12, marginBottom: 4 },

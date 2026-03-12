@@ -80,6 +80,11 @@ export async function listarContenidoExclusivoFeed() {
   return request('/contenido-exclusivo/feed');
 }
 
+/** Feed unificado: fan + thug en una lista; thug viene bloqueado si el usuario es fan */
+export async function listarFeedUnificado() {
+  return request('/contenido-exclusivo/feed-unificado');
+}
+
 export async function crearContenidoExclusivo(body) {
   if (__DEV__ && body && typeof body === 'object') {
     console.log('[API] crearContenidoExclusivo body keys:', Object.keys(body).join(', '));

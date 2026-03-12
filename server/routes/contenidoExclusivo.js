@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const ContenidoExclusivo = require('../models/ContenidoExclusivo');
+const Usuario = require('../models/Usuario');
 const { authMiddleware, requireThug, requireAdmin, requireThugOrAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -47,6 +48,37 @@ router.get('/feed', authMiddleware, async (req, res) => {
       .limit(50)
       .lean();
     res.json(lista.map((d) => ({ id: d._id.toString(), ...d, _id: undefined })));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Feed unificado: fan + thug en una lista; si el usuario es fan, el contenido thug se devuelve mínimo (solo para mostrar bloqueado)
+router.get('/feed-unificado', authMiddleware, async (req, res) => {
+  try {
+    const usuario = await Usuario.findById(req.userId).lean();
+    const esThugOAdmin = usuario && (usuario.nivelAcceso === 'thug' || usuario.rol === 'admin');
+    const lista = await ContenidoExclusivo.find({ visible: true })
+      .sort({ fechaPublicacion: -1 })
+      .limit(80)
+      .lean();
+    const items = lista.map((d) => {
+      const id = d._id.toString();
+      const nivelRequerido = d.nivelRequerido || 'thug';
+      const base = { id, ...d, _id: undefined };
+      if (!esThugOAdmin && nivelRequerido === 'thug') {
+        return {
+          id: base.id,
+          titulo: base.titulo,
+          tipoContenido: base.tipoContenido || 'articulo',
+          fechaPublicacion: base.fechaPublicacion,
+          nivelRequerido: 'thug',
+          bloqueado: true,
+        };
+      }
+      return { ...base, nivelRequerido, bloqueado: false };
+    });
+    res.json(items);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

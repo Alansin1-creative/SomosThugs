@@ -10,6 +10,7 @@ const usuariosRoutes = require('./routes/usuarios');
 const eventosRoutes = require('./routes/eventos');
 const publicacionesRoutes = require('./routes/publicaciones');
 const contenidoExclusivoRoutes = require('./routes/contenidoExclusivo');
+const mapsRoutes = require('./routes/maps');
 
 const app = express();
 // CORS explícito para Netlify; evita 502 en preflight y error CORS en el navegador
@@ -73,6 +74,7 @@ app.use('/usuarios', usuariosRoutes);
 app.use('/eventos', eventosRoutes);
 app.use('/publicaciones', publicacionesRoutes);
 app.use('/contenido-exclusivo', contenidoExclusivoRoutes);
+app.use('/maps', mapsRoutes);
 
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/somos-thugs';

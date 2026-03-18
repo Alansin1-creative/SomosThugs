@@ -48,7 +48,10 @@ function tiempoRelativo(fecha) {
 export default function ContenidoGeneral({ navigation }) {
   const insets = useSafeAreaInsets();
   const { perfil, cerrarSesion, cargando: authCargando } = useAuth();
-  const ventanaAlto = Dimensions.get('window').height;
+  const { height: ventanaAlto, width: ventanaAncho } = Dimensions.get('window');
+  const esWeb = Platform.OS === 'web';
+  const esWebMovil = esWeb && ventanaAncho < 820;
+  const esWebDesktop = esWeb && !esWebMovil;
   const scrollRef = useRef(null);
   const [eventos, setEventos] = useState([]);
   const [publicaciones, setPublicaciones] = useState([]);
@@ -399,7 +402,7 @@ export default function ContenidoGeneral({ navigation }) {
 
   const titulo = 'Contenido general';
   const alturaFondoNativo =
-    Platform.OS !== 'web'
+    !esWeb
       ? Dimensions.get('window').height - (insets.top + 8 + 48) + insets.bottom
       : null;
 
@@ -447,7 +450,10 @@ export default function ContenidoGeneral({ navigation }) {
       <ScrollView
         ref={scrollRef}
         style={estilos.scroll}
-        contentContainerStyle={estilos.scrollContenido}
+        contentContainerStyle={[
+          estilos.scrollContenido,
+          esWebMovil && estilos.scrollContenidoWebMovil,
+        ]}
         refreshControl={
           <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
         }
@@ -456,7 +462,7 @@ export default function ContenidoGeneral({ navigation }) {
           showsVerticalScrollIndicator={false}
       >
           <View style={estilos.contenidoSobreFondo}>
-            <View style={estilos.contenidoCentrado}>
+            <View style={[estilos.contenidoCentrado, esWebMovil && estilos.contenidoCentradoWebMovil]}>
         {ubicacion && (
           <View style={estilos.card}>
             <Text style={estilos.cardTitulo}>Tu ubicación</Text>
@@ -518,6 +524,7 @@ export default function ContenidoGeneral({ navigation }) {
                   }}
                 >
                   <View style={estilos.card}>
+                    {/* web móvil debe verse como nativo */}
                     <View style={estilos.cardHeader}>
                       <View style={estilos.cardTipoBadge}>
                         <Ionicons
@@ -691,14 +698,14 @@ export default function ContenidoGeneral({ navigation }) {
                     <Ionicons name="close" size={20} color="#fff" />
                   </TouchableOpacity>
                 </View>
-                <View style={estilos.modalMediaCuerpoRow}>
+                <View style={[estilos.modalMediaCuerpoRow, esWebMovil && estilos.modalMediaCuerpoRowWebMovil]}>
                   <View style={estilos.modalMediaColMedia}>
                     {mediaUrlSeleccionada && (
                       <View
                         style={[
                           estilos.cardPreviewImgModal,
                           {
-                            height: Platform.OS === 'web' ? ventanaAlto * 0.78 : ventanaAlto * 0.45,
+                            height: esWebDesktop ? ventanaAlto * 0.78 : ventanaAlto * 0.45,
                           },
                         ]}
                       >
@@ -805,7 +812,7 @@ export default function ContenidoGeneral({ navigation }) {
                       </View>
                     )}
                   </View>
-                  {Platform.OS === 'web' ? (
+                  {esWebDesktop ? (
                     <View style={estilos.modalMediaColDer}>
                       <Text style={estilos.modalMediaTitulo}>{mediaItem.titulo || 'Sin título'}</Text>
                       {mediaItem.previewTexto || mediaItem.descripcion ? (
@@ -1071,11 +1078,20 @@ const estilos = StyleSheet.create({
     zIndex: 1,
     ...(Platform.OS === 'web' ? { alignItems: 'center' } : null),
   },
+  scrollContenidoWebMovil: {
+    padding: 14,
+    alignItems: 'stretch',
+  },
   contenidoSobreFondo: { zIndex: 1, alignItems: 'center', width: '100%' },
   contenidoCentrado: {
     width: Platform.OS === 'web' ? '50%' : '100%',
     maxWidth: Platform.OS === 'web' ? 600 : '100%',
     alignSelf: Platform.OS === 'web' ? 'center' : 'stretch',
+  },
+  contenidoCentradoWebMovil: {
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
   },
   seccion: {
     fontSize: 18,
@@ -1166,6 +1182,10 @@ const estilos = StyleSheet.create({
     flexDirection: Platform.OS === 'web' ? 'row' : 'column',
     gap: Platform.OS === 'web' ? 16 : 10,
     alignItems: 'stretch',
+  },
+  modalMediaCuerpoRowWebMovil: {
+    flexDirection: 'column',
+    gap: 10,
   },
   modalMediaColMedia: {
     flex: Platform.OS === 'web' ? 5 : 0,

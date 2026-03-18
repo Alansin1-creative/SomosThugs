@@ -120,6 +120,20 @@ export async function crearEvento(body) {
   return request('/eventos', { method: 'POST', body: JSON.stringify(body) });
 }
 
+export async function placesAutocomplete(q) {
+  const qq = String(q ?? '').trim();
+  if (!qq) return { predictions: [] };
+  const qs = new URLSearchParams({ q: qq }).toString();
+  return request(`/maps/places-autocomplete?${qs}`);
+}
+
+export async function placeDetails(placeId) {
+  const pid = String(placeId ?? '').trim();
+  if (!pid) throw new Error('Falta placeId');
+  const qs = new URLSearchParams({ placeId: pid }).toString();
+  return request(`/maps/place-details?${qs}`);
+}
+
 export async function actualizarEvento(id, body) {
   return request(`/eventos/${id}`, { method: 'PUT', body: JSON.stringify(body) });
 }

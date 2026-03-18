@@ -5,6 +5,7 @@ import {
   TextInput,
   ScrollView,
   TouchableOpacity,
+  Image,
   StyleSheet,
   Alert,
   RefreshControl,
@@ -12,6 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as ImagePicker from 'expo-image-picker';
 import { listarEventos, crearEvento, placesAutocomplete, placeDetails } from '../servicios/api';
 import { useAuth } from '../contexto/AuthContext';
 import { esAdmin } from '../constantes/nivelesAcceso';
@@ -55,9 +57,12 @@ export default function AdminEventos({ navigation }) {
   const [cupoMaximo, setCupoMaximo] = useState(''); // string -> number
   const [telefonoContacto, setTelefonoContacto] = useState('');
   const [visible, setVisible] = useState(true);
+  const [imagenBase64, setImagenBase64] = useState(''); // data-uri
   const [guardando, setGuardando] = useState(false);
 
   const esWeb = Platform.OS === 'web';
+  const googleKeyWeb = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+  const [googlePlacesReady, setGooglePlacesReady] = useState(false);
 
   const fmtFecha = (d) => {
     if (!(d instanceof Date)) return '';
@@ -114,6 +119,26 @@ export default function AdminEventos({ navigation }) {
     // fallback cleanup por si cancelan
     setTimeout(cleanup, 15000);
   };
+
+  useEffect(() => {
+    if (!esWeb) return;
+    if (!googleKeyWeb) return;
+    if (typeof document === 'undefined') return;
+    if (typeof window !== 'undefined' && window.google?.maps?.places) {
+      setGooglePlacesReady(true);
+      return;
+    }
+    const existing = document.querySelector('script[data-somos-thugs-google-places="1"]');
+    if (existing) return;
+    const script = document.createElement('script');
+    script.setAttribute('data-somos-thugs-google-places', '1');
+    script.async = true;
+    script.defer = true;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(googleKeyWeb)}&libraries=places&language=es`;
+    script.onload = () => setGooglePlacesReady(true);
+    script.onerror = () => setGooglePlacesReady(false);
+    document.head.appendChild(script);
+  }, [esWeb, googleKeyWeb]);
 
   useEffect(() => {
     if (perfil && !esAdmin(perfil)) {
@@ -203,6 +228,7 @@ export default function AdminEventos({ navigation }) {
         cupoMaximo: cupoNum,
         telefonoContacto: telefonoContacto.trim(),
         visible,
+        imagenBase64: imagenBase64 || undefined,
         esPublico: true,
         creadoPor: perfil?.id || perfil?._id || '',
       });
@@ -224,6 +250,7 @@ export default function AdminEventos({ navigation }) {
       setCupoMaximo('');
       setTelefonoContacto('');
       setVisible(true);
+      setImagenBase64('');
       setMostrarForm(false);
       cargar();
     } catch (e) {
@@ -254,19 +281,43 @@ export default function AdminEventos({ navigation }) {
     debounceRef.current = setTimeout(async () => {
       try {
         setBuscandoLugar(true);
+        // Web: usar Google Maps JS Places (sin CORS) si está disponible
+        if (esWeb && googleKeyWeb && googlePlacesReady && typeof window !== 'undefined' && window.google?.maps?.places) {
+          const service = new window.google.maps.places.AutocompleteService();
+          service.getPlacePredictions(
+            { input: lugar, language: 'es' },
+            (preds, status) => {
+              if (status !== window.google.maps.places.PlacesServiceStatus.OK || !Array.isArray(preds)) {
+                setSugerenciasLugar([]);
+              } else {
+                setSugerenciasLugar(
+                  preds.slice(0, 6).map((p) => ({
+                    placeId: p.place_id,
+                    description: p.description,
+                  }))
+                );
+              }
+              setBuscandoLugar(false);
+            }
+          );
+          return;
+        }
+
+        // Fallback: proxy backend
         const res = await placesAutocomplete(lugar);
         const preds = Array.isArray(res?.predictions) ? res.predictions : [];
         setSugerenciasLugar(preds.slice(0, 6));
       } catch (_) {
         setSugerenciasLugar([]);
-      } finally {
         setBuscandoLugar(false);
+      } finally {
+        // noop (en web googlePlaces se controla en callback)
       }
     }, 250);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [lugar, mostrarForm, lugarSeleccionado]);
+  }, [lugar, mostrarForm, lugarSeleccionado, esWeb, googleKeyWeb, googlePlacesReady]);
 
   const seleccionarLugar = async (sug) => {
     try {
@@ -274,17 +325,96 @@ export default function AdminEventos({ navigation }) {
       setLugarSeleccionado(sug);
       setSugerenciasLugar([]);
       setBuscandoLugar(true);
-      const det = await placeDetails(sug.placeId);
-      const direccion = det?.direccion || sug.description || '';
-      const lat = det?.latitud;
-      const lng = det?.longitud;
-      setLugar(direccion);
-      if (typeof lat === 'number') setLatitud(String(lat));
-      if (typeof lng === 'number') setLongitud(String(lng));
+      // Web: usar PlacesService.getDetails
+      if (esWeb && googleKeyWeb && googlePlacesReady && typeof window !== 'undefined' && window.google?.maps?.places) {
+        const div = document.createElement('div');
+        const svc = new window.google.maps.places.PlacesService(div);
+        const det = await new Promise((resolve, reject) => {
+          svc.getDetails(
+            {
+              placeId: sug.placeId,
+              fields: ['formatted_address', 'geometry', 'name', 'place_id'],
+              language: 'es',
+            },
+            (place, status) => {
+              if (status !== window.google.maps.places.PlacesServiceStatus.OK || !place) {
+                reject(new Error(String(status || 'Error Google')));
+              } else {
+                resolve(place);
+              }
+            }
+          );
+        });
+        const direccion = det.formatted_address || sug.description || '';
+        const lat = det.geometry?.location?.lat?.();
+        const lng = det.geometry?.location?.lng?.();
+        setLugar(direccion);
+        if (typeof lat === 'number') setLatitud(String(lat));
+        if (typeof lng === 'number') setLongitud(String(lng));
+      } else {
+        // Fallback: proxy backend
+        const det = await placeDetails(sug.placeId);
+        const direccion = det?.direccion || sug.description || '';
+        const lat = det?.latitud;
+        const lng = det?.longitud;
+        setLugar(direccion);
+        if (typeof lat === 'number') setLatitud(String(lat));
+        if (typeof lng === 'number') setLongitud(String(lng));
+      }
     } catch (e) {
       Alert.alert('Ubicación', e?.message || 'No se pudo obtener la ubicación.');
     } finally {
       setBuscandoLugar(false);
+    }
+  };
+
+  const elegirImagen = async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (perm.status !== 'granted') {
+        Alert.alert('Permiso', 'Activa el acceso a tus fotos para subir una imagen.');
+        return;
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaType.Images,
+        allowsEditing: true,
+        quality: 0.8,
+        base64: true,
+      });
+      if (res.canceled) return;
+      const asset = res.assets && res.assets[0];
+      const mime = asset?.mimeType || 'image/jpeg';
+      let b64 = asset?.base64;
+
+      // En web a veces no viene base64; convertir desde uri vía FileReader.
+      if (!b64 && Platform.OS === 'web' && asset?.uri) {
+        try {
+          const resp = await fetch(asset.uri);
+          const blob = await resp.blob();
+          b64 = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+            reader.onload = () => {
+              const out = String(reader.result || '');
+              // reader.result viene como data:mime;base64,XXXX
+              const m = out.match(/^data:[^;]+;base64,(.+)$/);
+              resolve(m ? m[1] : '');
+            };
+            reader.readAsDataURL(blob);
+          });
+        } catch (_) {
+          // ignore
+        }
+      }
+
+      if (!b64) {
+        Alert.alert('Imagen', 'No se pudo leer la imagen.');
+        return;
+      }
+
+      setImagenBase64(`data:${mime};base64,${b64}`);
+    } catch (e) {
+      Alert.alert('Imagen', e?.message || 'No se pudo seleccionar la imagen.');
     }
   };
 
@@ -361,6 +491,26 @@ export default function AdminEventos({ navigation }) {
               </View>
             ) : null}
 
+            <Text style={estilos.formLabel}>Imagen promocional (opcional)</Text>
+            {imagenBase64 ? (
+              <View style={estilos.imagenRow}>
+                <Image source={{ uri: imagenBase64 }} style={estilos.imagenPreview} />
+                <View style={estilos.imagenBtns}>
+                  <TouchableOpacity style={estilos.imagenBtn} onPress={elegirImagen}>
+                    <Text style={estilos.imagenBtnTexto}>Cambiar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[estilos.imagenBtn, estilos.imagenBtnPeligro]} onPress={() => setImagenBase64('')}>
+                    <Text style={[estilos.imagenBtnTexto, estilos.imagenBtnTextoPeligro]}>Quitar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity style={estilos.botonSubirImagen} onPress={elegirImagen} activeOpacity={0.85}>
+                <Text style={estilos.botonSubirImagenTexto}>+ Subir imagen</Text>
+              </TouchableOpacity>
+            )}
+
+            <Text style={estilos.formLabel}>Fecha y hora</Text>
             <View style={estilos.fila2}>
               {esWeb ? (
                 <>
@@ -657,6 +807,44 @@ const estilos = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.06)',
   },
   sugerenciaTexto: { color: '#fff', fontSize: 14 },
+  botonSubirImagen: {
+    borderWidth: 1,
+    borderColor: '#333',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  botonSubirImagenTexto: { color: '#00dc57', fontWeight: '800' },
+  imagenRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  imagenPreview: {
+    width: 84,
+    height: 84,
+    borderRadius: 12,
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+  },
+  imagenBtns: { flex: 1, gap: 10 },
+  imagenBtn: {
+    borderWidth: 1,
+    borderColor: '#333',
+    backgroundColor: '#141414',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  imagenBtnPeligro: { backgroundColor: 'rgba(255,0,0,0.08)', borderColor: 'rgba(255,0,0,0.25)' },
+  imagenBtnTexto: { color: '#fff', fontWeight: '800' },
+  imagenBtnTextoPeligro: { color: '#ff8a8a' },
   botonGuardar: {
     backgroundColor: '#22c55e',
     padding: 14,

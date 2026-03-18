@@ -9,6 +9,7 @@ import ModoAdmin from '../pantallas/ModoAdmin';
 import AdminUsuarios from '../pantallas/AdminUsuarios';
 import AdminContenidoExclusivo from '../pantallas/AdminContenidoExclusivo';
 import AdminEventos from '../pantallas/AdminEventos';
+import EventosGeneral from '../pantallas/EventosGeneral';
 import ContenidoGeneral from '../pantallas/ContenidoGeneral';
 import ContenidoExclusivo from '../pantallas/ContenidoExclusivo';
 import { esAdmin } from '../constantes/nivelesAcceso';
@@ -43,6 +44,7 @@ export default function Navegador() {
           <Stack.Screen name="AdminUsuarios" component={AdminUsuarios} />
           <Stack.Screen name="AdminContenidoExclusivo" component={AdminContenidoExclusivo} />
           <Stack.Screen name="AdminEventos" component={AdminEventos} />
+          <Stack.Screen name="EventosGeneral" component={EventosGeneral} />
           <Stack.Screen name="ContenidoGeneral" component={ContenidoGeneral} />
           <Stack.Screen name="ContenidoExclusivo" component={ContenidoExclusivo} />
         </Stack.Navigator>

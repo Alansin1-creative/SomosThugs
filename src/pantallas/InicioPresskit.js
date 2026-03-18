@@ -460,7 +460,7 @@ export default function InicioPresskit({ navigation }) {
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={estilos.menuHamburgerItem}
-                      onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('ContenidoGeneral'); }}
+                      onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('EventosGeneral'); }}
                     >
                       <Text style={estilos.menuHamburgerItemTexto}>Eventos</Text>
                     </TouchableOpacity>

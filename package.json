@@ -7,7 +7,10 @@
     "start:clean": "expo start --clear",
     "web": "expo start --web --clear",
     "android": "expo start --android",
-    "ios": "expo start --ios"
+    "ios": "expo start --ios",
+    "export:web": "npx expo export --platform web --output-dir dist-web",
+    "prepare:github-pages": "node scripts/prepare-github-pages.js",
+    "build:github-pages": "npm run export:web && npm run prepare:github-pages"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

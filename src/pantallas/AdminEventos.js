@@ -370,6 +370,51 @@ export default function AdminEventos({ navigation }) {
 
   const elegirImagen = async () => {
     try {
+      // Web: usar input nativo de archivos (más confiable que expo-image-picker en web)
+      if (Platform.OS === 'web') {
+        if (typeof document === 'undefined') return;
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.multiple = false;
+        input.style.position = 'fixed';
+        input.style.left = '-1000px';
+        input.style.top = '-1000px';
+        input.style.opacity = '0';
+
+        const cleanup = () => {
+          input.removeEventListener('change', onChange);
+          if (input.parentNode) input.parentNode.removeChild(input);
+        };
+
+        const onChange = () => {
+          const file = input.files && input.files[0];
+          if (!file) return cleanup();
+          const reader = new FileReader();
+          reader.onerror = () => {
+            cleanup();
+            Alert.alert('Imagen', 'No se pudo leer la imagen.');
+          };
+          reader.onload = () => {
+            const out = String(reader.result || '');
+            if (!out.startsWith('data:')) {
+              cleanup();
+              Alert.alert('Imagen', 'No se pudo leer la imagen.');
+              return;
+            }
+            setImagenBase64(out);
+            cleanup();
+          };
+          reader.readAsDataURL(file);
+        };
+
+        input.addEventListener('change', onChange);
+        document.body.appendChild(input);
+        input.click();
+        setTimeout(cleanup, 60000);
+        return;
+      }
+
       const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (perm.status !== 'granted') {
         Alert.alert('Permiso', 'Activa el acceso a tus fotos para subir una imagen.');

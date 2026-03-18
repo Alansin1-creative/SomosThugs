@@ -6,8 +6,11 @@ const contenidoExclusivoSchema = new mongoose.Schema({
   descripcion: String,
   previewTexto: String,
   contenidoCompleto: String,
+  complementario: String,
+  urlImagen: String,
   urlMediaPreview: String,
   urlMediaCompleta: String,
+  urlMedia: String,
   tipoContenido: { type: String, default: 'articulo' }, // ej: video, articulo, imagen, audio
   nivelRequerido: { type: String, default: 'thug' },
   categoria: String,
@@ -16,7 +19,16 @@ const contenidoExclusivoSchema = new mongoose.Schema({
   destacado: { type: Boolean, default: false },
   numeroVistas: { type: Number, default: 0 },
   numeroLikes: { type: Number, default: 0 },
-  comentarios: [String],
+  // Comentarios: guardamos usuario y texto; soporta también strings antiguos
+  comentarios: [
+    {
+      usuario: String,
+      texto: String,
+      fecha: { type: Date, default: Date.now },
+    },
+  ],
+  // Para contar vistas únicas por usuario
+  vistasUsuarios: [String],
   creadoPor: String,
   fechaPublicacion: { type: Date, default: Date.now },
   fechaActualizacion: { type: Date, default: Date.now },

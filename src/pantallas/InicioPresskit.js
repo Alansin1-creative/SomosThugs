@@ -439,9 +439,17 @@ export default function InicioPresskit({ navigation }) {
                     >
                       <Text style={estilos.menuHamburgerItemTexto}>Perfil</Text>
                     </TouchableOpacity>
+                    {esAdmin(perfil) && (
+                      <TouchableOpacity
+                        style={estilos.menuHamburgerItem}
+                        onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('ModoAdmin'); }}
+                      >
+                        <Text style={estilos.menuHamburgerItemTexto}>Panel de Admin</Text>
+                      </TouchableOpacity>
+                    )}
                     <TouchableOpacity
                       style={estilos.menuHamburgerItem}
-                      onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('ContenidoExclusivo'); }}
+                      onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('ContenidoGeneral'); }}
                     >
                       <View style={estilos.menuHamburgerItemFila}>
                         <Text style={estilos.menuHamburgerItemTexto}>Zona Thug</Text>
@@ -449,12 +457,6 @@ export default function InicioPresskit({ navigation }) {
                           <Ionicons name="glasses" size={18} color="#6b7280" style={estilos.menuHamburgerCandado} />
                         )}
                       </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={estilos.menuHamburgerItem}
-                      onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('ContenidoGeneral'); }}
-                    >
-                      <Text style={estilos.menuHamburgerItemTexto}>Contenido general</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={estilos.menuHamburgerItem}

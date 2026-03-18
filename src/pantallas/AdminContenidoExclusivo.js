@@ -17,8 +17,10 @@ import {
   Pressable,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
-import { listarContenidoExclusivo, crearContenidoExclusivo, actualizarContenidoExclusivo, leerContenidoExclusivo } from '../servicios/api';
+import { listarContenidoExclusivo, crearContenidoExclusivo, actualizarContenidoExclusivo, leerContenidoExclusivo, eliminarContenidoExclusivo } from '../servicios/api';
 import { getBaseUrl } from '../config/api';
 import { useAuth } from '../contexto/AuthContext';
 import { esAdmin } from '../constantes/nivelesAcceso';
@@ -34,18 +36,20 @@ export default function AdminContenidoExclusivo({ navigation }) {
 
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [previewTexto, setPreviewTexto] = useState('');
-  const [contenidoCompleto, setContenidoCompleto] = useState('');
+  const [contenido, setContenido] = useState('');
+  const [complementario, setComplementario] = useState('');
+  const [urlImagen, setUrlImagen] = useState('');
+  const [urlMedia, setUrlMedia] = useState('');
   const [tipoContenido, setTipoContenido] = useState('articulo');
   const [nivelRequerido, setNivelRequerido] = useState('thug');
   const [categoria, setCategoria] = useState('');
   const [etiquetasStr, setEtiquetasStr] = useState('');
   const [visible, setVisible] = useState(true);
   const [destacado, setDestacado] = useState(false);
-  const [mediaPreviewBase64, setMediaPreviewBase64] = useState(null);
-  const [mediaPreviewUri, setMediaPreviewUri] = useState(null);
-  const [mediaCompletaBase64, setMediaCompletaBase64] = useState(null);
-  const [mediaCompletaUri, setMediaCompletaUri] = useState(null);
+  const [imagenBase64, setImagenBase64] = useState(null);
+  const [imagenUri, setImagenUri] = useState(null);
+  const [mediaArchivoBase64, setMediaArchivoBase64] = useState(null);
+  const [mediaArchivoNombre, setMediaArchivoNombre] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
 
   const [itemEditando, setItemEditando] = useState(null);
@@ -53,31 +57,38 @@ export default function AdminContenidoExclusivo({ navigation }) {
   const [enviandoEdit, setEnviandoEdit] = useState(false);
   const [editTitulo, setEditTitulo] = useState('');
   const [editDescripcion, setEditDescripcion] = useState('');
-  const [editPreviewTexto, setEditPreviewTexto] = useState('');
-  const [editContenidoCompleto, setEditContenidoCompleto] = useState('');
+  const [editContenido, setEditContenido] = useState('');
+  const [editComplementario, setEditComplementario] = useState('');
+  const [editUrlImagen, setEditUrlImagen] = useState('');
+  const [editUrlMedia, setEditUrlMedia] = useState('');
+  const [editUrlMediaCompleta, setEditUrlMediaCompleta] = useState('');
   const [editTipoContenido, setEditTipoContenido] = useState('articulo');
   const [editNivelRequerido, setEditNivelRequerido] = useState('thug');
   const [editCategoria, setEditCategoria] = useState('');
   const [editEtiquetasStr, setEditEtiquetasStr] = useState('');
   const [editVisible, setEditVisible] = useState(true);
   const [editDestacado, setEditDestacado] = useState(false);
-  const [editMediaPreviewBase64, setEditMediaPreviewBase64] = useState(null);
-  const [editMediaPreviewUri, setEditMediaPreviewUri] = useState(null);
-  const [editMediaCompletaBase64, setEditMediaCompletaBase64] = useState(null);
-  const [editMediaCompletaUri, setEditMediaCompletaUri] = useState(null);
+  const [editImagenBase64, setEditImagenBase64] = useState(null);
+  const [editImagenUri, setEditImagenUri] = useState(null);
+  const [editMediaArchivoBase64, setEditMediaArchivoBase64] = useState(null);
+  const [editMediaArchivoNombre, setEditMediaArchivoNombre] = useState(null);
+  const [editClearPreview, setEditClearPreview] = useState(false);
+  const [editClearMedia, setEditClearMedia] = useState(false);
 
   const cerrarModal = () => {
     setModalVisible(false);
     setTitulo('');
     setDescripcion('');
-    setPreviewTexto('');
-    setContenidoCompleto('');
+    setContenido('');
+    setComplementario('');
+    setUrlImagen('');
+    setUrlMedia('');
     setCategoria('');
     setEtiquetasStr('');
-    setMediaPreviewBase64(null);
-    setMediaPreviewUri(null);
-    setMediaCompletaBase64(null);
-    setMediaCompletaUri(null);
+    setImagenBase64(null);
+    setImagenUri(null);
+    setMediaArchivoBase64(null);
+    setMediaArchivoNombre(null);
   };
 
   useEffect(() => {
@@ -105,7 +116,28 @@ export default function AdminContenidoExclusivo({ navigation }) {
     setRefrescando(false);
   };
 
-  const elegirMedia = (esPreview) => async () => {
+  /** Imagen: fotos o videos (preview) */
+  const elegirImagen = async () => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*,video/*';
+      input.style.display = 'none';
+      input.onchange = (e) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          setImagenBase64(reader.result);
+          setImagenUri(reader.result);
+        };
+        reader.readAsDataURL(file);
+        input.remove();
+      };
+      document.body.appendChild(input);
+      input.click();
+      return;
+    }
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.All,
@@ -116,25 +148,103 @@ export default function AdminContenidoExclusivo({ navigation }) {
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
       const base64 = asset.base64 ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}` : null;
-      if (esPreview) {
-        setMediaPreviewUri(asset.uri);
-        setMediaPreviewBase64(base64);
-      } else {
-        setMediaCompletaUri(asset.uri);
-        setMediaCompletaBase64(base64);
-      }
+      setImagenUri(asset.uri);
+      setImagenBase64(base64);
     } catch (e) {
-      Alert.alert('Error', e?.message || 'No se pudo elegir el archivo.');
+      Alert.alert('Error', e?.message || 'No se pudo elegir la imagen.');
     }
   };
 
-  const limpiarPreview = () => {
-    setMediaPreviewUri(null);
-    setMediaPreviewBase64(null);
+  const limpiarImagen = () => {
+    setImagenUri(null);
+    setImagenBase64(null);
   };
-  const limpiarCompleta = () => {
-    setMediaCompletaUri(null);
-    setMediaCompletaBase64(null);
+
+  /** Media: subir documento (PDF), foto o video */
+  const elegirMediaArchivo = async () => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '*/*';
+      input.style.display = 'none';
+      input.onchange = (e) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          setMediaArchivoBase64(reader.result);
+          setMediaArchivoNombre(file.name);
+        };
+        reader.readAsDataURL(file);
+        input.remove();
+      };
+      document.body.appendChild(input);
+      input.click();
+      return;
+    }
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const mime = asset.mimeType || 'application/octet-stream';
+      setMediaArchivoBase64(`data:${mime};base64,${base64}`);
+      setMediaArchivoNombre(asset.name || 'Archivo');
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'No se pudo leer el archivo.');
+    }
+  };
+
+  const limpiarMediaArchivo = () => {
+    setMediaArchivoBase64(null);
+    setMediaArchivoNombre(null);
+  };
+
+  const elegirMediaArchivoEdit = async () => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '*/*';
+      input.style.display = 'none';
+      input.onchange = (e) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          setEditMediaArchivoBase64(reader.result);
+          setEditMediaArchivoNombre(file.name);
+        };
+        reader.readAsDataURL(file);
+        input.remove();
+      };
+      document.body.appendChild(input);
+      input.click();
+      return;
+    }
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+      if (result.canceled || !result.assets?.[0]) return;
+      const asset = result.assets[0];
+      const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const mime = asset.mimeType || 'application/octet-stream';
+      setEditMediaArchivoBase64(`data:${mime};base64,${base64}`);
+      setEditMediaArchivoNombre(asset.name || 'Archivo');
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'No se pudo leer el archivo.');
+    }
+  };
+
+  const limpiarMediaArchivoEdit = () => {
+    setEditMediaArchivoBase64(null);
+    setEditMediaArchivoNombre(null);
+    setEditClearMedia(true);
+    setEditUrlMediaCompleta('');
   };
 
   const abrirEditar = async (item) => {
@@ -148,18 +258,32 @@ export default function AdminContenidoExclusivo({ navigation }) {
       setItemEditando(doc);
       setEditTitulo(doc.titulo || '');
       setEditDescripcion(doc.descripcion || '');
-      setEditPreviewTexto(doc.previewTexto || '');
-      setEditContenidoCompleto(doc.contenidoCompleto || '');
+      setEditContenido(doc.contenidoCompleto || doc.contenido || '');
+      setEditComplementario(doc.complementario || '');
+      setEditUrlImagen('');
+      const previewPathDb = doc.urlMedia || '';
+      setEditUrlMedia(previewPathDb);
+      setEditUrlMediaCompleta(doc.urlMediaCompleta || '');
       setEditTipoContenido(doc.tipoContenido || doc.tipo || 'articulo');
       setEditNivelRequerido(doc.nivelRequerido || 'thug');
       setEditCategoria(doc.categoria || '');
       setEditEtiquetasStr(Array.isArray(doc.etiquetas) ? doc.etiquetas.join(', ') : '');
       setEditVisible(doc.visible !== false);
       setEditDestacado(!!doc.destacado);
-      setEditMediaPreviewBase64(null);
-      setEditMediaPreviewUri(doc.urlMediaPreview ? ((doc.urlMediaPreview.startsWith('http') || doc.urlMediaPreview.startsWith('data:')) ? doc.urlMediaPreview : getBaseUrl() + doc.urlMediaPreview) : null);
-      setEditMediaCompletaBase64(null);
-      setEditMediaCompletaUri(doc.urlMediaCompleta ? ((doc.urlMediaCompleta.startsWith('http') || doc.urlMediaCompleta.startsWith('data:')) ? doc.urlMediaCompleta : getBaseUrl() + doc.urlMediaCompleta) : null);
+      setEditImagenBase64(null);
+      const previewPath = previewPathDb;
+      setEditImagenUri(
+        previewPath
+          ? previewPath.startsWith('http') || previewPath.startsWith('data:')
+            ? previewPath
+            : getBaseUrl() + previewPath
+          : null
+      );
+      const nombreExistente =
+        (doc.urlMediaCompleta || '').split('/').pop() || null;
+      setEditMediaArchivoNombre(nombreExistente);
+      setEditClearPreview(false);
+      setEditClearMedia(false);
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo cargar el contenido.');
       setModalEditarVisible(false);
@@ -169,13 +293,37 @@ export default function AdminContenidoExclusivo({ navigation }) {
   const cerrarModalEditar = () => {
     setModalEditarVisible(false);
     setItemEditando(null);
-    setEditMediaPreviewBase64(null);
-    setEditMediaPreviewUri(null);
-    setEditMediaCompletaBase64(null);
-    setEditMediaCompletaUri(null);
+    setEditImagenBase64(null);
+    setEditImagenUri(null);
+    setEditMediaArchivoBase64(null);
+    setEditMediaArchivoNombre(null);
+    setEditClearPreview(false);
+    setEditClearMedia(false);
+    setEditUrlMedia('');
+    setEditUrlMediaCompleta('');
   };
 
-  const elegirMediaEdit = (esPreview) => async () => {
+  const elegirImagenEdit = async () => {
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*,video/*';
+      input.style.display = 'none';
+      input.onchange = (e) => {
+        const file = e.target?.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          setEditImagenBase64(reader.result);
+          setEditImagenUri(reader.result);
+        };
+        reader.readAsDataURL(file);
+        input.remove();
+      };
+      document.body.appendChild(input);
+      input.click();
+      return;
+    }
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.All,
@@ -186,16 +334,19 @@ export default function AdminContenidoExclusivo({ navigation }) {
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
       const base64 = asset.base64 ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}` : null;
-      if (esPreview) {
-        setEditMediaPreviewUri(asset.uri);
-        setEditMediaPreviewBase64(base64);
-      } else {
-        setEditMediaCompletaUri(asset.uri);
-        setEditMediaCompletaBase64(base64);
-      }
+      setEditImagenUri(asset.uri);
+      setEditImagenBase64(base64);
+      setEditClearPreview(false);
     } catch (e) {
-      Alert.alert('Error', e?.message || 'No se pudo elegir el archivo.');
+      Alert.alert('Error', e?.message || 'No se pudo elegir la imagen.');
     }
+  };
+
+  const limpiarImagenEdit = () => {
+    setEditImagenUri(null);
+    setEditImagenBase64(null);
+    setEditClearPreview(true);
+    setEditUrlMedia('');
   };
 
   const guardarEdicion = async () => {
@@ -206,11 +357,15 @@ export default function AdminContenidoExclusivo({ navigation }) {
     setEnviandoEdit(true);
     try {
       const etiquetas = (editEtiquetasStr || '').trim() ? editEtiquetasStr.split(',').map((e) => e.trim()).filter(Boolean) : [];
+      const contenidoTrim = String(editContenido ?? '').trim();
       const body = {
         titulo: String(editTitulo ?? '').trim(),
         descripcion: String(editDescripcion ?? '').trim(),
-        previewTexto: String(editPreviewTexto ?? '').trim(),
-        contenidoCompleto: String(editContenidoCompleto ?? '').trim(),
+        previewTexto: contenidoTrim.slice(0, 200),
+        contenidoCompleto: contenidoTrim,
+        complementario: String(editComplementario ?? '').trim(),
+        urlMedia: String(editUrlMedia ?? '').trim(),
+        urlMediaCompleta: String(editUrlMediaCompleta ?? '').trim(),
         tipoContenido: String(editTipoContenido ?? 'articulo').trim() || 'articulo',
         nivelRequerido: String(editNivelRequerido ?? 'thug').trim() || 'thug',
         categoria: String(editCategoria ?? '').trim(),
@@ -218,8 +373,10 @@ export default function AdminContenidoExclusivo({ navigation }) {
         visible: editVisible !== false,
         destacado: Boolean(editDestacado),
       };
-      if (editMediaPreviewBase64) body.mediaPreviewBase64 = editMediaPreviewBase64;
-      if (editMediaCompletaBase64) body.mediaCompletaBase64 = editMediaCompletaBase64;
+      if (editImagenBase64) body.mediaPreviewBase64 = editImagenBase64;
+      if (editMediaArchivoBase64) body.mediaCompletaBase64 = editMediaArchivoBase64;
+      if (editClearPreview) body.clearPreview = true;
+      if (editClearMedia) body.clearMedia = true;
       await actualizarContenidoExclusivo(itemEditando.id, body);
       await cargar();
       cerrarModalEditar();
@@ -231,6 +388,55 @@ export default function AdminContenidoExclusivo({ navigation }) {
     }
   };
 
+  const borrarContenido = (item) => {
+    const id = item?.id || item?._id;
+    if (!id) return;
+    const titulo = item.titulo || 'Sin título';
+
+    // Confirmación nativa en móviles
+    if (Platform.OS !== 'web') {
+      Alert.alert(
+        'Borrar contenido',
+        `¿Eliminar "${titulo}"? Esta acción no se puede deshacer.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Borrar',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await eliminarContenidoExclusivo(id);
+                setLista((prev) => prev.filter((it) => it.id !== id));
+                Alert.alert('Listo', 'Contenido eliminado.');
+              } catch (e) {
+                Alert.alert('Error', e?.message || 'No se pudo eliminar.');
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // Confirmación en web (Alert no soporta botones)
+    // eslint-disable-next-line no-alert
+    const ok = window.confirm(
+      `¿Eliminar "${titulo}"?\n\nEsta acción no se puede deshacer.`
+    );
+    if (!ok) return;
+    (async () => {
+      try {
+        await eliminarContenidoExclusivo(id);
+        setLista((prev) => prev.filter((it) => it.id !== id));
+        // eslint-disable-next-line no-alert
+        window.alert('Contenido eliminado.');
+      } catch (e) {
+        // eslint-disable-next-line no-alert
+        window.alert(e?.message || 'No se pudo eliminar.');
+      }
+    })();
+  };
+
   const enviar = async () => {
     if (!titulo.trim()) {
       Alert.alert('', 'El título es obligatorio.');
@@ -239,12 +445,15 @@ export default function AdminContenidoExclusivo({ navigation }) {
     setEnviando(true);
     try {
       const etiquetas = etiquetasStr.trim() ? etiquetasStr.split(',').map((e) => e.trim()).filter(Boolean) : [];
-      // Objeto plano: cada campo como propiedad top-level (el backend los guarda así en el doc)
-      const bodySoloTexto = {
+      const contenidoTrim = String(contenido ?? '').trim();
+      const body = {
         titulo: String(titulo ?? '').trim(),
         descripcion: String(descripcion ?? '').trim(),
-        previewTexto: String(previewTexto ?? '').trim(),
-        contenidoCompleto: String(contenidoCompleto ?? '').trim(),
+        previewTexto: contenidoTrim.slice(0, 200),
+        contenidoCompleto: contenidoTrim,
+        complementario: String(complementario ?? '').trim(),
+        urlImagen: String(urlImagen ?? '').trim(),
+        urlMedia: String(urlMedia ?? '').trim(),
         tipoContenido: String(tipoContenido ?? 'articulo').trim() || 'articulo',
         nivelRequerido: String(nivelRequerido ?? 'thug').trim() || 'thug',
         categoria: String(categoria ?? '').trim(),
@@ -253,25 +462,11 @@ export default function AdminContenidoExclusivo({ navigation }) {
         destacado: Boolean(destacado),
         creadoPor: String(perfil?.id ?? ''),
       };
-      const creado = await crearContenidoExclusivo(bodySoloTexto);
-      if (creado?.id && (mediaPreviewBase64 || mediaCompletaBase64)) {
-        const bodyMedia = {};
-        if (mediaPreviewBase64) bodyMedia.mediaPreviewBase64 = mediaPreviewBase64;
-        if (mediaCompletaBase64) bodyMedia.mediaCompletaBase64 = mediaCompletaBase64;
-        await actualizarContenidoExclusivo(creado.id, bodyMedia);
-      }
-      setTitulo('');
-      setDescripcion('');
-      setPreviewTexto('');
-      setContenidoCompleto('');
-      setCategoria('');
-      setEtiquetasStr('');
-      setMediaPreviewBase64(null);
-      setMediaPreviewUri(null);
-      setMediaCompletaBase64(null);
-      setMediaCompletaUri(null);
-      await cargar();
+      if (imagenBase64) body.mediaPreviewBase64 = imagenBase64;
+      if (mediaArchivoBase64) body.mediaCompletaBase64 = mediaArchivoBase64;
+      await crearContenidoExclusivo(body);
       cerrarModal();
+      await cargar();
       Alert.alert('Listo', 'Contenido creado.');
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo crear.');
@@ -302,8 +497,8 @@ export default function AdminContenidoExclusivo({ navigation }) {
           <Text style={estilos.vacio}>Aún no hay contenido. Usa el botón de arriba para subir.</Text>
         )}
         {lista.map((item) => {
-          const previewUrl = item.urlMediaPreview || item.urlArchivo;
-          const mediaUrl = item.urlMediaCompleta || item.urlMediaPreview || item.urlArchivo;
+          const previewUrl = item.urlMedia || '';
+          const mediaUrl = item.urlMediaCompleta || '';
           const numComentarios = Array.isArray(item.comentarios) ? item.comentarios.length : 0;
           const vistas = item.numeroVistas ?? 0;
           const likes = item.numeroLikes ?? 0;
@@ -313,16 +508,36 @@ export default function AdminContenidoExclusivo({ navigation }) {
           return (
             <View key={item.id} style={estilos.workspaceCard}>
               <View style={estilos.workspaceHeader}>
-                <Text style={estilos.workspaceTitulo} numberOfLines={1}>{item.titulo || 'Sin título'}</Text>
-                <TouchableOpacity style={estilos.botonEditar} onPress={() => abrirEditar(item)}>
-                  <Ionicons name="pencil" size={20} color="#00dc57" />
-                </TouchableOpacity>
-                <View style={estilos.workspaceBadges}>
-                  <View style={estilos.badgeTipo}>
-                    <Text style={estilos.badgeTipoTexto}>{item.tipoContenido || item.tipo || 'articulo'}</Text>
+                <Text style={estilos.workspaceTitulo} numberOfLines={1}>
+                  {item.titulo || 'Sin título'}
+                </Text>
+                <View style={estilos.workspaceHeaderAcciones}>
+                  <TouchableOpacity style={estilos.botonEditar} onPress={() => abrirEditar(item)}>
+                    <Ionicons name="pencil" size={20} color="#00dc57" />
+                  </TouchableOpacity>
+                  <View style={estilos.workspaceBadges}>
+                    <View style={estilos.badgeTipo}>
+                      <Text style={estilos.badgeTipoTexto}>
+                        {item.tipoContenido || item.tipo || 'articulo'}
+                      </Text>
+                    </View>
+                    {item.destacado && (
+                      <View style={estilos.badgeDestacado}>
+                        <Text style={estilos.badgeDestacadoTexto}>Destacado</Text>
+                      </View>
+                    )}
+                    {item.visible === false && (
+                      <View style={estilos.badgeOculto}>
+                        <Text style={estilos.badgeOcultoTexto}>Oculto</Text>
+                      </View>
+                    )}
                   </View>
-                  {item.destacado && <View style={estilos.badgeDestacado}><Text style={estilos.badgeDestacadoTexto}>Destacado</Text></View>}
-                  {item.visible === false && <View style={estilos.badgeOculto}><Text style={estilos.badgeOcultoTexto}>Oculto</Text></View>}
+                  <TouchableOpacity
+                    style={estilos.botonBorrar}
+                    onPress={() => borrarContenido(item)}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#f44" />
+                  </TouchableOpacity>
                 </View>
               </View>
               <View style={estilos.workspacePreview}>
@@ -363,12 +578,6 @@ export default function AdminContenidoExclusivo({ navigation }) {
                 {fechaPub && <Text style={estilos.workspaceMetaFecha}>Publicado: {new Date(fechaPub).toLocaleDateString()}</Text>}
                 {fechaAct && <Text style={estilos.workspaceMetaFecha}>Actualizado: {new Date(fechaAct).toLocaleDateString()}</Text>}
               </View>
-              {mediaUrl && (
-                <TouchableOpacity style={estilos.workspaceVerArchivo} onPress={() => Linking.openURL(mediaUrl.startsWith('http') ? mediaUrl : getBaseUrl() + mediaUrl)}>
-                  <Ionicons name="open-outline" size={16} color="#00dc57" />
-                  <Text style={estilos.enlace}>Ver archivo</Text>
-                </TouchableOpacity>
-              )}
             </View>
           );
         })}
@@ -411,57 +620,49 @@ export default function AdminContenidoExclusivo({ navigation }) {
             placeholderTextColor="#666"
             multiline
           />
-          <Text style={estilos.label}>Texto preview</Text>
+          <Text style={estilos.label}>Contenido</Text>
           <TextInput
             style={[estilos.input, estilos.inputMultiline]}
-            value={previewTexto}
-            onChangeText={setPreviewTexto}
-            placeholder="Texto corto para vista previa"
+            value={contenido}
+            onChangeText={setContenido}
+            placeholder="Contenido del artículo o publicación"
             placeholderTextColor="#666"
             multiline
           />
-          <Text style={estilos.label}>Contenido completo</Text>
+          <Text style={estilos.label}>Complementario</Text>
           <TextInput
             style={[estilos.input, estilos.inputMultiline]}
-            value={contenidoCompleto}
-            onChangeText={setContenidoCompleto}
-            placeholder="Contenido completo del artículo o descripción"
+            value={complementario}
+            onChangeText={setComplementario}
+            placeholder="Contenido complementario o adicional"
             placeholderTextColor="#666"
             multiline
           />
-
-          <Text style={estilos.label}>Media preview (foto/video miniatura)</Text>
+          <Text style={estilos.label}>Imagen o video (preview)</Text>
           <View style={estilos.uploadRow}>
-            <TouchableOpacity style={estilos.botonUpload} onPress={elegirMedia(true)}>
-              <Text style={estilos.botonUploadTexto}>{mediaPreviewUri ? 'Cambiar' : 'Subir preview'}</Text>
+            <TouchableOpacity style={estilos.botonUpload} onPress={elegirImagen}>
+              <Text style={estilos.botonUploadTexto}>{imagenUri ? 'Cambiar foto' : 'Subir foto'}</Text>
             </TouchableOpacity>
-            {mediaPreviewUri && (
+            {imagenUri && (
               <>
                 <View style={estilos.previewMini}>
-                  <Image source={{ uri: mediaPreviewUri }} style={estilos.previewImg} resizeMode="cover" />
+                  <Image source={{ uri: imagenUri }} style={estilos.previewImg} resizeMode="cover" />
                 </View>
-                <TouchableOpacity onPress={limpiarPreview} style={estilos.quitar}>
+                <TouchableOpacity onPress={limpiarImagen} style={estilos.quitar}>
                   <Text style={estilos.quitarTexto}>Quitar</Text>
                 </TouchableOpacity>
               </>
             )}
           </View>
-
-          <Text style={estilos.label}>Media completa (foto o archivo)</Text>
+          <Text style={estilos.label}>Media (PDF, enlaces o videos)</Text>
           <View style={estilos.uploadRow}>
-            <TouchableOpacity style={estilos.botonUpload} onPress={elegirMedia(false)}>
-              <Text style={estilos.botonUploadTexto}>{mediaCompletaUri ? 'Cambiar' : 'Subir archivo'}</Text>
+            <TouchableOpacity style={estilos.botonUpload} onPress={elegirMediaArchivo}>
+              <Text style={estilos.botonUploadTexto}>{mediaArchivoNombre ? 'Cambiar' : 'Subir archivo'}</Text>
             </TouchableOpacity>
-            {mediaCompletaUri && (
+            {mediaArchivoNombre && (
               <>
-                {mediaCompletaUri.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                  <View style={estilos.previewMini}>
-                    <Image source={{ uri: mediaCompletaUri }} style={estilos.previewImg} resizeMode="cover" />
-                  </View>
-                ) : (
-                  <Text style={estilos.archivoNombre} numberOfLines={1}>{mediaCompletaUri.split('/').pop()}</Text>
-                )}
-                <TouchableOpacity onPress={limpiarCompleta} style={estilos.quitar}>
+                <Text style={estilos.archivoNombre} numberOfLines={1}>{mediaArchivoNombre}</Text>
+                <TouchableOpacity onPress={limpiarMediaArchivo} style={estilos.quitar}>
                   <Text style={estilos.quitarTexto}>Quitar</Text>
                 </TouchableOpacity>
               </>
@@ -567,55 +768,49 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   placeholderTextColor="#666"
                   multiline
                 />
-                <Text style={estilos.label}>Texto preview</Text>
+                <Text style={estilos.label}>Contenido</Text>
                 <TextInput
                   style={[estilos.input, estilos.inputMultiline]}
-                  value={editPreviewTexto}
-                  onChangeText={setEditPreviewTexto}
-                  placeholder="Texto corto para vista previa"
+                  value={editContenido}
+                  onChangeText={setEditContenido}
+                  placeholder="Contenido del artículo o publicación"
                   placeholderTextColor="#666"
                   multiline
                 />
-                <Text style={estilos.label}>Contenido completo</Text>
+                <Text style={estilos.label}>Complementario</Text>
                 <TextInput
                   style={[estilos.input, estilos.inputMultiline]}
-                  value={editContenidoCompleto}
-                  onChangeText={setEditContenidoCompleto}
-                  placeholder="Contenido completo del artículo o descripción"
+                  value={editComplementario}
+                  onChangeText={setEditComplementario}
+                  placeholder="Contenido complementario o adicional"
                   placeholderTextColor="#666"
                   multiline
                 />
-                <Text style={estilos.label}>Media preview (foto/video miniatura)</Text>
+                <Text style={estilos.label}>Imagen o video (preview)</Text>
                 <View style={estilos.uploadRow}>
-                  <TouchableOpacity style={estilos.botonUpload} onPress={elegirMediaEdit(true)}>
-                    <Text style={estilos.botonUploadTexto}>{editMediaPreviewUri ? 'Cambiar' : 'Subir preview'}</Text>
+                  <TouchableOpacity style={estilos.botonUpload} onPress={elegirImagenEdit}>
+                    <Text style={estilos.botonUploadTexto}>{editImagenUri ? 'Cambiar foto' : 'Subir foto'}</Text>
                   </TouchableOpacity>
-                  {editMediaPreviewUri && (
+                  {editImagenUri && (
                     <>
                       <View style={estilos.previewMini}>
-                        <Image source={{ uri: editMediaPreviewUri }} style={estilos.previewImg} resizeMode="cover" />
+                        <Image source={{ uri: editImagenUri }} style={estilos.previewImg} resizeMode="cover" />
                       </View>
-                      <TouchableOpacity onPress={() => { setEditMediaPreviewUri(null); setEditMediaPreviewBase64(null); }} style={estilos.quitar}>
+                      <TouchableOpacity onPress={limpiarImagenEdit} style={estilos.quitar}>
                         <Text style={estilos.quitarTexto}>Quitar</Text>
                       </TouchableOpacity>
                     </>
                   )}
                 </View>
-                <Text style={estilos.label}>Media completa (foto o archivo)</Text>
+                <Text style={estilos.label}>Media (PDF, enlaces o videos)</Text>
                 <View style={estilos.uploadRow}>
-                  <TouchableOpacity style={estilos.botonUpload} onPress={elegirMediaEdit(false)}>
-                    <Text style={estilos.botonUploadTexto}>{editMediaCompletaUri ? 'Cambiar' : 'Subir archivo'}</Text>
+                  <TouchableOpacity style={estilos.botonUpload} onPress={elegirMediaArchivoEdit}>
+                    <Text style={estilos.botonUploadTexto}>{editMediaArchivoNombre ? 'Cambiar' : 'Subir archivo'}</Text>
                   </TouchableOpacity>
-                  {editMediaCompletaUri && (
+                  {editMediaArchivoNombre && (
                     <>
-                      {editMediaCompletaUri.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                        <View style={estilos.previewMini}>
-                          <Image source={{ uri: editMediaCompletaUri }} style={estilos.previewImg} resizeMode="cover" />
-                        </View>
-                      ) : (
-                        <Text style={estilos.archivoNombre} numberOfLines={1}>{editMediaCompletaUri.split('/').pop()?.split('\\').pop() || 'Archivo'}</Text>
-                      )}
-                      <TouchableOpacity onPress={() => { setEditMediaCompletaUri(null); setEditMediaCompletaBase64(null); }} style={estilos.quitar}>
+                      <Text style={estilos.archivoNombre} numberOfLines={1}>{editMediaArchivoNombre}</Text>
+                      <TouchableOpacity onPress={limpiarMediaArchivoEdit} style={estilos.quitar}>
                         <Text style={estilos.quitarTexto}>Quitar</Text>
                       </TouchableOpacity>
                     </>
@@ -803,10 +998,15 @@ const estilos = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
-    gap: 8,
   },
   workspaceTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1 },
+  workspaceHeaderAcciones: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   botonEditar: { padding: 6 },
+  botonBorrar: { padding: 6 },
   workspaceBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   badgeTipo: {
     paddingVertical: 4,

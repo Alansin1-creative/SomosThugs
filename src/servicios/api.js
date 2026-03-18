@@ -85,6 +85,26 @@ export async function listarFeedUnificado() {
   return request('/contenido-exclusivo/feed-unificado');
 }
 
+/** Registra una vista en el contenido (conteo de vistas) */
+export async function registrarVistaContenido(id) {
+  const idStr = id != null ? String(id) : '';
+  return request(`/contenido-exclusivo/${idStr}/vista`, { method: 'POST', body: JSON.stringify({}) });
+}
+
+/** Dar like a un contenido (incrementa numeroLikes) */
+export async function darLikeContenido(id) {
+  const idStr = id != null ? String(id) : '';
+  return request(`/contenido-exclusivo/${idStr}/like`, { method: 'POST', body: JSON.stringify({}) });
+}
+
+/** Añadir comentario a un contenido */
+export async function agregarComentarioContenido(id, texto) {
+  return request(`/contenido-exclusivo/${id}/comentarios`, {
+    method: 'POST',
+    body: JSON.stringify({ texto }),
+  });
+}
+
 export async function crearContenidoExclusivo(body) {
   if (__DEV__ && body && typeof body === 'object') {
     console.log('[API] crearContenidoExclusivo body keys:', Object.keys(body).join(', '));

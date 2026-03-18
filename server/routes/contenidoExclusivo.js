@@ -93,6 +93,86 @@ router.get('/:id', authMiddleware, requireThug, async (req, res) => {
   }
 });
 
+// Registrar una vista ÚNICA por usuario (cualquier usuario autenticado que pueda ver el contenido)
+router.post('/:id/vista', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.userId || req.user?.id || req.user?._id?.toString?.();
+    const doc = await ContenidoExclusivo.findById(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'No encontrado' });
+
+    // Si ya contamos la vista de este usuario, solo devolvemos el número actual
+    if (userId && Array.isArray(doc.vistasUsuarios) && doc.vistasUsuarios.includes(userId)) {
+      return res.json({ numeroVistas: doc.numeroVistas });
+    }
+
+    const update = {
+      $inc: { numeroVistas: 1 },
+    };
+    if (userId) {
+      update.$addToSet = { vistasUsuarios: userId };
+    }
+
+    const actualizado = await ContenidoExclusivo.findByIdAndUpdate(req.params.id, update, {
+      new: true,
+    });
+    res.json({ numeroVistas: actualizado.numeroVistas });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Dar like (incrementa numeroLikes; sin control de doble like por ahora)
+router.post('/:id/like', authMiddleware, async (req, res) => {
+  try {
+    const doc = await ContenidoExclusivo.findByIdAndUpdate(
+      req.params.id,
+      { $inc: { numeroLikes: 1 } },
+      { new: true }
+    );
+    if (!doc) return res.status(404).json({ error: 'No encontrado' });
+    res.json({ numeroLikes: doc.numeroLikes });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Añadir comentario (cualquier usuario autenticado)
+router.post('/:id/comentarios', authMiddleware, async (req, res) => {
+  try {
+    const texto = typeof req.body?.texto === 'string' ? req.body.texto.trim() : '';
+    if (!texto) return res.status(400).json({ error: 'Falta el texto del comentario' });
+
+    let usuarioNombre = 'Anónimo';
+    try {
+      const usuario = await Usuario.findById(req.userId).lean();
+      if (usuario) {
+        usuarioNombre = usuario.username || usuario.nombreCompleto || usuario.email || usuarioNombre;
+      }
+    } catch {
+      // si falla, dejamos "Anónimo"
+    }
+
+    const nuevoComentario = {
+      usuario: usuarioNombre,
+      texto,
+      fecha: new Date(),
+    };
+
+    const doc = await ContenidoExclusivo.findByIdAndUpdate(
+      req.params.id,
+      { $push: { comentarios: nuevoComentario } },
+      { new: true }
+    );
+    if (!doc) return res.status(404).json({ error: 'No encontrado' });
+    res.json({
+      comentarios: doc.comentarios || [],
+      numeroComentarios: (doc.comentarios || []).length,
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 router.post('/', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const b = req.body && typeof req.body === 'object' && req.body.data && typeof req.body.data === 'object'
@@ -105,16 +185,20 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     const descripcion = typeof b.descripcion === 'string' ? b.descripcion.trim() : '';
     const previewTexto = typeof b.previewTexto === 'string' ? b.previewTexto.trim() : '';
     const contenidoCompleto = typeof b.contenidoCompleto === 'string' ? b.contenidoCompleto.trim() : '';
+    const complementario = typeof b.complementario === 'string' ? b.complementario.trim() : '';
     const tipoContenido = typeof b.tipoContenido === 'string' && b.tipoContenido.trim() ? b.tipoContenido.trim() : 'articulo';
     const nivelRequerido = typeof b.nivelRequerido === 'string' && b.nivelRequerido.trim() ? b.nivelRequerido.trim() : 'thug';
     const categoria = typeof b.categoria === 'string' ? b.categoria.trim() : '';
     const etiquetas = Array.isArray(b.etiquetas) ? b.etiquetas : [];
     const visible = b.visible !== false;
     const destacado = Boolean(b.destacado);
-    let urlMediaPreview = '';
+    // Solo trabajamos con los campos nuevos:
+    // - urlMedia: preview principal (imagen/video)
+    // - urlMediaCompleta: archivo principal (PDF, video, etc.)
+    let urlMedia = '';
     let urlMediaCompleta = '';
     if (b.mediaPreviewBase64) {
-      urlMediaPreview = guardarMediaBase64(b.mediaPreviewBase64, 'preview') || '';
+      urlMedia = guardarMediaBase64(b.mediaPreviewBase64, 'preview') || '';
     }
     if (b.mediaCompletaBase64) {
       urlMediaCompleta = guardarMediaBase64(b.mediaCompletaBase64, 'completa') || '';
@@ -124,7 +208,8 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
       descripcion,
       previewTexto,
       contenidoCompleto,
-      urlMediaPreview,
+      complementario,
+      urlMedia,
       urlMediaCompleta,
       tipoContenido,
       nivelRequerido,
@@ -156,39 +241,52 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
     console.log('[contenido-exclusivo PUT] body keys:', Object.keys(b).join(', '));
     const existing = await ContenidoExclusivo.findById(req.params.id).lean();
     if (!existing) return res.status(404).json({ error: 'No encontrado' });
-    let urlMediaPreview = existing.urlMediaPreview ?? '';
+
+    // Siempre partimos de los valores actuales
+    let urlMedia = existing.urlMedia ?? '';
     let urlMediaCompleta = existing.urlMediaCompleta ?? '';
+
+    // Si llegan nuevos archivos en base64, generamos nuevas URLs
     if (b.mediaPreviewBase64) {
-      urlMediaPreview = guardarMediaBase64(b.mediaPreviewBase64, 'preview') || urlMediaPreview;
+      urlMedia = guardarMediaBase64(b.mediaPreviewBase64, 'preview') || urlMedia;
     }
     if (b.mediaCompletaBase64) {
       urlMediaCompleta = guardarMediaBase64(b.mediaCompletaBase64, 'completa') || urlMediaCompleta;
     }
-    const titulo = typeof b.titulo === 'string' ? b.titulo.trim() : (existing.titulo ?? '');
-    const descripcion = typeof b.descripcion === 'string' ? b.descripcion.trim() : (existing.descripcion ?? '');
-    const previewTexto = typeof b.previewTexto === 'string' ? b.previewTexto.trim() : (existing.previewTexto ?? '');
-    const contenidoCompleto = typeof b.contenidoCompleto === 'string' ? b.contenidoCompleto.trim() : (existing.contenidoCompleto ?? '');
-    const tipoContenido = typeof b.tipoContenido === 'string' && b.tipoContenido.trim() ? b.tipoContenido.trim() : (existing.tipoContenido ?? 'articulo');
-    const nivelRequerido = typeof b.nivelRequerido === 'string' && b.nivelRequerido.trim() ? b.nivelRequerido.trim() : (existing.nivelRequerido ?? 'thug');
-    const categoria = typeof b.categoria === 'string' ? b.categoria.trim() : (existing.categoria ?? '');
-    const etiquetas = Array.isArray(b.etiquetas) ? b.etiquetas : (existing.etiquetas ?? []);
-    const visible = b.visible !== undefined ? (b.visible !== false) : (existing.visible !== false);
-    const destacado = b.destacado !== undefined ? Boolean(b.destacado) : Boolean(existing.destacado);
+
+    // Limpiar explícitamente cuando se pide desde el frontend
+    if (b.clearPreview) {
+      urlMedia = '';
+    }
+    if (b.clearMedia) {
+      urlMediaCompleta = '';
+    }
+
     const $set = {
-      titulo,
-      descripcion,
-      previewTexto,
-      contenidoCompleto,
-      urlMediaPreview,
+      titulo: typeof b.titulo === 'string' ? b.titulo.trim() : existing.titulo,
+      descripcion: typeof b.descripcion === 'string' ? b.descripcion.trim() : existing.descripcion,
+      previewTexto: typeof b.previewTexto === 'string' ? b.previewTexto.trim() : existing.previewTexto,
+      contenidoCompleto:
+        typeof b.contenidoCompleto === 'string' ? b.contenidoCompleto.trim() : existing.contenidoCompleto,
+      complementario:
+        typeof b.complementario === 'string' ? b.complementario.trim() : existing.complementario,
+      urlMedia,
       urlMediaCompleta,
-      tipoContenido,
-      nivelRequerido,
-      categoria,
-      etiquetas,
-      visible,
-      destacado,
+      tipoContenido:
+        typeof b.tipoContenido === 'string' && b.tipoContenido.trim()
+          ? b.tipoContenido.trim()
+          : existing.tipoContenido,
+      nivelRequerido:
+        typeof b.nivelRequerido === 'string' && b.nivelRequerido.trim()
+          ? b.nivelRequerido.trim()
+          : existing.nivelRequerido,
+      categoria: typeof b.categoria === 'string' ? b.categoria.trim() : existing.categoria,
+      etiquetas: Array.isArray(b.etiquetas) ? b.etiquetas : existing.etiquetas,
+      visible: b.visible !== undefined ? b.visible !== false : existing.visible !== false,
+      destacado: b.destacado !== undefined ? Boolean(b.destacado) : Boolean(existing.destacado),
       fechaActualizacion: new Date(),
     };
+
     await ContenidoExclusivo.updateOne({ _id: req.params.id }, { $set });
     const doc = await ContenidoExclusivo.findById(req.params.id);
     res.json(toDoc(doc));

@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Somos Thugs",
+    "slug": "somos-thugs",
+    "version": "1.0.0",
+    "scheme": "somosthugs",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a1a"
+    },
+    "plugins": [
+      "expo-router",
+      ["expo-camera", { "cameraPermission": "Cámara para subir fotos." }],
+      ["expo-location", { "locationWhenInUsePermission": "Ubicación para el mapa de eventos." }],
+      "expo-asset",
+      "expo-web-browser"
+    ],
+    "web": { "favicon": "./assets/favicon.png" }
+  }
+}

@@ -3,10 +3,13 @@ const { authMiddleware, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-const GOOGLE_API_KEY = process.env.GOOGLE_MAPS_API_KEY;
+function getGoogleKey() {
+  return process.env.GOOGLE_MAPS_API_KEY;
+}
 
 function assertKey(res) {
-  if (!GOOGLE_API_KEY) {
+  const key = getGoogleKey();
+  if (!key) {
     res.status(500).json({ error: 'Falta configurar GOOGLE_MAPS_API_KEY en el server' });
     return false;
   }
@@ -15,13 +18,14 @@ function assertKey(res) {
 
 router.get('/places-autocomplete', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    if (!assertKey(res)) return;
+    const key = getGoogleKey();
+    if (!key) return res.status(500).json({ error: 'Falta configurar GOOGLE_MAPS_API_KEY en el server' });
     const q = String(req.query.q || '').trim();
     if (!q) return res.json({ predictions: [] });
 
     const url = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json');
     url.searchParams.set('input', q);
-    url.searchParams.set('key', GOOGLE_API_KEY);
+    url.searchParams.set('key', key);
     url.searchParams.set('language', 'es');
 
     const resp = await fetch(url.toString());
@@ -44,14 +48,15 @@ router.get('/places-autocomplete', authMiddleware, requireAdmin, async (req, res
 
 router.get('/place-details', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    if (!assertKey(res)) return;
+    const key = getGoogleKey();
+    if (!key) return res.status(500).json({ error: 'Falta configurar GOOGLE_MAPS_API_KEY en el server' });
     const placeId = String(req.query.placeId || '').trim();
     if (!placeId) return res.status(400).json({ error: 'Falta placeId' });
 
     const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
     url.searchParams.set('place_id', placeId);
     url.searchParams.set('fields', 'formatted_address,geometry,name,place_id');
-    url.searchParams.set('key', GOOGLE_API_KEY);
+    url.searchParams.set('key', key);
     url.searchParams.set('language', 'es');
 
     const resp = await fetch(url.toString());

@@ -15,6 +15,7 @@ import {
   TextInput,
   Pressable,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Video } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,6 +49,7 @@ export default function ContenidoGeneral({ navigation }) {
   const insets = useSafeAreaInsets();
   const { perfil, cerrarSesion, cargando: authCargando } = useAuth();
   const ventanaAlto = Dimensions.get('window').height;
+  const scrollRef = useRef(null);
   const [eventos, setEventos] = useState([]);
   const [publicaciones, setPublicaciones] = useState([]);
   const [contenidoUnificado, setContenidoUnificado] = useState([]);
@@ -62,6 +64,17 @@ export default function ContenidoGeneral({ navigation }) {
   const [mediaAspectRatio, setMediaAspectRatio] = useState(null);
   const [videoTerminado, setVideoTerminado] = useState(false);
   const videoRef = useRef(null);
+  const [likesHechos, setLikesHechos] = useState(() => new Set());
+  const cardLayoutsRef = useRef(new Map()); // id -> { y, height }
+  const vistasHechasRef = useRef(new Set()); // ids ya contados (persistido por usuario)
+  const vistasGuardandoRef = useRef(new Set()); // ids en proceso
+  const rafScrollRef = useRef(null);
+  const regresarAMediaRef = useRef(null); // item a reabrir tras comentar (solo si venía de la modal)
+
+  const getId = (obj) => obj?.id ?? obj?._id?.toString?.() ?? obj?._id;
+  const getUsuarioKey = () => String(getId(perfil) ?? perfil?.email ?? perfil?.nombreUsuario ?? 'anon');
+  const getLikesStorageKey = () => `somos_thugs_likes_${getUsuarioKey()}`;
+  const getVistasStorageKey = () => `somos_thugs_vistas_${getUsuarioKey()}`;
 
   const normalizarLink = (raw) => {
     const s = String(raw || '').trim();
@@ -80,6 +93,42 @@ export default function ContenidoGeneral({ navigation }) {
       navigation.replace('Inicio');
     }
   }, [perfil, authCargando, navigation]);
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        if (!perfil) return;
+        const raw = await AsyncStorage.getItem(getLikesStorageKey());
+        const arr = raw ? JSON.parse(raw) : [];
+        if (!cancel && Array.isArray(arr)) {
+          setLikesHechos(new Set(arr.map((x) => String(x))));
+        }
+      } catch (_) {
+        if (!cancel) setLikesHechos(new Set());
+      }
+    })();
+    return () => { cancel = true; };
+  }, [perfil]);
+
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        if (!perfil) return;
+        const raw = await AsyncStorage.getItem(getVistasStorageKey());
+        const arr = raw ? JSON.parse(raw) : [];
+        if (!cancel && Array.isArray(arr)) {
+          vistasHechasRef.current = new Set(arr.map((x) => String(x)));
+        } else if (!cancel) {
+          vistasHechasRef.current = new Set();
+        }
+      } catch (_) {
+        if (!cancel) vistasHechasRef.current = new Set();
+      }
+    })();
+    return () => { cancel = true; };
+  }, [perfil]);
 
   const cargarDatos = async () => {
     try {
@@ -146,15 +195,7 @@ export default function ContenidoGeneral({ navigation }) {
     const previewUrl = item.urlMedia || null;
     const mediaUrl = item.urlMediaCompleta || item.urlMedia || null;
     if (!mediaUrl && !previewUrl) return;
-    try {
-      const res = await registrarVistaContenido(item.id);
-      const nuevoTotal = res?.numeroVistas ?? (item.numeroVistas ?? 0) + 1;
-      setContenidoUnificado((prev) =>
-        prev.map((it) => (it.id === item.id ? { ...it, numeroVistas: nuevoTotal } : it))
-      );
-    } catch (e) {
-      console.warn('Vista no registrada:', e);
-    }
+    // La vista se registra al entrar al viewport. Evitar doble conteo si abren el modal.
     setMediaItem(item);
     let urlVisual = previewUrl || mediaUrl;
     if (urlVisual && !urlVisual.startsWith('http') && !urlVisual.startsWith('data:')) {
@@ -175,13 +216,19 @@ export default function ContenidoGeneral({ navigation }) {
   }, [mediaUrlSeleccionada]);
 
   const onLike = async (item) => {
-    const id = item?.id ?? item?._id?.toString?.() ?? item?._id;
+    const id = getId(item);
     if (!id) return;
+    if (likesHechos.has(String(id))) return;
     const valorAnterior = item.numeroLikes ?? 0;
     const valorNuevo = valorAnterior + 1;
+    setLikesHechos((prev) => {
+      const next = new Set(prev);
+      next.add(String(id));
+      return next;
+    });
     setContenidoUnificado((prev) =>
       prev.map((it) => {
-        const itId = it?.id ?? it?._id?.toString?.() ?? it?._id;
+        const itId = getId(it);
         return itId === id ? { ...it, numeroLikes: valorNuevo } : it;
       })
     );
@@ -196,7 +243,7 @@ export default function ContenidoGeneral({ navigation }) {
       if (typeof totalServidor === 'number' && totalServidor >= valorNuevo) {
         setContenidoUnificado((prev) =>
           prev.map((it) => {
-            const itId = it?.id ?? it?._id?.toString?.() ?? it?._id;
+            const itId = getId(it);
             return itId === id ? { ...it, numeroLikes: totalServidor } : it;
           })
         );
@@ -206,14 +253,50 @@ export default function ContenidoGeneral({ navigation }) {
             : prev
         );
       }
+      try {
+        const key = getLikesStorageKey();
+        await AsyncStorage.setItem(key, JSON.stringify(Array.from(new Set([...likesHechos, String(id)]))));
+      } catch (_) {
+        // noop
+      }
     } catch (e) {
       console.warn('Like:', e);
+      setLikesHechos((prev) => {
+        const next = new Set(prev);
+        next.delete(String(id));
+        return next;
+      });
+      setContenidoUnificado((prev) =>
+        prev.map((it) => {
+          const itId = getId(it);
+          return itId === id ? { ...it, numeroLikes: valorAnterior } : it;
+        })
+      );
+      setMediaItem((prev) =>
+        prev && (prev.id === id || prev._id === id)
+          ? { ...prev, numeroLikes: valorAnterior }
+          : prev
+      );
     }
   };
 
   const abrirComentarios = (item) => {
-    setComentarioItem(item);
+    const id = getId(item);
+    if (!id) return;
+    // En algunas plataformas (especialmente web) dos Modals transparentes no se apilan bien.
+    // Si la modal de media está abierta, cerrarla antes de abrir la de comentario.
+    const payload = { ...(item || {}), id: String(id) };
     setComentarioTexto('');
+    if (mediaItem) {
+      regresarAMediaRef.current = payload;
+      cerrarMediaModal();
+      setTimeout(() => {
+        setComentarioItem(payload);
+      }, 50);
+      return;
+    }
+    regresarAMediaRef.current = null;
+    setComentarioItem(payload);
   };
 
   const cerrarComentarioModal = () => {
@@ -238,12 +321,80 @@ export default function ContenidoGeneral({ navigation }) {
           ? { ...prev, comentarios: nuevaLista, numeroComentarios: total }
           : prev
       );
+      const volverItem = regresarAMediaRef.current;
       cerrarComentarioModal();
+      if (volverItem) {
+        regresarAMediaRef.current = null;
+        setTimeout(() => {
+          abrirMediaEnModal(volverItem);
+        }, 50);
+      }
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo enviar el comentario.');
     } finally {
       setEnviandoComentario(false);
     }
+  };
+
+  const registrarVistaSiAplica = async (itemId) => {
+    if (!itemId) return;
+    const idStr = String(itemId);
+    if (vistasHechasRef.current.has(idStr)) return;
+    if (vistasGuardandoRef.current.has(idStr)) return;
+    vistasGuardandoRef.current.add(idStr);
+    vistasHechasRef.current.add(idStr);
+    try {
+      const res = await registrarVistaContenido(idStr);
+      const totalServidor = res?.numeroVistas;
+      setContenidoUnificado((prev) =>
+        prev.map((it) => {
+          const itId = String(getId(it) ?? '');
+          if (itId !== idStr) return it;
+          const actual = it.numeroVistas ?? 0;
+          const nuevo = typeof totalServidor === 'number' ? totalServidor : actual + 1;
+          return { ...it, numeroVistas: nuevo };
+        })
+      );
+      try {
+        const key = getVistasStorageKey();
+        const raw = await AsyncStorage.getItem(key);
+        const arr = raw ? JSON.parse(raw) : [];
+        const next = Array.isArray(arr) ? new Set(arr.map((x) => String(x))) : new Set();
+        next.add(idStr);
+        await AsyncStorage.setItem(key, JSON.stringify(Array.from(next)));
+      } catch (_) {
+        // noop
+      }
+    } catch (e) {
+      console.warn('Vista no registrada:', e);
+      vistasHechasRef.current.delete(idStr);
+    } finally {
+      vistasGuardandoRef.current.delete(idStr);
+    }
+  };
+
+  const onScroll = (e) => {
+    const y = e?.nativeEvent?.contentOffset?.y ?? 0;
+    const h = e?.nativeEvent?.layoutMeasurement?.height ?? 0;
+    if (!h) return;
+    if (rafScrollRef.current) return;
+    rafScrollRef.current = requestAnimationFrame(() => {
+      rafScrollRef.current = null;
+      const top = y;
+      const bottom = y + h;
+      cardLayoutsRef.current.forEach((pos, id) => {
+        if (!pos) return;
+        const itemTop = pos.y ?? 0;
+        const itemBottom = itemTop + (pos.height ?? 0);
+        const interTop = Math.max(top, itemTop);
+        const interBottom = Math.min(bottom, itemBottom);
+        const visible = Math.max(0, interBottom - interTop);
+        const ratio = pos.height ? visible / pos.height : 0;
+        if (ratio >= 0.55) {
+          registrarVistaSiAplica(id);
+        }
+      });
+    });
   };
 
   const titulo = 'Contenido general';
@@ -290,15 +441,18 @@ export default function ContenidoGeneral({ navigation }) {
                 height: alturaFondoNativo,
               },
             ]}
-            resizeMode="repeat"
+            resizeMode={Platform.OS === 'web' ? 'cover' : 'repeat'}
           />
       </View>
       <ScrollView
+        ref={scrollRef}
         style={estilos.scroll}
         contentContainerStyle={estilos.scrollContenido}
         refreshControl={
           <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
         }
+        onScroll={onScroll}
+        scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
       >
           <View style={estilos.contenidoSobreFondo}>
@@ -334,6 +488,8 @@ export default function ContenidoGeneral({ navigation }) {
                   : previewUrl
                     ? getBaseUrl() + previewUrl
                     : null;
+              const mostrarPreview = !!urlCompleta || bloqueado;
+              const previewSource = urlCompleta ? { uri: urlCompleta } : FONDO_THUGS;
               const vistas = item.numeroVistas ?? 0;
               const likes = item.numeroLikes ?? 0;
               const numComentarios = item.numeroComentarios ?? (Array.isArray(item.comentarios) ? item.comentarios.length : 0);
@@ -346,7 +502,21 @@ export default function ContenidoGeneral({ navigation }) {
               const fechaPub = item.fechaPublicacion ? new Date(item.fechaPublicacion) : null;
               const textoFecha = fechaPub ? tiempoRelativo(fechaPub) : '';
               return (
-                <View key={item.id} style={estilos.cardContenedor}>
+                <View
+                  key={item.id}
+                  style={estilos.cardContenedor}
+                  onLayout={(ev) => {
+                    const id = getId(item);
+                    if (!id) return;
+                    const { y, height } = ev?.nativeEvent?.layout ?? {};
+                    if (typeof y !== 'number' || typeof height !== 'number') return;
+                    cardLayoutsRef.current.set(String(id), { y, height });
+                    // Registrar vista si ya entró visible al pintar (por ejemplo al cargar arriba)
+                    if (height > 0 && y >= 0) {
+                      // el cálculo exacto lo hará el onScroll; aquí evitamos peticiones extra
+                    }
+                  }}
+                >
                   <View style={estilos.card}>
                     <View style={estilos.cardHeader}>
                       <View style={estilos.cardTipoBadge}>
@@ -413,19 +583,30 @@ export default function ContenidoGeneral({ navigation }) {
                           <Text style={estilos.cardCategoria}>Categoría: {categoria}</Text>
                         </View>
                       )}
-                      {urlCompleta && (
+                      {mostrarPreview && (
                         <TouchableOpacity
                           style={estilos.cardPreviewImgCard}
-                          onPress={() => (bloqueado ? navigation.navigate('ContenidoExclusivo') : abrirMediaEnModal(item))}
-                          activeOpacity={0.9}
+                          onPress={() => (bloqueado ? null : abrirMediaEnModal(item))}
+                          activeOpacity={bloqueado ? 1 : 0.9}
+                          disabled={bloqueado}
                         >
                           <Image
-                            source={{ uri: urlCompleta }}
-                            style={estilos.cardPreviewImgInner}
+                            source={previewSource}
+                            style={[estilos.cardPreviewImgInner, bloqueado && estilos.cardPreviewImgBlurWeb]}
                             resizeMode="cover"
                             blurRadius={bloqueado ? 18 : 0}
                           />
-                          {esVideo ? (
+                          {bloqueado ? (
+                            <View pointerEvents="none" style={estilos.cardPreviewObfuscador}>
+                              <View style={estilos.cardPreviewLeyendaCaja}>
+                                <Text style={estilos.cardPreviewLeyendaTitulo}>Para ver contenido Thug</Text>
+                                <Text style={estilos.cardPreviewLeyendaSub}>
+                                  Primero debes de subir de nivel
+                                </Text>
+                              </View>
+                            </View>
+                          ) : null}
+                          {esVideo && !bloqueado ? (
                             <View style={estilos.cardPlayOverlay}>
                               <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.9)" />
                             </View>
@@ -447,69 +628,30 @@ export default function ContenidoGeneral({ navigation }) {
                           <Ionicons name="eye-outline" size={18} color="#888" />
                           <Text style={estilos.cardAccionNumero}>{vistas}</Text>
                         </View>
-                        <View style={estilos.cardAccionItem}>
+                        <TouchableOpacity
+                          style={estilos.cardAccionItem}
+                          onPress={() => onLike(item)}
+                          activeOpacity={0.7}
+                          disabled={bloqueado || likesHechos.has(String(item?.id ?? item?._id?.toString?.() ?? item?._id))}
+                        >
                           <Ionicons name="heart-outline" size={20} color="#888" />
                           <Text style={estilos.cardAccionNumero}>{likes}</Text>
-                        </View>
-                        <View style={estilos.cardAccionItem}>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={estilos.cardAccionItem}
+                          onPress={() => abrirComentarios(item)}
+                          activeOpacity={0.7}
+                          disabled={bloqueado}
+                        >
                           <Ionicons name="chatbubble-outline" size={18} color="#888" />
                           <Text style={estilos.cardAccionNumero}>{numComentarios}</Text>
-                        </View>
+                        </TouchableOpacity>
                       </View>
-
-                      {bloqueado ? (
-                        <View style={estilos.cardFiltro}>
-                          <View style={estilos.cardFiltroPanel}>
-                            <Ionicons name="lock-closed" size={22} color="rgba(255,255,255,0.92)" />
-                            <Text style={estilos.cardFiltroTitulo}>Contenido sensible</Text>
-                            <Text style={estilos.cardFiltroSub}>Zona Thug</Text>
-                            <TouchableOpacity
-                              style={estilos.cardFiltroBoton}
-                              onPress={() => navigation.navigate('ContenidoExclusivo')}
-                            >
-                              <Text style={estilos.cardFiltroBotonTexto}>Ver Zona Thug</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      ) : null}
                     </View>
                   </View>
                 </View>
               );
             })}
-
-        <Text style={estilos.seccion}>Eventos</Text>
-        {eventos.length === 0 && !cargando && (
-          <Text style={estilos.vacio}>Sin eventos.</Text>
-        )}
-        {eventos.map((ev) => (
-          <View key={ev.id} style={estilos.card}>
-            <Text style={estilos.cardTitulo}>{ev.titulo || ''}</Text>
-            <Text style={estilos.cardTexto}>{ev.descripcion || ''}</Text>
-            <Text style={estilos.cardFecha}>
-                  {ev.fechaInicio ? new Date(ev.fechaInicio).toLocaleDateString() : ''} —{' '}
-                  {ev.lugar || ''}
-            </Text>
-            {ev.latitud != null && ev.longitud != null && (
-              <TouchableOpacity onPress={() => abrirMapa(ev.latitud, ev.longitud)}>
-                <Text style={estilos.enlaceMapa}>Mapa</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        ))}
-
-        <Text style={estilos.seccion}>Publicaciones</Text>
-        {publicaciones.length === 0 && !cargando && (
-          <Text style={estilos.vacio}>Sin publicaciones.</Text>
-        )}
-        {publicaciones.map((pub) => (
-          <View key={pub.id} style={estilos.card}>
-            <Text style={estilos.cardTitulo}>{pub.titulo || ''}</Text>
-                <Text style={estilos.cardTexto} numberOfLines={3}>
-                  {pub.contenido || ''}
-                </Text>
-              </View>
-            ))}
             </View>
           </View>
         </ScrollView>
@@ -521,8 +663,9 @@ export default function ContenidoGeneral({ navigation }) {
         animationType="fade"
         onRequestClose={cerrarMediaModal}
       >
-        <Pressable style={estilos.modalMediaFondo} onPress={cerrarMediaModal}>
-          <Pressable style={estilos.modalMediaCaja} onPress={(e) => e.stopPropagation()}>
+        <View style={estilos.modalMediaFondo}>
+          <Pressable style={estilos.modalBackdrop} onPress={cerrarMediaModal} />
+          <View style={estilos.modalMediaCaja}>
             {mediaItem && (
               <>
                 <View style={estilos.modalMediaHeader}>
@@ -555,7 +698,7 @@ export default function ContenidoGeneral({ navigation }) {
                         style={[
                           estilos.cardPreviewImgModal,
                           {
-                            height: ventanaAlto * 0.78,
+                            height: Platform.OS === 'web' ? ventanaAlto * 0.78 : ventanaAlto * 0.45,
                           },
                         ]}
                       >
@@ -662,85 +805,169 @@ export default function ContenidoGeneral({ navigation }) {
                       </View>
                     )}
                   </View>
-                  <View style={estilos.modalMediaColDer}>
-                    <Text style={estilos.modalMediaTitulo}>{mediaItem.titulo || 'Sin título'}</Text>
-                    {mediaItem.previewTexto || mediaItem.descripcion ? (
-                      <Text style={estilos.cardTexto}>
-                        {mediaItem.previewTexto || mediaItem.descripcion}
-                      </Text>
-                    ) : null}
-                    <View style={estilos.modalAccionesFila}>
-                      <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
-                        <View style={estilos.cardAccionItem}>
-                          <Ionicons name="eye-outline" size={18} color="#888" />
-                          <Text style={estilos.cardAccionNumero}>
-                            {mediaItem.numeroVistas ?? 0}
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          style={estilos.cardAccionItem}
-                          onPress={() => onLike(mediaItem)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="heart-outline" size={20} color="#888" />
-                          <Text style={estilos.cardAccionNumero}>
-                            {mediaItem.numeroLikes ?? 0}
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={estilos.cardAccionItem}
-                          onPress={() => abrirComentarios(mediaItem)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="chatbubble-outline" size={18} color="#888" />
-                          <Text style={estilos.cardAccionNumero}>
-                            {Array.isArray(mediaItem.comentarios) ? mediaItem.comentarios.length : mediaItem.numeroComentarios ?? 0}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      {mediaItem.urlMediaCompleta ? (
-                        <TouchableOpacity
-                          style={estilos.modalAbrirArchivo}
-                          onPress={() => abrirContenido(mediaItem)}
-                        >
-                          <Ionicons name="open-outline" size={16} color="#00dc57" />
-                          <Text style={estilos.modalAbrirArchivoTexto}>Abrir archivo</Text>
-                        </TouchableOpacity>
+                  {Platform.OS === 'web' ? (
+                    <View style={estilos.modalMediaColDer}>
+                      <Text style={estilos.modalMediaTitulo}>{mediaItem.titulo || 'Sin título'}</Text>
+                      {mediaItem.previewTexto || mediaItem.descripcion ? (
+                        <Text style={estilos.cardTexto}>
+                          {mediaItem.previewTexto || mediaItem.descripcion}
+                        </Text>
                       ) : null}
+                      <View style={estilos.modalAccionesFila}>
+                        <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
+                          <View style={estilos.cardAccionItem}>
+                            <Ionicons name="eye-outline" size={18} color="#888" />
+                            <Text style={estilos.cardAccionNumero}>
+                              {mediaItem.numeroVistas ?? 0}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={estilos.cardAccionItem}
+                            onPress={() => onLike(mediaItem)}
+                            activeOpacity={0.7}
+                            disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}
+                          >
+                            <Ionicons name="heart-outline" size={20} color="#888" />
+                            <Text style={estilos.cardAccionNumero}>
+                              {mediaItem.numeroLikes ?? 0}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={estilos.cardAccionItem}
+                            onPress={() => abrirComentarios(mediaItem)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="chatbubble-outline" size={18} color="#888" />
+                            <Text style={estilos.cardAccionNumero}>
+                              {Array.isArray(mediaItem.comentarios) ? mediaItem.comentarios.length : mediaItem.numeroComentarios ?? 0}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        {mediaItem.urlMediaCompleta ? (
+                          <TouchableOpacity
+                            style={estilos.modalAbrirArchivo}
+                            onPress={() => abrirContenido(mediaItem)}
+                          >
+                            <Ionicons name="open-outline" size={16} color="#00dc57" />
+                            <Text style={estilos.modalAbrirArchivoTexto}>Abrir archivo</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                      <View style={estilos.modalComentarios}>
+                        <Text style={estilos.modalComentariosTitulo}>Comentarios</Text>
+                        <ScrollView
+                          style={estilos.modalComentariosScroll}
+                          contentContainerStyle={estilos.modalComentariosScrollContenido}
+                          showsVerticalScrollIndicator={false}
+                        keyboardShouldPersistTaps="handled"
+                        >
+                          {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ? (
+                            mediaItem.comentarios.map((c, idx) => {
+                              const esObjeto = c && typeof c === 'object';
+                              const texto = esObjeto ? c.texto || '' : String(c || '');
+                              const usuario = esObjeto ? c.usuario || '' : '';
+                              if (!texto) return null;
+                              return (
+                                <View key={idx} style={estilos.modalComentarioCaja}>
+                                  {usuario ? (
+                                    <Text style={estilos.modalComentarioUsuario}>{usuario}</Text>
+                                  ) : null}
+                                  <Text style={estilos.modalComentarioItem}>{texto}</Text>
+                                </View>
+                              );
+                            })
+                          ) : (
+                            <Text style={estilos.modalComentarioVacio}>Sé el primero en comentar.</Text>
+                          )}
+                        </ScrollView>
+                      </View>
                     </View>
-                    <View style={estilos.modalComentarios}>
-                      <Text style={estilos.modalComentariosTitulo}>Comentarios</Text>
-                      <ScrollView
-                        style={estilos.modalComentariosScroll}
-                        contentContainerStyle={estilos.modalComentariosScrollContenido}
-                        showsVerticalScrollIndicator={false}
-                      >
+                  ) : (
+                    <View style={estilos.modalMediaColDerMobile}>
+                      <Text style={estilos.modalMediaTitulo}>{mediaItem.titulo || 'Sin título'}</Text>
+                      {mediaItem.previewTexto || mediaItem.descripcion ? (
+                        <Text style={estilos.cardTexto} numberOfLines={3}>
+                          {mediaItem.previewTexto || mediaItem.descripcion}
+                        </Text>
+                      ) : null}
+                      <View style={estilos.modalAccionesFilaMobile}>
+                        <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
+                          <View style={estilos.cardAccionItem}>
+                            <Ionicons name="eye-outline" size={18} color="#888" />
+                            <Text style={estilos.cardAccionNumero}>
+                              {mediaItem.numeroVistas ?? 0}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={estilos.cardAccionItem}
+                            onPress={() => onLike(mediaItem)}
+                            activeOpacity={0.7}
+                            disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}
+                          >
+                            <Ionicons name="heart-outline" size={20} color="#888" />
+                            <Text style={estilos.cardAccionNumero}>
+                              {mediaItem.numeroLikes ?? 0}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={estilos.cardAccionItem}
+                            onPress={() => abrirComentarios(mediaItem)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="chatbubble-outline" size={18} color="#888" />
+                            <Text style={estilos.cardAccionNumero}>
+                              {Array.isArray(mediaItem.comentarios) ? mediaItem.comentarios.length : mediaItem.numeroComentarios ?? 0}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        {mediaItem.urlMediaCompleta ? (
+                          <TouchableOpacity
+                            style={estilos.modalAbrirArchivo}
+                            onPress={() => abrirContenido(mediaItem)}
+                          >
+                            <Ionicons name="open-outline" size={16} color="#00dc57" />
+                            <Text style={estilos.modalAbrirArchivoTexto}>Abrir archivo</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                      <View style={estilos.modalComentariosMobile}>
+                        <Text style={estilos.modalComentariosTitulo}>Comentarios</Text>
                         {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ? (
-                          mediaItem.comentarios.map((c, idx) => {
-                            const esObjeto = c && typeof c === 'object';
-                            const texto = esObjeto ? c.texto || '' : String(c || '');
-                            const usuario = esObjeto ? c.usuario || '' : '';
-                            if (!texto) return null;
-                            return (
-                              <View key={idx} style={estilos.modalComentarioCaja}>
-                                {usuario ? (
-                                  <Text style={estilos.modalComentarioUsuario}>{usuario}</Text>
-                                ) : null}
-                                <Text style={estilos.modalComentarioItem}>{texto}</Text>
-                              </View>
-                            );
-                          })
+                          <ScrollView
+                            style={estilos.modalComentariosScrollMobile}
+                            contentContainerStyle={estilos.modalComentariosScrollContenido}
+                            showsVerticalScrollIndicator={false}
+                            nestedScrollEnabled
+                            keyboardShouldPersistTaps="handled"
+                          >
+                            {mediaItem.comentarios.map((c, idx) => {
+                              const esObjeto = c && typeof c === 'object';
+                              const texto = esObjeto ? c.texto || '' : String(c || '');
+                              const usuario = esObjeto ? c.usuario || '' : '';
+                              if (!texto) return null;
+                              return (
+                                <View key={idx} style={estilos.modalComentarioCaja}>
+                                  {usuario ? (
+                                    <Text style={estilos.modalComentarioUsuario}>{usuario}</Text>
+                                  ) : null}
+                                  <Text style={estilos.modalComentarioItem}>{texto}</Text>
+                                </View>
+                              );
+                            })}
+                          </ScrollView>
                         ) : (
-                          <Text style={estilos.modalComentarioVacio}>Sé el primero en comentar.</Text>
+                          <View style={estilos.modalComentariosVacioMobile}>
+                            <Text style={estilos.modalComentarioVacio}>Sé el primero en comentar.</Text>
+                          </View>
                         )}
-      </ScrollView>
+                      </View>
                     </View>
-                  </View>
+                  )}
                 </View>
               </>
             )}
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
 
       <Modal
@@ -825,6 +1052,7 @@ const estilos = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 0,
+    backgroundColor: '#0d0d0d',
   },
   fondoImagen: {
     position: 'absolute',
@@ -834,15 +1062,21 @@ const estilos = StyleSheet.create({
     bottom: 0,
     width: '100%',
     zIndex: 0,
+    backgroundColor: '#0d0d0d',
   },
   scroll: { flex: 1 },
   scrollContenido: {
-    padding: 20,
+    padding: Platform.OS === 'web' ? 20 : 14,
     paddingBottom: 48,
     zIndex: 1,
+    ...(Platform.OS === 'web' ? { alignItems: 'center' } : null),
   },
-  contenidoSobreFondo: { zIndex: 1, alignItems: 'center' },
-  contenidoCentrado: { width: '50%', maxWidth: 600 },
+  contenidoSobreFondo: { zIndex: 1, alignItems: 'center', width: '100%' },
+  contenidoCentrado: {
+    width: Platform.OS === 'web' ? '50%' : '100%',
+    maxWidth: Platform.OS === 'web' ? 600 : '100%',
+    alignSelf: Platform.OS === 'web' ? 'center' : 'stretch',
+  },
   seccion: {
     fontSize: 18,
     color: '#fff',
@@ -854,7 +1088,7 @@ const estilos = StyleSheet.create({
   card: {
     backgroundColor: Platform.OS === 'web' ? 'rgba(26,26,26,0.88)' : 'rgba(28,28,28,0.92)',
     borderRadius: 16,
-    padding: 18,
+    padding: Platform.OS === 'web' ? 18 : 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
     overflow: 'hidden',
@@ -899,15 +1133,19 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
   },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
   modalMediaCaja: {
     width: '96%',
     maxWidth: 1400,
     height: '94%',
     backgroundColor: Platform.OS === 'web' ? 'rgba(18,18,18,0.96)' : 'rgba(18,18,18,0.98)',
     borderRadius: 18,
-    padding: 14,
+    padding: Platform.OS === 'web' ? 14 : 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
   },
   modalMediaHeader: {
     flexDirection: 'row',
@@ -916,14 +1154,80 @@ const estilos = StyleSheet.create({
     marginBottom: 12,
   },
   modalMediaCerrar: { padding: 4 },
-  modalMediaTitulo: { color: '#fff', fontSize: 18, fontWeight: '600', marginTop: 12, marginBottom: 6 },
-  modalMediaCuerpoRow: { flex: 1, flexDirection: 'row', gap: 16 },
-  modalMediaColMedia: { flex: 5, justifyContent: 'center', alignItems: 'center' },
-  modalMediaColDer: { flex: 2 },
-  modalComentarios: { marginTop: 12 },
+  modalMediaTitulo: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: Platform.OS === 'web' ? 12 : 6,
+    marginBottom: Platform.OS === 'web' ? 6 : 4,
+  },
+  modalMediaCuerpoRow: {
+    flex: 1,
+    flexDirection: Platform.OS === 'web' ? 'row' : 'column',
+    gap: Platform.OS === 'web' ? 16 : 10,
+    alignItems: 'stretch',
+  },
+  modalMediaColMedia: {
+    flex: Platform.OS === 'web' ? 5 : 0,
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-start',
+    alignItems: 'center',
+    width: '100%',
+  },
+  modalMediaColDer: {
+    flex: Platform.OS === 'web' ? 2 : 5,
+    minHeight: Platform.OS === 'web' ? undefined : 260,
+    ...(Platform.OS === 'web'
+      ? {
+          display: 'flex',
+          flexDirection: 'column',
+          minHeight: 0,
+          overflow: 'hidden',
+        }
+      : null),
+  },
+  modalMediaColDerMobile: {
+    flex: 1,
+    minHeight: 0,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  modalMediaColDerScroll: {
+    flex: 1,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  modalMediaColDerScrollContenido: {
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  modalComentarios: {
+    marginTop: Platform.OS === 'web' ? 12 : 10,
+    flex: 1,
+    minHeight: 0,
+  },
+  modalComentariosMobile: { marginTop: 10, flex: 1, minHeight: 0 },
   modalComentariosTitulo: { color: '#fff', fontSize: 14, fontWeight: '600', marginBottom: 4 },
-  modalComentariosScroll: { flexGrow: 0 },
+  modalComentariosScroll: { flex: 1, minHeight: 0 },
+  modalComentariosScrollMobile: { flex: 1, minHeight: 0 },
   modalComentariosScrollContenido: { paddingBottom: 12 },
+  modalComentariosVacioMobile: {
+    height: 120,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
   modalComentarioCaja: {
     paddingVertical: 6,
     paddingHorizontal: 8,
@@ -940,6 +1244,15 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+  },
+  modalAccionesFilaMobile: {
+    marginTop: 12,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 10,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.06)',
@@ -979,43 +1292,12 @@ const estilos = StyleSheet.create({
   cardAccionItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardAccionNumero: { color: '#aaa', fontSize: 14 },
   cardCuerpo: { position: 'relative' },
-  cardFiltro: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  cardFiltroPanel: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    maxWidth: 260,
-    width: '100%',
-  },
-  cardFiltroTitulo: { color: '#fff', fontSize: 14, fontWeight: '700', marginTop: 8, textAlign: 'center' },
-  cardFiltroSub: { color: '#00dc57', fontSize: 12, marginTop: 2, textAlign: 'center' },
-  cardFiltroBoton: {
-    marginTop: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: '#00dc57',
-    borderRadius: 8,
-    alignSelf: 'stretch',
-    alignItems: 'center',
-  },
-  cardFiltroBotonTexto: { color: '#000', fontWeight: '700', fontSize: 14 },
   cardMetaThug: { color: '#00dc57' },
   cardTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 6 },
   cardFecha: { color: '#888', fontSize: 12, marginBottom: 4 },
   cardPreviewImgCard: {
     width: '100%',
-    height: 220,
+    height: Platform.OS === 'web' ? 220 : 240,
     borderRadius: 12,
     overflow: 'hidden',
     marginVertical: 12,
@@ -1026,7 +1308,7 @@ const estilos = StyleSheet.create({
     width: '100%',
     borderRadius: 12,
     overflow: 'hidden',
-    marginVertical: 12,
+    marginVertical: Platform.OS === 'web' ? 12 : 6,
     backgroundColor: '#000',
     position: 'relative',
     alignSelf: 'center',
@@ -1041,6 +1323,41 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
   },
   cardPreviewImgInner: { width: '100%', height: '100%' },
+  cardPreviewImgBlurWeb: {
+    ...(Platform.OS === 'web' ? { filter: 'blur(12px)' } : null),
+  },
+  cardPreviewObfuscador: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(12px)' } : null),
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 14,
+  },
+  cardPreviewLeyendaCaja: {
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    maxWidth: 320,
+    width: '100%',
+  },
+  cardPreviewLeyendaTitulo: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  cardPreviewLeyendaSub: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
   cardPreviewVideo: {
     width: '100%',
     height: '100%',

@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
-import { listarEventos, crearEvento, placesAutocomplete, placeDetails } from '../servicios/api';
+import { listarEventos, crearEvento, actualizarEvento, eliminarEvento, placesAutocomplete, placeDetails } from '../servicios/api';
 import { useAuth } from '../contexto/AuthContext';
 import { esAdmin } from '../constantes/nivelesAcceso';
 
@@ -59,6 +59,7 @@ export default function AdminEventos({ navigation }) {
   const [visible, setVisible] = useState(true);
   const [imagenBase64, setImagenBase64] = useState(''); // data-uri
   const [guardando, setGuardando] = useState(false);
+  const [eventoEditandoId, setEventoEditandoId] = useState(null);
 
   const esWeb = Platform.OS === 'web';
   const googleKeyWeb = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -167,6 +168,101 @@ export default function AdminEventos({ navigation }) {
     setRefrescando(false);
   };
 
+  const resetForm = () => {
+    setTitulo('');
+    setDescripcion('');
+    setLugar('');
+    setSugerenciasLugar([]);
+    setLugarSeleccionado(null);
+    setFecha('');
+    setHora('');
+    setFechaDate(null);
+    setHoraDate(null);
+    setMostrarPickerFecha(false);
+    setMostrarPickerHora(false);
+    setLatitud('');
+    setLongitud('');
+    setNivelRequerido('libre');
+    setPrecio('');
+    setCupoMaximo('');
+    setTelefonoContacto('');
+    setVisible(true);
+    setImagenBase64('');
+    setEventoEditandoId(null);
+  };
+
+  const editarEvento = (ev) => {
+    const id = ev?.id || ev?._id;
+    if (!id) return;
+    const fechaEv = ev?.fechaInicio ? new Date(ev.fechaInicio) : null;
+    setEventoEditandoId(String(id));
+    setTitulo(ev?.titulo || '');
+    setDescripcion(ev?.descripcion || '');
+    setLugar(ev?.lugar || '');
+    setFecha(fechaEv instanceof Date && !Number.isNaN(fechaEv.getTime()) ? fmtFecha(fechaEv) : '');
+    setHora(fechaEv instanceof Date && !Number.isNaN(fechaEv.getTime()) ? fmtHora(fechaEv) : '');
+    setFechaDate(fechaEv instanceof Date && !Number.isNaN(fechaEv.getTime()) ? fechaEv : null);
+    setHoraDate(fechaEv instanceof Date && !Number.isNaN(fechaEv.getTime()) ? fechaEv : null);
+    setLatitud(
+      ev?.latitud != null
+        ? String(ev.latitud)
+        : ev?.coordenadas?.lat != null
+          ? String(ev.coordenadas.lat)
+          : ''
+    );
+    setLongitud(
+      ev?.longitud != null
+        ? String(ev.longitud)
+        : ev?.coordenadas?.lng != null
+          ? String(ev.coordenadas.lng)
+          : ''
+    );
+    setNivelRequerido(ev?.nivelRequerido || 'libre');
+    setPrecio(ev?.precio != null ? String(ev.precio) : '');
+    setCupoMaximo(ev?.cupoMaximo != null ? String(ev.cupoMaximo) : ev?.capacidad != null ? String(ev.capacidad) : '');
+    setTelefonoContacto(ev?.telefonoContacto || ev?.telefono || '');
+    setVisible(ev?.visible !== false);
+    setImagenBase64('');
+    setMostrarForm(true);
+  };
+
+  const eliminarEventoCard = (ev) => {
+    const id = String(ev?.id || ev?._id || '');
+    if (!id) return;
+    const nombre = ev?.titulo || 'este evento';
+    const ejecutarEliminacion = async () => {
+      try {
+        await eliminarEvento(id);
+        if (eventoEditandoId === id) {
+          resetForm();
+          setMostrarForm(false);
+        }
+        await cargar();
+      } catch (e) {
+        Alert.alert('Error', e?.message || 'No se pudo eliminar el evento.');
+      }
+    };
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      const ok = window.confirm(`¿Seguro que quieres eliminar "${nombre}"?`);
+      if (ok) ejecutarEliminacion();
+      return;
+    }
+
+    Alert.alert(
+      'Eliminar evento',
+      `¿Seguro que quieres eliminar "${nombre}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: ejecutarEliminacion,
+        },
+      ]
+    );
+  };
+
   const guardarEvento = async () => {
     if (!titulo.trim()) {
       Alert.alert('', 'Escribe un título.');
@@ -215,7 +311,7 @@ export default function AdminEventos({ navigation }) {
 
     setGuardando(true);
     try {
-      await crearEvento({
+      const payload = {
         titulo: titulo.trim(),
         descripcion: descripcion.trim(),
         lugar: lugar.trim(),
@@ -225,32 +321,22 @@ export default function AdminEventos({ navigation }) {
         latitud: lat,
         longitud: lng,
         precio: precioNum,
+        capacidad: cupoNum,
         cupoMaximo: cupoNum,
         telefonoContacto: telefonoContacto.trim(),
+        telefono: telefonoContacto.trim(),
         visible,
         imagenBase64: imagenBase64 || undefined,
         esPublico: true,
         creadoPor: perfil?.id || perfil?._id || '',
-      });
-      setTitulo('');
-      setDescripcion('');
-      setLugar('');
-      setSugerenciasLugar([]);
-      setLugarSeleccionado(null);
-      setFecha('');
-      setHora('');
-      setFechaDate(null);
-      setHoraDate(null);
-      setMostrarPickerFecha(false);
-      setMostrarPickerHora(false);
-      setLatitud('');
-      setLongitud('');
-      setNivelRequerido('libre');
-      setPrecio('');
-      setCupoMaximo('');
-      setTelefonoContacto('');
-      setVisible(true);
-      setImagenBase64('');
+      };
+
+      if (eventoEditandoId) {
+        await actualizarEvento(eventoEditandoId, payload);
+      } else {
+        await crearEvento(payload);
+      }
+      resetForm();
       setMostrarForm(false);
       cargar();
     } catch (e) {
@@ -474,7 +560,10 @@ export default function AdminEventos({ navigation }) {
 
       <TouchableOpacity
         style={estilos.botonAgregar}
-        onPress={() => setMostrarForm(!mostrarForm)}
+        onPress={() => {
+          if (mostrarForm) resetForm();
+          setMostrarForm(!mostrarForm);
+        }}
       >
         <Text style={estilos.botonAgregarTexto}>
           {mostrarForm ? 'Cancelar' : '+ Agregar evento'}
@@ -722,7 +811,7 @@ export default function AdminEventos({ navigation }) {
               disabled={guardando}
             >
               <Text style={estilos.botonGuardarTexto}>
-                {guardando ? 'Guardando…' : 'Guardar evento'}
+                {guardando ? 'Guardando…' : eventoEditandoId ? 'Actualizar evento' : 'Guardar evento'}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -749,6 +838,22 @@ export default function AdminEventos({ navigation }) {
               <Text style={estilos.cardMeta}>
                 {ev.fechaInicio ? new Date(ev.fechaInicio).toLocaleDateString() : ''} — {ev.lugar || ''}
               </Text>
+              <View style={estilos.cardAcciones}>
+                <TouchableOpacity
+                  style={estilos.cardBotonEliminar}
+                  onPress={() => eliminarEventoCard(ev)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={estilos.cardBotonEliminarTexto}>Eliminar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={estilos.cardBotonEditar}
+                  onPress={() => editarEvento(ev)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={estilos.cardBotonEditarTexto}>Editar</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           ))}
         </ScrollView>
@@ -911,4 +1016,23 @@ const estilos = StyleSheet.create({
   cardTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 4 },
   cardTexto: { color: '#aaa', fontSize: 14, marginBottom: 4 },
   cardMeta: { color: '#666', fontSize: 12 },
+  cardAcciones: { marginTop: 10, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
+  cardBotonEliminar: {
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.45)',
+    backgroundColor: 'rgba(239,68,68,0.14)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  cardBotonEliminarTexto: { color: '#fca5a5', fontWeight: '700', fontSize: 13 },
+  cardBotonEditar: {
+    borderWidth: 1,
+    borderColor: 'rgba(0,220,87,0.35)',
+    backgroundColor: 'rgba(0,220,87,0.10)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  cardBotonEditarTexto: { color: '#00dc57', fontWeight: '700', fontSize: 13 },
 });

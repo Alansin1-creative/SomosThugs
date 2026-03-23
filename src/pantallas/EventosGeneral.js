@@ -132,6 +132,15 @@ export default function EventosGeneral({ navigation }) {
     Linking.openURL(url);
   };
 
+  const abrirWhatsApp = (telefono) => {
+    const raw = String(telefono || '').trim();
+    if (!raw) return;
+    const soloDigitos = raw.replace(/[^\d]/g, '');
+    if (!soloDigitos) return;
+    const url = `https://wa.me/${soloDigitos}`;
+    Linking.openURL(url);
+  };
+
   const titulo = 'Eventos';
   const alturaFondoNativo =
     Platform.OS !== 'web'
@@ -214,7 +223,7 @@ export default function EventosGeneral({ navigation }) {
                 const lng = ev.longitud ?? ev.coordenadas?.lng ?? ev.coordenadas?.longitude;
                 const precio = ev.precio != null ? Number(ev.precio) : null;
                 const cupo = ev.cupoMaximo ?? ev.capacidad ?? null;
-                const telefono = ev.telefonoContacto || '';
+                const telefono = ev.telefonoContacto || ev.telefono || '';
                 const enlace = ev.enlaceEntradas || '';
                 const id = String(ev.id || ev._id || '');
                 const eta = id ? etaPorEvento[id]?.texto : null;
@@ -291,53 +300,71 @@ export default function EventosGeneral({ navigation }) {
                       ) : null}
 
                       {(lat != null && lng != null) || telefono || enlace ? (
-                        <View style={estilos.accionesFila}>
+                        <>
                           {lat != null && lng != null ? (
-                            <View style={estilos.accionMapaWrap}>
-                              <TouchableOpacity
-                                style={estilos.botonAccion}
-                                onPress={() => abrirMapa(lat, lng)}
-                                activeOpacity={0.85}
-                              >
-                                <Ionicons name="map-outline" size={16} color="#00dc57" />
-                                <Text style={estilos.botonAccionTexto}>Ver mapa</Text>
-                              </TouchableOpacity>
-                              {ubicacion ? (
-                                <Text style={estilos.etaTexto}>
-                                  {eta ? `≈ ${eta}` : 'Calculando…'}
-                                </Text>
-                              ) : (
+                            <View style={estilos.accionesPrincipalesFila}>
+                              {telefono ? (
+                                <View style={estilos.bloqueWhatsapp}>
+                                  <TouchableOpacity
+                                    style={estilos.botonAccion}
+                                    onPress={() => abrirWhatsApp(telefono)}
+                                    activeOpacity={0.85}
+                                  >
+                                    <Ionicons name="logo-whatsapp" size={16} color="#00dc57" />
+                                    <Text style={estilos.botonAccionTexto}>{`WhatsApp: ${telefono}`}</Text>
+                                  </TouchableOpacity>
+                                </View>
+                              ) : null}
+                              <View style={estilos.bloqueMapa}>
                                 <TouchableOpacity
-                                  onPress={() =>
-                                    Alert.alert('Ubicación', 'Activa la ubicación para ver el tiempo aproximado de ruta.')
-                                  }
+                                  style={estilos.botonAccion}
+                                  onPress={() => abrirMapa(lat, lng)}
+                                  activeOpacity={0.85}
                                 >
-                                  <Text style={estilos.etaTextoMuted}>Activa ubicación</Text>
+                                  <Ionicons name="map-outline" size={16} color="#00dc57" />
+                                  <Text style={estilos.botonAccionTexto}>Ver mapa</Text>
                                 </TouchableOpacity>
-                              )}
+                                {ubicacion ? (
+                                  <Text style={estilos.etaTexto}>
+                                    {eta ? `≈ ${eta}` : 'Calculando…'}
+                                  </Text>
+                                ) : (
+                                  <TouchableOpacity
+                                    onPress={() =>
+                                      Alert.alert('Ubicación', 'Activa la ubicación para ver el tiempo aproximado de ruta.')
+                                    }
+                                  >
+                                    <Text style={estilos.etaTextoMuted}>Activa ubicación</Text>
+                                  </TouchableOpacity>
+                                )}
+                              </View>
                             </View>
                           ) : null}
-                          {telefono ? (
-                            <TouchableOpacity
-                              style={estilos.botonAccion}
-                              onPress={() => Linking.openURL(`tel:${telefono}`)}
-                              activeOpacity={0.85}
-                            >
-                              <Ionicons name="call-outline" size={16} color="#00dc57" />
-                              <Text style={estilos.botonAccionTexto}>Llamar</Text>
-                            </TouchableOpacity>
+                          {telefono && (lat == null || lng == null) ? (
+                            <View style={estilos.accionesFila}>
+                              <TouchableOpacity
+                                style={estilos.botonAccion}
+                                onPress={() => abrirWhatsApp(telefono)}
+                                activeOpacity={0.85}
+                              >
+                                <Ionicons name="logo-whatsapp" size={16} color="#00dc57" />
+                                <Text style={estilos.botonAccionTexto}>{`WhatsApp: ${telefono}`}</Text>
+                              </TouchableOpacity>
+                            </View>
                           ) : null}
                           {enlace ? (
-                            <TouchableOpacity
-                              style={estilos.botonAccion}
-                              onPress={() => Linking.openURL(enlace)}
-                              activeOpacity={0.85}
-                            >
-                              <Ionicons name="open-outline" size={16} color="#00dc57" />
-                              <Text style={estilos.botonAccionTexto}>Entradas</Text>
-                            </TouchableOpacity>
+                            <View style={estilos.accionesFila}>
+                              <TouchableOpacity
+                                style={estilos.botonAccion}
+                                onPress={() => Linking.openURL(enlace)}
+                                activeOpacity={0.85}
+                              >
+                                <Ionicons name="open-outline" size={16} color="#00dc57" />
+                                <Text style={estilos.botonAccionTexto}>Entradas</Text>
+                              </TouchableOpacity>
+                            </View>
                           ) : null}
-                        </View>
+                        </>
                       ) : null}
 
                       {ventanaAlto < 740 ? <View style={{ height: 4 }} /> : null}
@@ -465,8 +492,16 @@ const estilos = StyleSheet.create({
   metaFila: { marginTop: 10, gap: 8 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   metaTexto: { color: '#9ca3af', fontSize: 13, flexShrink: 1 },
+  accionesPrincipalesFila: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 14,
+  },
+  bloqueWhatsapp: { alignItems: 'flex-start' },
+  bloqueMapa: { marginTop: -1, alignItems: 'flex-end' },
   accionesFila: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
-  accionMapaWrap: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   botonAccion: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -479,7 +514,7 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.15)',
   },
   botonAccionTexto: { color: '#00dc57', fontSize: 13, fontWeight: '700' },
-  etaTexto: { color: '#c7c7c7', fontSize: 12, fontWeight: '700' },
-  etaTextoMuted: { color: '#6b7280', fontSize: 12, fontWeight: '700' },
+  etaTexto: { marginTop: 6, color: '#c7c7c7', fontSize: 12, fontWeight: '700' },
+  etaTextoMuted: { marginTop: 6, color: '#6b7280', fontSize: 12, fontWeight: '700' },
 });
 

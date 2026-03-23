@@ -63,6 +63,15 @@ export async function listarEventosPublicos() {
   return request('/eventos/publicos');
 }
 
+export async function listarMisAsistenciasEventos() {
+  return request('/eventos/mis-asistencias');
+}
+
+export async function confirmarAsistenciaEvento(id) {
+  const idStr = id != null ? String(id) : '';
+  return request(`/eventos/${idStr}/asistencia`, { method: 'POST', body: JSON.stringify({}) });
+}
+
 /** Lista todos los eventos (solo admin) */
 export async function listarEventos() {
   return request('/eventos');

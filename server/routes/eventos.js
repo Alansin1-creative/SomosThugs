@@ -26,13 +26,25 @@ function guardarImagenBase64(base64) {
 function toDoc(doc) {
   if (!doc) return null;
   const o = doc.toObject ? doc.toObject() : doc;
-  return { id: o._id.toString(), ...o, _id: undefined };
+  const asistentesArr = Array.isArray(o.asistentes) ? o.asistentes : [];
+  const capacidadNum = Number(o.capacidad);
+  const capacidad = Number.isFinite(capacidadNum) ? capacidadNum : null;
+  return {
+    id: o._id.toString(),
+    ...o,
+    telefonoContacto: o.telefonoContacto || o.telefono || '',
+    capacidad,
+    cupoMaximo: capacidad,
+    asistentes: undefined,
+    totalConfirmados: asistentesArr.length,
+    _id: undefined,
+  };
 }
 
 router.get('/publicos', async (req, res) => {
   try {
     const lista = await Evento.find({ esPublico: true }).sort({ fechaInicio: -1 }).limit(50).lean();
-    res.json(lista.map((d) => ({ id: d._id.toString(), ...d, _id: undefined })));
+    res.json(lista.map((d) => toDoc(d)));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -41,7 +53,43 @@ router.get('/publicos', async (req, res) => {
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const lista = await Evento.find().sort({ fechaInicio: -1 }).limit(50).lean();
-    res.json(lista.map((d) => ({ id: d._id.toString(), ...d, _id: undefined })));
+    res.json(lista.map((d) => toDoc(d)));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/mis-asistencias', authMiddleware, async (req, res) => {
+  try {
+    const userId = String(req.userId);
+    const lista = await Evento.find({ asistentes: req.userId }).select('_id').lean();
+    const ids = lista.map((d) => String(d._id));
+    res.json({ ids, userId });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.post('/:id/asistencia', authMiddleware, async (req, res) => {
+  try {
+    const doc = await Evento.findById(req.params.id);
+    if (!doc) return res.status(404).json({ error: 'No encontrado' });
+
+    const userId = String(req.userId);
+    const asistentes = (Array.isArray(doc.asistentes) ? doc.asistentes : []).map((x) => String(x));
+    if (asistentes.includes(userId)) {
+      return res.json({ ok: true, yaConfirmado: true, evento: toDoc(doc) });
+    }
+
+    const capacidad = Number(doc.capacidad);
+    const limite = Number.isFinite(capacidad) && capacidad >= 0 ? capacidad : null;
+    if (limite != null && asistentes.length >= limite) {
+      return res.status(409).json({ error: 'Cupo lleno', cupoLleno: true, evento: toDoc(doc) });
+    }
+
+    doc.asistentes = [...(doc.asistentes || []), req.userId];
+    await doc.save();
+    res.json({ ok: true, yaConfirmado: false, evento: toDoc(doc) });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -60,6 +108,16 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const b = req.body || {};
     const doc = { ...b };
+    const tel = String(b.telefonoContacto ?? b.telefono ?? '').trim();
+    if (tel) {
+      doc.telefonoContacto = tel;
+      doc.telefono = tel;
+    }
+    if (b.cupoMaximo != null && b.capacidad == null) {
+      const cap = Number(b.cupoMaximo);
+      doc.capacidad = Number.isFinite(cap) ? cap : undefined;
+    }
+    delete doc.cupoMaximo;
     // Permitir subir imagen promocional en base64 desde el admin
     if (b.imagenBase64) {
       doc.imagenUrl = guardarImagenBase64(b.imagenBase64) || doc.imagenUrl;
@@ -81,6 +139,16 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const b = req.body || {};
     const update = { ...b };
+    const tel = String(b.telefonoContacto ?? b.telefono ?? '').trim();
+    if (tel) {
+      update.telefonoContacto = tel;
+      update.telefono = tel;
+    }
+    if (b.cupoMaximo != null && b.capacidad == null) {
+      const cap = Number(b.cupoMaximo);
+      update.capacidad = Number.isFinite(cap) ? cap : undefined;
+    }
+    delete update.cupoMaximo;
     if (b.imagenBase64) {
       update.imagenUrl = guardarImagenBase64(b.imagenBase64) || update.imagenUrl;
       delete update.imagenBase64;

@@ -1,15 +1,43 @@
-// URL del backend. En web se calcula en runtime para que Netlify use siempre Railway.
+import { Platform } from 'react-native';
+
 const API_URL_PRODUCCION = 'https://somosthugs-production.up.railway.app';
+const API_URL_LOCAL = 'http://localhost:4000';
+
+function clean(url) {
+  return String(url || '').replace(/\/+$/, '');
+}
+
+function urlApuntaALocalhost(url) {
+  return /localhost|127\.0\.0\.1/.test(String(url || ''));
+}
 
 function getBaseUrl() {
-  if (typeof window !== 'undefined') {
-    const origin = window.location?.origin || '';
-    if (origin === 'https://somosthugs.netlify.app' || origin.endsWith('.netlify.app'))
-      return API_URL_PRODUCCION.replace(/\/+$/, '');
+  // En app nativa (Expo Go/dispositivo), localhost no funciona para backend de la PC.
+  // Usamos Railway por defecto para evitar bloqueos de login/API.
+  if (Platform.OS !== 'web') {
+    return clean(process.env.EXPO_PUBLIC_API_URL_NATIVE || API_URL_PRODUCCION);
   }
-  const env = process.env.EXPO_PUBLIC_API_URL || '';
-  if (env) return env.replace(/\/+$/, '');
-  return 'http://localhost:4000';
+
+  // Web en navegador: solo localhost/127 usa API local; cualquier otro dominio (somosthugs.com, Netlify, etc.) -> producción.
+  if (typeof window !== 'undefined') {
+    const hostname = window.location?.hostname || '';
+    const esLocalWeb = hostname === 'localhost' || hostname === '127.0.0.1';
+    if (esLocalWeb) {
+      return clean(process.env.EXPO_PUBLIC_API_URL_WEB || API_URL_LOCAL);
+    }
+    const envUrl = process.env.EXPO_PUBLIC_API_URL;
+    if (envUrl && !urlApuntaALocalhost(envUrl)) {
+      return clean(envUrl);
+    }
+    return clean(API_URL_PRODUCCION);
+  }
+
+  // Build estático (export) sin window: no hornear localhost si .env de desarrollo apunta al PC
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl && !urlApuntaALocalhost(envUrl)) {
+    return clean(envUrl);
+  }
+  return clean(API_URL_PRODUCCION);
 }
 
 export { getBaseUrl };

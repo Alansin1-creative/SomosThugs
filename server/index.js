@@ -18,6 +18,8 @@ const corsOptions = {
   origin: [
     'https://somosthugs.netlify.app',
     /\.netlify\.app$/,
+    'https://somosthugs.com',
+    'https://www.somosthugs.com',
     // GitHub Pages / dominio custom
     'https://rolandocalles.com',
     'https://www.rolandocalles.com',

@@ -1,4 +1,5 @@
-# Railway: con Root Directory = /server, construye desde esta carpeta
+# Docker con contexto solo en /server (p. ej. Root Directory = server en Railway).
+# Si el build es desde la raíz del repo, usa el Dockerfile de la raíz del proyecto.
 FROM node:20-alpine
 
 WORKDIR /app

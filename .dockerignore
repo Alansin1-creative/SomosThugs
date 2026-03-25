@@ -1,0 +1,14 @@
+# Contexto de build en la raíz: no enviar app Expo ni dependencias pesadas al daemon.
+.git
+.github
+node_modules
+dist-web
+.expo
+app
+src
+assets
+scripts
+hostinger
+**/*.md
+.env
+.env.*

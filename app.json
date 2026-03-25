@@ -19,6 +19,13 @@
       "expo-asset",
       "expo-web-browser"
     ],
-    "web": { "favicon": "./assets/favicon.png" }
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "Somos Thugs",
+      "shortName": "Somos Thugs",
+      "lang": "es",
+      "themeColor": "#0d0d0d",
+      "backgroundColor": "#0d0d0d"
+    }
   }
 }

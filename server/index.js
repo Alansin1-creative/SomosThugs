@@ -13,11 +13,9 @@ const contenidoExclusivoRoutes = require('./routes/contenidoExclusivo');
 const mapsRoutes = require('./routes/maps');
 
 const app = express();
-// CORS explícito para Netlify; evita 502 en preflight y error CORS en el navegador
+// CORS explícito: solo orígenes permitidos (web en Hostinger, dev local, otros dominios autorizados)
 const corsOptions = {
   origin: [
-    'https://somosthugs.netlify.app',
-    /\.netlify\.app$/,
     'https://somosthugs.com',
     'https://www.somosthugs.com',
     // GitHub Pages / dominio custom

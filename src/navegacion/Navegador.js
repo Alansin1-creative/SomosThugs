@@ -1,9 +1,8 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { View } from 'react-native';
 import { NavigationContainer, NavigationIndependentTree } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAuth } from '../contexto/AuthContext';
-import WebAnuncioAdSense from '../componentes/WebAnuncioAdSense';
 import InicioPresskit from '../pantallas/InicioPresskit';
 import Perfil from '../pantallas/Perfil';
 import MenuAdmin from '../pantallas/MenuAdmin';
@@ -14,7 +13,7 @@ import AdminEventos from '../pantallas/AdminEventos';
 import EventosGeneral from '../pantallas/EventosGeneral';
 import ContenidoGeneral from '../pantallas/ContenidoGeneral';
 import ContenidoExclusivo from '../pantallas/ContenidoExclusivo';
-import { esAdmin } from '../constantes/nivelesAcceso';
+import { nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,39 +22,56 @@ const opcionesBase = {
   contentStyle: { backgroundColor: '#0d0d0d' },
 };
 
+function obtenerRutaActiva(state) {
+  if (!state || typeof state.index !== 'number') return null;
+  const route = state.routes?.[state.index];
+  if (!route) return null;
+  if (route.state) return obtenerRutaActiva(route.state);
+  return route.name || null;
+}
+
 export default function Navegador() {
   const { cargando, perfil } = useAuth();
+  const navRef = useRef(null);
+  const [rutaActual, setRutaActual] = useState(null);
 
   if (cargando) {
     return null;
   }
 
-  const admin = !!perfil && esAdmin(perfil);
-
-  // Solo admin va al panel; fan y thug entran en Inicio (logo + presskit) y desde ahí al menú.
-  const rutaInicial = admin ? 'ModoAdmin' : 'Inicio';
+  // Sin sesión → presskit. Con sesión → contenido general o panel admin.
+  const rutaInicial = perfil ? nombreRutaHomeApp(perfil) : 'Inicio';
 
   return (
     <View style={{ flex: 1, backgroundColor: '#0d0d0d' }}>
       <View style={{ flex: 1 }}>
         <NavigationIndependentTree>
-          <NavigationContainer>
+          <NavigationContainer
+            ref={navRef}
+            onReady={() => {
+              const route = navRef.current?.getCurrentRoute?.();
+              setRutaActual(route?.name || null);
+            }}
+            onStateChange={(state) => {
+              const activa = obtenerRutaActiva(state);
+              setRutaActual(activa);
+            }}
+          >
             <Stack.Navigator screenOptions={opcionesBase} initialRouteName={rutaInicial}>
-              <Stack.Screen name="Inicio" component={InicioPresskit} />
-              <Stack.Screen name="Perfil" component={Perfil} />
-              <Stack.Screen name="MenuAdmin" component={MenuAdmin} />
-              <Stack.Screen name="ModoAdmin" component={ModoAdmin} />
-              <Stack.Screen name="AdminUsuarios" component={AdminUsuarios} />
-              <Stack.Screen name="AdminContenidoExclusivo" component={AdminContenidoExclusivo} />
-              <Stack.Screen name="AdminEventos" component={AdminEventos} />
-              <Stack.Screen name="EventosGeneral" component={EventosGeneral} />
-              <Stack.Screen name="ContenidoGeneral" component={ContenidoGeneral} />
-              <Stack.Screen name="ContenidoExclusivo" component={ContenidoExclusivo} />
+              <Stack.Screen name="Inicio" component={InicioPresskit} options={{ title: 'Presskit' }} />
+              <Stack.Screen name="Perfil" component={Perfil} options={{ title: 'Perfil' }} />
+              <Stack.Screen name="MenuAdmin" component={MenuAdmin} options={{ title: 'Panel Admin' }} />
+              <Stack.Screen name="ModoAdmin" component={ModoAdmin} options={{ title: 'Admin' }} />
+              <Stack.Screen name="AdminUsuarios" component={AdminUsuarios} options={{ title: 'Admin Usuarios' }} />
+              <Stack.Screen name="AdminContenidoExclusivo" component={AdminContenidoExclusivo} options={{ title: 'Admin Contenido' }} />
+              <Stack.Screen name="AdminEventos" component={AdminEventos} options={{ title: 'Admin Eventos' }} />
+              <Stack.Screen name="EventosGeneral" component={EventosGeneral} options={{ title: 'Eventos' }} />
+              <Stack.Screen name="ContenidoGeneral" component={ContenidoGeneral} options={{ title: 'Contenido' }} />
+              <Stack.Screen name="ContenidoExclusivo" component={ContenidoExclusivo} options={{ title: 'Contenido Exclusivo' }} />
             </Stack.Navigator>
           </NavigationContainer>
         </NavigationIndependentTree>
       </View>
-      <WebAnuncioAdSense />
     </View>
   );
 }

@@ -1,0 +1,18 @@
+# Hostinger / Apache: SPA (Expo web). Sube este archivo junto al resto en public_html.
+# Si la app estuviera en una subcarpeta, cambia RewriteBase a /nombrecarpeta/
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Caché ligera para assets con hash (opcional)
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|woff2?|ttf|ico|png|jpg|jpeg|gif|webp|svg)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>

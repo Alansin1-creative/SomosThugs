@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { Platform } from 'react-native';
 import { obtenerPerfil, signOut as authSignOut } from '../servicios/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NIVEL_LIBRE } from '../constantes/nivelesAcceso';
@@ -18,6 +19,17 @@ export function AuthProvider({ children }) {
   const [perfil, setPerfil] = useState(null);
   const [cargando, setCargando] = useState(true);
 
+  const intentarRegistrarPush = async () => {
+    // Evitar cualquier dependencia nativa de notificaciones en web.
+    if (Platform.OS === 'web') return;
+    try {
+      const mod = await import('../servicios/push');
+      await mod?.registrarPushUsuario?.();
+    } catch (_) {
+      // noop
+    }
+  };
+
   const nivelAcceso = perfil?.nivelAcceso ?? NIVEL_LIBRE;
 
   useEffect(() => {
@@ -30,7 +42,10 @@ export function AuthProvider({ children }) {
       }
       try {
         const p = await obtenerPerfil();
-        if (!cancel) setPerfil(p);
+        if (!cancel) {
+          setPerfil(p);
+          intentarRegistrarPush();
+        }
       } catch (_) {
         if (!cancel) {
           setPerfil(null);
@@ -50,6 +65,7 @@ export function AuthProvider({ children }) {
 
   const establecerPerfil = (p) => {
     setPerfil(p);
+    intentarRegistrarPush();
   };
 
   const value = {

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
   RefreshControl,
   Linking,
   Platform,
@@ -20,13 +21,56 @@ import { Video } from 'expo-av';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
-import { listarEventosPublicos, listarPublicaciones, listarFeedUnificado, registrarVistaContenido, darLikeContenido, agregarComentarioContenido } from '../servicios/api';
+import {
+  listarEventosPublicos,
+  listarPublicaciones,
+  listarFeedUnificado,
+  listarContenidoExclusivoFeed,
+  registrarVistaContenido,
+  darLikeContenido,
+  agregarComentarioContenido,
+} from '../servicios/api';
 import { puedeVerContenidoExclusivo } from '../constantes/nivelesAcceso';
 import { useAuth } from '../contexto/AuthContext';
 import { getBaseUrl } from '../config/api';
+import HeaderAppConMenu from '../componentes/HeaderAppConMenu';
 
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
-const LOGO_THUGS = require('../../assets/logothugs.png');
+
+/** URL final para <video> / Image: mismo host que la API actual (corrige BD con localhost u otro dominio en uploads). */
+function absolutizarRutaMedia(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return null;
+  if (s.startsWith('data:')) return s;
+
+  const base = getBaseUrl();
+
+  if (s.startsWith('http://') || s.startsWith('https://')) {
+    try {
+      const u = new URL(s);
+      const path = `${u.pathname || ''}${u.search || ''}${u.hash || ''}`;
+      // Contenido servido por esta API desde /uploads/…
+      if (path.startsWith('/uploads')) {
+        return `${base}${path}`;
+      }
+      return s;
+    } catch {
+      return s;
+    }
+  }
+
+  return base + (s.startsWith('/') ? s : `/${s}`);
+}
+
+function clasificarMedia(item, urlAValidar) {
+  const tipo = String(item?.tipoContenido || item?.tipo || '').toLowerCase().trim();
+  if (tipo === 'video' || tipo === 'audio' || tipo === 'imagen') return tipo;
+  const src = String(urlAValidar || item?.urlMediaCompleta || item?.urlMedia || '').toLowerCase();
+  if (/\.(mp4|webm|ogg|m4v|mov)(\?|#|$)/.test(src)) return 'video';
+  if (/\.(mp3|wav|aac|m4a|flac|oga)(\?|#|$)/.test(src)) return 'audio';
+  if (/\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/.test(src)) return 'imagen';
+  return 'articulo';
+}
 
 function tiempoRelativo(fecha) {
   if (!fecha || !(fecha instanceof Date)) return '';
@@ -45,6 +89,78 @@ function tiempoRelativo(fecha) {
   return y === 1 ? 'Hace 1 año' : `Hace ${y} años`;
 }
 
+/**
+ * Web: <video> nativo, object-fit contain.
+ * autoplay+muted: los navegadores permiten autoplay silenciado y muestran fotograma; el usuario puede subir volumen en los controles.
+ */
+function VideoModalPlayerWeb({ src, poster, videoRef, onAspectKnown, onEnded, onVideoError }) {
+  const setRef = (el) => {
+    if (videoRef && typeof videoRef === 'object' && 'current' in videoRef) {
+      videoRef.current = el;
+    }
+    // RN-Web a veces no aplica objectFit al nodo <video>; forzar en el DOM.
+    if (el && typeof el.style !== 'undefined') {
+      el.style.display = 'block';
+      el.style.flex = '1 1 auto';
+      el.style.alignSelf = 'stretch';
+      el.style.width = '100%';
+      el.style.height = '100%';
+      el.style.minWidth = '0';
+      el.style.minHeight = '0';
+      el.style.maxWidth = '100%';
+      el.style.maxHeight = '100%';
+      el.style.objectFit = 'contain';
+      el.style.objectPosition = 'center center';
+      el.style.backgroundColor = '#000';
+    }
+  };
+  return React.createElement('video', {
+    ref: setRef,
+    src,
+    poster: poster || undefined,
+    controls: true,
+    playsInline: true,
+    muted: true,
+    autoPlay: true,
+    preload: 'auto',
+    style: {
+      display: 'block',
+      flex: 1,
+      alignSelf: 'stretch',
+      width: '100%',
+      height: '100%',
+      minWidth: 0,
+      minHeight: 0,
+      maxWidth: '100%',
+      maxHeight: '100%',
+      objectFit: 'contain',
+      objectPosition: 'center center',
+      backgroundColor: '#000',
+    },
+    onLoadedMetadata: (e) => {
+      const v = e?.currentTarget;
+      if (v?.videoWidth && v?.videoHeight) {
+        onAspectKnown(v.videoWidth / v.videoHeight);
+      }
+    },
+    onError: (e) => {
+      const err = e?.currentTarget?.error;
+      const code = err?.code;
+      const msg =
+        code === 1 ? 'Carga interrumpida'
+        : code === 2 ? 'Error de red'
+        : code === 3 ? 'No se pudo decodificar el vídeo'
+        : code === 4 ? 'Formato no soportado o URL inválida'
+        : 'No se pudo cargar el vídeo';
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn('[VideoModal]', msg, src, err);
+      }
+      onVideoError?.(msg);
+    },
+    onEnded: onEnded,
+  });
+}
+
 export default function ContenidoGeneral({ navigation }) {
   const insets = useSafeAreaInsets();
   const { perfil, cerrarSesion, cargando: authCargando } = useAuth();
@@ -59,6 +175,8 @@ export default function ContenidoGeneral({ navigation }) {
   const [ubicacion, setUbicacion] = useState(null);
   const [refrescando, setRefrescando] = useState(false);
   const [cargando, setCargando] = useState(true);
+  const [errorCarga, setErrorCarga] = useState('');
+  const [detalleErrorDev, setDetalleErrorDev] = useState('');
   const [comentarioItem, setComentarioItem] = useState(null);
   const [comentarioTexto, setComentarioTexto] = useState('');
   const [enviandoComentario, setEnviandoComentario] = useState(false);
@@ -67,6 +185,7 @@ export default function ContenidoGeneral({ navigation }) {
   const [mediaAspectRatio, setMediaAspectRatio] = useState(null);
   const [videoTerminado, setVideoTerminado] = useState(false);
   const videoRef = useRef(null);
+  const webVideoRef = useRef(/** @type {HTMLVideoElement | null} */ (null));
   const [likesHechos, setLikesHechos] = useState(() => new Set());
   const cardLayoutsRef = useRef(new Map()); // id -> { y, height }
   const vistasHechasRef = useRef(new Set()); // ids ya contados (persistido por usuario)
@@ -133,12 +252,24 @@ export default function ContenidoGeneral({ navigation }) {
     return () => { cancel = true; };
   }, [perfil]);
 
+  const withTimeout = (promise, ms = 12000) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Tiempo de espera agotado.')), ms)
+      ),
+    ]);
+
   const cargarDatos = async () => {
+    setErrorCarga('');
+    setDetalleErrorDev('');
+    setCargando(true);
     try {
-      const [resEventos, resPublicaciones, resFeed] = await Promise.allSettled([
-        listarEventosPublicos(),
-        listarPublicaciones(),
-        listarFeedUnificado(),
+      const [resEventos, resPublicaciones, resFeed, resFeedFan] = await Promise.allSettled([
+        withTimeout(listarEventosPublicos()),
+        withTimeout(listarPublicaciones()),
+        withTimeout(listarFeedUnificado()),
+        withTimeout(listarContenidoExclusivoFeed()),
       ]);
       setEventos(
         resEventos.status === 'fulfilled' && Array.isArray(resEventos.value) ? resEventos.value : []
@@ -148,22 +279,74 @@ export default function ContenidoGeneral({ navigation }) {
           ? resPublicaciones.value
           : []
       );
-      setContenidoUnificado(
-        resFeed.status === 'fulfilled' && Array.isArray(resFeed.value) ? resFeed.value : []
-      );
+      const feedUnificado =
+        resFeed.status === 'fulfilled' && Array.isArray(resFeed.value) ? resFeed.value : [];
+      const feedFan =
+        resFeedFan.status === 'fulfilled' && Array.isArray(resFeedFan.value) ? resFeedFan.value : [];
+      const fallbackPublicaciones =
+        resPublicaciones.status === 'fulfilled' && Array.isArray(resPublicaciones.value)
+          ? resPublicaciones.value
+          : [];
+      const fallbackEventos =
+        resEventos.status === 'fulfilled' && Array.isArray(resEventos.value) ? resEventos.value : [];
+      const contenidoFinal =
+        feedUnificado.length > 0
+          ? feedUnificado
+          : feedFan.length > 0
+            ? feedFan
+            : [...fallbackPublicaciones, ...fallbackEventos];
+      const listaNormalizada = Array.isArray(contenidoFinal)
+        ? contenidoFinal.filter((x) => x && typeof x === 'object')
+        : [];
+      setContenidoUnificado((prev) => {
+        if (listaNormalizada.length > 0) return listaNormalizada;
+        // Evita parpadeo: si una recarga transitoria regresa vacío, mantenemos lo último visible.
+        return Array.isArray(prev) ? prev : [];
+      });
       if (resFeed.status === 'rejected') {
         console.warn('Feed unificado:', resFeed.reason);
       }
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        const partes = [];
+        partes.push(
+          `items feed-unificado: ${
+            resFeed.status === 'fulfilled' && Array.isArray(resFeed.value) ? resFeed.value.length : 0
+          }`
+        );
+        partes.push(
+          `items feed-fan: ${
+            resFeedFan.status === 'fulfilled' && Array.isArray(resFeedFan.value) ? resFeedFan.value.length : 0
+          }`
+        );
+        if (resEventos.status === 'rejected') partes.push(`eventos: ${resEventos.reason?.message || 'error'}`);
+        if (resPublicaciones.status === 'rejected') partes.push(`publicaciones: ${resPublicaciones.reason?.message || 'error'}`);
+        if (resFeed.status === 'rejected') partes.push(`feed: ${resFeed.reason?.message || 'error'}`);
+        if (resFeedFan.status === 'rejected') partes.push(`feed-fan: ${resFeedFan.reason?.message || 'error'}`);
+        setDetalleErrorDev(partes.join(' | '));
+      }
+      const todasFallaron =
+        resEventos.status === 'rejected' &&
+        resPublicaciones.status === 'rejected' &&
+        resFeed.status === 'rejected' &&
+        resFeedFan.status === 'rejected';
+      if (todasFallaron) {
+        setErrorCarga('No se pudo cargar el contenido. Revisa servidor/API y vuelve a intentar.');
+      }
     } catch (e) {
       console.warn(e);
+      setErrorCarga('No se pudo cargar el contenido.');
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        setDetalleErrorDev(e?.message || 'error desconocido');
+      }
     } finally {
       setCargando(false);
     }
   };
 
   useEffect(() => {
+    if (authCargando || !perfil) return;
     cargarDatos();
-  }, []);
+  }, [perfil, authCargando]);
 
   const pedirUbicacion = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -187,27 +370,48 @@ export default function ContenidoGeneral({ navigation }) {
     setRefrescando(false);
   };
 
-  const abrirContenido = (item) => {
-    // Solo abre el archivo principal (urlMediaCompleta), no la imagen/video de preview
-    const mediaUrl = item.urlMediaCompleta;
-    if (!mediaUrl) return;
-    Linking.openURL(mediaUrl.startsWith('http') ? mediaUrl : getBaseUrl() + mediaUrl);
+  const abrirContenido = async (item) => {
+    const mediaUrl = item.urlMediaCompleta || item.urlMedia;
+    if (!mediaUrl) {
+      Alert.alert('Archivo', 'No hay enlace disponible.');
+      return;
+    }
+    const url = absolutizarRutaMedia(mediaUrl);
+    if (!url) {
+      Alert.alert('Archivo', 'No hay enlace disponible.');
+      return;
+    }
+    try {
+      await Linking.openURL(url);
+    } catch (e) {
+      Alert.alert('Archivo', e?.message || 'No se pudo abrir el archivo.');
+    }
   };
 
   const abrirMediaEnModal = async (item) => {
     const previewUrl = item.urlMedia || null;
     const mediaUrl = item.urlMediaCompleta || item.urlMedia || null;
     if (!mediaUrl && !previewUrl) return;
-    // La vista se registra al entrar al viewport. Evitar doble conteo si abren el modal.
+    const tipo = clasificarMedia(item, mediaUrl);
+    // Preview suele ser miniatura imagen; vídeo/audio deben usar el archivo completo primero.
+    const urlCruda =
+      tipo === 'video' || tipo === 'audio'
+        ? item.urlMediaCompleta || item.urlMedia
+        : previewUrl || mediaUrl;
+    const urlVisual = absolutizarRutaMedia(urlCruda);
+    if (!urlVisual) return;
     setMediaItem(item);
-    let urlVisual = previewUrl || mediaUrl;
-    if (urlVisual && !urlVisual.startsWith('http') && !urlVisual.startsWith('data:')) {
-      urlVisual = getBaseUrl() + urlVisual;
-    }
     setMediaUrlSeleccionada(urlVisual);
   };
 
   const cerrarMediaModal = () => {
+    if (Platform.OS === 'web' && webVideoRef.current) {
+      try {
+        webVideoRef.current.pause();
+      } catch (_) {
+        /* noop */
+      }
+    }
     setMediaItem(null);
     setMediaUrlSeleccionada(null);
     setMediaAspectRatio(null);
@@ -400,29 +604,25 @@ export default function ContenidoGeneral({ navigation }) {
     });
   };
 
-  const titulo = 'Contenido general';
   const alturaFondoNativo =
     !esWeb
       ? Dimensions.get('window').height - (insets.top + 8 + 48) + insets.bottom
       : null;
 
+  const tipoModalAbierto = mediaItem
+    ? clasificarMedia(mediaItem, mediaUrlSeleccionada)
+    : '';
+  const posterModalVideoAbs = esWeb && mediaItem && tipoModalAbierto === 'video' && mediaItem.urlMedia
+    ? absolutizarRutaMedia(mediaItem.urlMedia)
+    : null;
+  const posterModalVideoWeb =
+    posterModalVideoAbs && mediaUrlSeleccionada && posterModalVideoAbs !== mediaUrlSeleccionada
+      ? posterModalVideoAbs
+      : undefined;
+
   return (
-    <View style={[estilos.contenedor, { paddingTop: insets.top + 8 }]}>
-      <View style={estilos.header}>
-          <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={estilos.headerBack}
-          hitSlop={10}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-          <Image source={LOGO_THUGS} style={estilos.headerLogoImg} resizeMode="contain" />
-        </TouchableOpacity>
-        <Text style={estilos.headerTitulo} pointerEvents="none">
-          {titulo}
-        </Text>
-        <View style={estilos.headerEspacioDer} />
-      </View>
+    <View style={estilos.contenedor}>
+      <HeaderAppConMenu navigation={navigation} scrollRef={scrollRef} />
       <View style={estilos.areaContenido}>
         <View
           style={[
@@ -473,6 +673,23 @@ export default function ContenidoGeneral({ navigation }) {
         )}
 
             <Text style={estilos.seccion}>Contenido</Text>
+            {cargando && (
+              <View style={estilos.estadoCargaCaja}>
+                <ActivityIndicator color="#00dc57" />
+                <Text style={estilos.estadoCargaTexto}>Cargando contenido...</Text>
+              </View>
+            )}
+            {!cargando && !!errorCarga && (
+              <View style={estilos.estadoErrorCaja}>
+                <Text style={estilos.estadoErrorTexto}>{errorCarga}</Text>
+                {typeof __DEV__ !== 'undefined' && __DEV__ && !!detalleErrorDev ? (
+                  <Text style={estilos.estadoErrorDetalleDev}>{detalleErrorDev}</Text>
+                ) : null}
+                <TouchableOpacity style={estilos.estadoErrorBoton} onPress={cargarDatos}>
+                  <Text style={estilos.estadoErrorBotonTexto}>Reintentar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             {contenidoUnificado.length === 0 && !cargando && (
               <View style={estilos.vacioCaja}>
                 <Text style={estilos.vacio}>Sin contenido aún.</Text>
@@ -481,25 +698,21 @@ export default function ContenidoGeneral({ navigation }) {
                 </Text>
               </View>
             )}
-            {contenidoUnificado.map((item) => {
+            {contenidoUnificado.map((item, idx) => {
+              const itemId = getId(item) || `${item?.titulo || 'item'}-${idx}`;
               const bloqueado =
                 item.bloqueado === true ||
                 (item.nivelRequerido === 'thug' &&
                   !puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol));
               const previewUrl = item.urlMedia || null;
               const mediaUrl = item.urlMediaCompleta || item.urlMedia || null;
-              const urlCompleta =
-                previewUrl && (previewUrl.startsWith('http') || previewUrl.startsWith('data:'))
-                  ? previewUrl
-                  : previewUrl
-                    ? getBaseUrl() + previewUrl
-                    : null;
+              const urlCompleta = previewUrl ? absolutizarRutaMedia(previewUrl) : null;
               const mostrarPreview = !!urlCompleta || bloqueado;
               const previewSource = urlCompleta ? { uri: urlCompleta } : FONDO_THUGS;
               const vistas = item.numeroVistas ?? 0;
               const likes = item.numeroLikes ?? 0;
               const numComentarios = item.numeroComentarios ?? (Array.isArray(item.comentarios) ? item.comentarios.length : 0);
-              const tipo = item.tipoContenido || item.tipo || 'articulo';
+              const tipo = clasificarMedia(item, mediaUrl);
               const esVideo = tipo === 'video';
               const textoPrincipal = item.previewTexto || item.descripcion || '';
               const complementario = item.complementario || '';
@@ -509,7 +722,7 @@ export default function ContenidoGeneral({ navigation }) {
               const textoFecha = fechaPub ? tiempoRelativo(fechaPub) : '';
               return (
                 <View
-                  key={item.id}
+                  key={itemId}
                   style={estilos.cardContenedor}
                   onLayout={(ev) => {
                     const id = getId(item);
@@ -552,45 +765,45 @@ export default function ContenidoGeneral({ navigation }) {
                     </View>
                     <Text style={estilos.cardTitulo}>{item.titulo || 'Sin título'}</Text>
                     <View style={estilos.cardCuerpo}>
-                      {textoPrincipal ? (
-                        <Text style={estilos.cardTexto}>{textoPrincipal}</Text>
-                      ) : null}
+                      {textoPrincipal ? <Text style={estilos.cardTexto}>{String(textoPrincipal)}</Text> : null}
+
                       {complementario ? (
                         normalizarLink(complementario) ? (
                           <Text
                             style={[estilos.cardComplementario, estilos.cardEnlace]}
                             onPress={() => Linking.openURL(normalizarLink(complementario))}
                           >
-                            {complementario}
+                            {String(complementario)}
                           </Text>
                         ) : (
-                          <Text style={estilos.cardComplementario}>{complementario}</Text>
+                          <Text style={estilos.cardComplementario}>{String(complementario)}</Text>
                         )
                       ) : null}
-                      {(item.urlMediaCompleta || item.urlMedia) ? (
-                        (() => {
-                          const raw = String(item.urlMediaCompleta || item.urlMedia || '').trim();
-                          if (!raw) return null;
-                          const esHttp = raw.startsWith('http://') || raw.startsWith('https://');
-                          const esDominio = !raw.includes(' ') && raw.includes('.') && !raw.startsWith('/');
-                          const link = esHttp ? raw : esDominio ? `https://${raw}` : null;
-                          if (!link) return null;
-                          return (
-                            <Text
-                              style={[estilos.cardComplementario, estilos.cardEnlace]}
-                              onPress={() => Linking.openURL(link)}
-                            >
-                              {raw}
-                            </Text>
-                          );
-                        })()
-                      ) : null}
-                      {categoria && (
+
+                      {(() => {
+                        const raw = String(item.urlMediaCompleta || item.urlMedia || '').trim();
+                        if (!raw) return null;
+                        const esHttp = raw.startsWith('http://') || raw.startsWith('https://');
+                        const esDominio = !raw.includes(' ') && raw.includes('.') && !raw.startsWith('/');
+                        const link = esHttp ? raw : esDominio ? `https://${raw}` : null;
+                        if (!link) return null;
+                        return (
+                          <Text
+                            style={[estilos.cardComplementario, estilos.cardEnlace]}
+                            onPress={() => Linking.openURL(link)}
+                          >
+                            {raw}
+                          </Text>
+                        );
+                      })()}
+
+                      {categoria ? (
                         <View style={estilos.cardMetaRow}>
-                          <Text style={estilos.cardCategoria}>Categoría: {categoria}</Text>
+                          <Text style={estilos.cardCategoria}>Categoría: {String(categoria)}</Text>
                         </View>
-                      )}
-                      {mostrarPreview && (
+                      ) : null}
+
+                      {mostrarPreview ? (
                         <TouchableOpacity
                           style={estilos.cardPreviewImgCard}
                           onPress={() => (bloqueado ? null : abrirMediaEnModal(item))}
@@ -619,17 +832,19 @@ export default function ContenidoGeneral({ navigation }) {
                             </View>
                           ) : null}
                         </TouchableOpacity>
-                      )}
-                      {(textoFecha || etiquetasArr.length > 0) && (
+                      ) : null}
+
+                      {(textoFecha || etiquetasArr.length > 0) ? (
                         <View style={estilos.cardFechaEtiquetas}>
-                          {textoFecha ? <Text style={estilos.cardMeta}>{textoFecha}</Text> : <View />}
+                          {textoFecha ? <Text style={estilos.cardMeta}>{String(textoFecha)}</Text> : null}
                           {etiquetasArr.length > 0 ? (
                             <Text style={estilos.cardEtiquetasLinea}>
                               Etiquetas: {etiquetasArr.join(', ')}
                             </Text>
                           ) : null}
                         </View>
-                      )}
+                      ) : null}
+
                       <View style={estilos.cardAcciones}>
                         <View style={estilos.cardAccionItem}>
                           <Ionicons name="eye-outline" size={18} color="#888" />
@@ -679,11 +894,11 @@ export default function ContenidoGeneral({ navigation }) {
                   <View style={estilos.cardTipoBadge}>
                     <Ionicons
                       name={
-                        (mediaItem.tipoContenido || mediaItem.tipo) === 'video'
+                        tipoModalAbierto === 'video'
                           ? 'videocam'
-                          : (mediaItem.tipoContenido || mediaItem.tipo) === 'audio'
+                          : tipoModalAbierto === 'audio'
                             ? 'musical-notes'
-                            : (mediaItem.tipoContenido || mediaItem.tipo) === 'imagen'
+                            : tipoModalAbierto === 'imagen'
                               ? 'image'
                               : 'document-text'
                       }
@@ -699,86 +914,90 @@ export default function ContenidoGeneral({ navigation }) {
                   </TouchableOpacity>
                 </View>
                 <View style={[estilos.modalMediaCuerpoRow, esWebMovil && estilos.modalMediaCuerpoRowWebMovil]}>
-                  <View style={estilos.modalMediaColMedia}>
+                  <View style={[estilos.modalMediaColMedia, esWebMovil && estilos.modalMediaColMediaWebMovil]}>
                     {mediaUrlSeleccionada && (
                       <View
                         style={[
                           estilos.cardPreviewImgModal,
                           {
-                            height: esWebDesktop ? ventanaAlto * 0.78 : ventanaAlto * 0.45,
+                            height: esWebDesktop
+                              ? ventanaAlto * 0.78
+                              : esWebMovil
+                                ? Math.min(ventanaAlto * 0.4, 340)
+                                : ventanaAlto * 0.45,
                           },
                         ]}
                       >
                         <View style={estilos.mediaCenterBox}>
-                          {(mediaItem.tipoContenido || mediaItem.tipo) === 'video' ? (
-                            <Video
-                              source={{ uri: mediaUrlSeleccionada }}
-                              style={[
-                                estilos.cardPreviewVideo,
-                                {
-                                  maxHeight: '100%',
-                                  maxWidth: '100%',
-                                  aspectRatio: mediaAspectRatio || 16 / 9,
-                                  ...(Platform.OS === 'web'
-                                    ? {
-                                        display: 'block',
-                                        marginLeft: 'auto',
-                                        marginRight: 'auto',
-                                        position: 'absolute',
-                                        top: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        left: 0,
-                                        objectFit: 'contain',
-                                        objectPosition: 'center center',
-                                      }
-                                    : null),
-                                },
-                              ]}
-                              resizeMode="contain"
-                              useNativeControls={Platform.OS !== 'web'}
-                              shouldPlay
-                              ref={videoRef}
-                              onLoad={({ naturalSize }) => {
-                                if (naturalSize?.width && naturalSize?.height) {
-                                  setMediaAspectRatio(
-                                    naturalSize.width / naturalSize.height || 16 / 9
-                                  );
+                          {tipoModalAbierto === 'video' ? (
+                            Platform.OS === 'web' ? (
+                              <VideoModalPlayerWeb
+                                key={mediaUrlSeleccionada}
+                                src={mediaUrlSeleccionada}
+                                poster={posterModalVideoWeb}
+                                videoRef={webVideoRef}
+                                onAspectKnown={(ar) => setMediaAspectRatio(ar)}
+                                onEnded={() => setVideoTerminado(true)}
+                                onVideoError={(msg) =>
+                                  Alert.alert(
+                                    'Vídeo',
+                                    `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
+                                  )
                                 }
-                              }}
-                              onPlaybackStatusUpdate={(status) => {
-                                if (!status || !status.isLoaded) return;
-                                if (status.didJustFinish) {
-                                  setVideoTerminado(true);
-                                } else if (status.isPlaying) {
-                                  setVideoTerminado(false);
-                                }
-                              }}
-                            />
+                              />
+                            ) : (
+                              <Video
+                                source={{ uri: mediaUrlSeleccionada }}
+                                style={[
+                                  estilos.cardPreviewVideo,
+                                  {
+                                    maxHeight: '100%',
+                                    maxWidth: '100%',
+                                    aspectRatio: mediaAspectRatio || 16 / 9,
+                                  },
+                                ]}
+                                resizeMode="contain"
+                                useNativeControls
+                                shouldPlay
+                                ref={videoRef}
+                                onLoad={({ naturalSize }) => {
+                                  if (naturalSize?.width && naturalSize?.height) {
+                                    setMediaAspectRatio(
+                                      naturalSize.width / naturalSize.height || 16 / 9
+                                    );
+                                  }
+                                }}
+                                onPlaybackStatusUpdate={(status) => {
+                                  if (!status || !status.isLoaded) return;
+                                  if (status.didJustFinish) {
+                                    setVideoTerminado(true);
+                                  } else if (status.isPlaying) {
+                                    setVideoTerminado(false);
+                                  }
+                                }}
+                              />
+                            )
                           ) : (
                             <Image
                               source={{ uri: mediaUrlSeleccionada }}
                               style={[
                                 estilos.cardPreviewImgInner,
-                                {
-                                  maxHeight: '100%',
-                                  maxWidth: '100%',
-                                  aspectRatio: mediaAspectRatio || 16 / 9,
-                                  ...(Platform.OS === 'web'
-                                    ? {
-                                        display: 'block',
-                                        marginLeft: 'auto',
-                                        marginRight: 'auto',
-                                        position: 'absolute',
-                                        top: 0,
-                                        right: 0,
-                                        bottom: 0,
-                                        left: 0,
-                                        objectFit: 'contain',
-                                        objectPosition: 'center center',
-                                      }
-                                    : null),
-                                },
+                                Platform.OS === 'web'
+                                  ? {
+                                      display: 'block',
+                                      alignSelf: 'center',
+                                      width: '100%',
+                                      height: '100%',
+                                      maxWidth: '100%',
+                                      maxHeight: '100%',
+                                      objectFit: 'contain',
+                                      objectPosition: 'center center',
+                                    }
+                                  : {
+                                      maxHeight: '100%',
+                                      maxWidth: '100%',
+                                      aspectRatio: mediaAspectRatio || 16 / 9,
+                                    },
                               ]}
                               resizeMode="contain"
                               onLoad={(e) => {
@@ -796,6 +1015,18 @@ export default function ContenidoGeneral({ navigation }) {
                             style={estilos.videoReplayOverlay}
                             onPress={async () => {
                               setVideoTerminado(false);
+                              if (Platform.OS === 'web') {
+                                const el = webVideoRef.current;
+                                if (el) {
+                                  el.currentTime = 0;
+                                  try {
+                                    await el.play();
+                                  } catch (_) {
+                                    /* noop */
+                                  }
+                                }
+                                return;
+                              }
                               try {
                                 await videoRef.current?.replayAsync?.();
                               } catch (e) {
@@ -850,7 +1081,7 @@ export default function ContenidoGeneral({ navigation }) {
                             </Text>
                           </TouchableOpacity>
                         </View>
-                        {mediaItem.urlMediaCompleta ? (
+                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ? (
                           <TouchableOpacity
                             style={estilos.modalAbrirArchivo}
                             onPress={() => abrirContenido(mediaItem)}
@@ -890,7 +1121,7 @@ export default function ContenidoGeneral({ navigation }) {
                       </View>
                     </View>
                   ) : (
-                    <View style={estilos.modalMediaColDerMobile}>
+                    <View style={[estilos.modalMediaColDerMobile, esWeb && estilos.modalMediaColDerMobileWeb]}>
                       <Text style={estilos.modalMediaTitulo}>{mediaItem.titulo || 'Sin título'}</Text>
                       {mediaItem.previewTexto || mediaItem.descripcion ? (
                         <Text style={estilos.cardTexto} numberOfLines={3}>
@@ -927,7 +1158,7 @@ export default function ContenidoGeneral({ navigation }) {
                             </Text>
                           </TouchableOpacity>
                         </View>
-                        {mediaItem.urlMediaCompleta ? (
+                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ? (
                           <TouchableOpacity
                             style={estilos.modalAbrirArchivo}
                             onPress={() => abrirContenido(mediaItem)}
@@ -1021,36 +1252,6 @@ const estilos = StyleSheet.create({
     backgroundColor: '#0d0d0d',
     ...(Platform.OS !== 'web' && { overflow: 'visible' }),
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0d0d0d',
-  },
-  headerBack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 4,
-    width: 80,
-    zIndex: 1,
-  },
-  headerLogoImg: { width: 36, height: 36 },
-  headerTitulo: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    zIndex: 0,
-  },
-  headerEspacioDer: { width: 80, zIndex: 1 },
   areaContenido: { flex: 1 },
   fondoAbsoluto: {
     position: 'absolute',
@@ -1179,6 +1380,7 @@ const estilos = StyleSheet.create({
   },
   modalMediaCuerpoRow: {
     flex: 1,
+    minHeight: Platform.OS === 'web' ? 0 : undefined,
     flexDirection: Platform.OS === 'web' ? 'row' : 'column',
     gap: Platform.OS === 'web' ? 16 : 10,
     alignItems: 'stretch',
@@ -1186,12 +1388,20 @@ const estilos = StyleSheet.create({
   modalMediaCuerpoRowWebMovil: {
     flexDirection: 'column',
     gap: 10,
+    minHeight: 0,
   },
   modalMediaColMedia: {
     flex: Platform.OS === 'web' ? 5 : 0,
+    minHeight: Platform.OS === 'web' ? 0 : undefined,
     justifyContent: Platform.OS === 'web' ? 'center' : 'flex-start',
     alignItems: 'center',
     width: '100%',
+  },
+  // En web móvil el cuerpo es columna: flex:5 en la imagen roba casi todo el alto y los comentarios casi no se ven.
+  modalMediaColMediaWebMovil: {
+    flex: 0,
+    flexGrow: 0,
+    alignSelf: 'stretch',
   },
   modalMediaColDer: {
     flex: Platform.OS === 'web' ? 2 : 5,
@@ -1215,6 +1425,11 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 12,
+  },
+  modalMediaColDerMobileWeb: {
+    flex: 1,
+    minHeight: 120,
+    overflow: 'hidden',
   },
   modalMediaColDerScroll: {
     flex: 1,
@@ -1326,6 +1541,7 @@ const estilos = StyleSheet.create({
   },
   cardPreviewImgModal: {
     width: '100%',
+    maxWidth: '100%',
     borderRadius: 12,
     overflow: 'hidden',
     marginVertical: Platform.OS === 'web' ? 12 : 6,
@@ -1334,13 +1550,16 @@ const estilos = StyleSheet.create({
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
+    minHeight: 0,
   },
   mediaCenterBox: {
     flex: 1,
     width: '100%',
     height: '100%',
+    minHeight: 0,
     justifyContent: 'center',
-    alignItems: 'center',
+    // En web, 'center' deja el <video> al ancho intrínseco y parece recorte tipo cover.
+    alignItems: Platform.OS === 'web' ? 'stretch' : 'center',
   },
   cardPreviewImgInner: { width: '100%', height: '100%' },
   cardPreviewImgBlurWeb: {
@@ -1402,6 +1621,40 @@ const estilos = StyleSheet.create({
   vacioCaja: { marginBottom: 16, padding: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 8 },
   vacio: { color: '#888', fontSize: 14, marginBottom: 4 },
   vacioHint: { color: '#666', fontSize: 12 },
+  estadoCargaCaja: {
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  estadoCargaTexto: { color: '#aaa', fontSize: 13 },
+  estadoErrorCaja: {
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: 'rgba(244,67,54,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(244,67,54,0.35)',
+    borderRadius: 10,
+  },
+  estadoErrorTexto: { color: '#ffd3d3', fontSize: 13, marginBottom: 10 },
+  estadoErrorDetalleDev: {
+    color: '#ffd3d3',
+    fontSize: 11,
+    marginBottom: 10,
+    opacity: 0.85,
+  },
+  estadoErrorBoton: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#00dc57',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  estadoErrorBotonTexto: { color: '#00dc57', fontSize: 12, fontWeight: '600' },
   modalFondo: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',

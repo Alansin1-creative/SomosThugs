@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useAuth } from '../contexto/AuthContext';
-import { esAdmin } from '../constantes/nivelesAcceso';
+import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 const OPCIONES = [
   { id: 'usuarios', titulo: 'Usuarios', descripcion: 'Lista de usuarios, premium, admin, editar y borrar' },
@@ -14,7 +14,7 @@ export default function ModoAdmin({ navigation }) {
 
   useEffect(() => {
     if (perfil && !esAdmin(perfil)) {
-      navigation.replace('ContenidoGeneral');
+      navigation.replace(nombreRutaHomeApp(perfil));
     }
   }, [perfil, navigation]);
 
@@ -30,7 +30,7 @@ export default function ModoAdmin({ navigation }) {
         <Text style={estilos.titulo}>Modo admin</Text>
         <TouchableOpacity
           style={estilos.botonApp}
-          onPress={() => navigation.replace('Inicio')}
+          onPress={() => navigation.replace('ContenidoGeneral')}
         >
           <Text style={estilos.botonAppTexto}>Ir a la app</Text>
         </TouchableOpacity>

@@ -5,7 +5,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../src/contexto/AuthContext';
 import { Slot } from 'expo-router';
 
-LogBox.ignoreLogs(['props.pointerEvents is deprecated', 'Cross-Origin-Opener-Policy']);
+LogBox.ignoreLogs([
+  'props.pointerEvents is deprecated',
+  'Cross-Origin-Opener-Policy',
+  'Unexpected text node',
+]);
 
 if (Platform.OS === 'web' && typeof console !== 'undefined') {
   const _warn = console.warn;

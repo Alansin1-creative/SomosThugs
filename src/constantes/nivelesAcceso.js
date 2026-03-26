@@ -14,13 +14,21 @@ export function puedeVerContenidoGeneral(nivel) {
   return nivel === NIVEL_REGISTRADO || nivel === 'registrado' || nivel === NIVEL_THUG;
 }
 
+export const ROL_ADMIN = 'admin';
+
 /** Quien puede ver contenido exclusivo (Zona Thug): nivel thug o rol admin */
 export function puedeVerContenidoExclusivo(nivel, rol) {
   if (rol === ROL_ADMIN) return true;
   return nivel === NIVEL_THUG;
 }
-
-export const ROL_ADMIN = 'admin';
 export function esAdmin(perfil) {
   return perfil?.rol === ROL_ADMIN;
 }
+
+/** Pantalla “home” tras login y al volver al inicio: contenido general; solo admin va al panel. */
+export function nombreRutaHomeApp(perfil) {
+  if (!perfil) return 'Inicio';
+  if (esAdmin(perfil)) return 'ModoAdmin';
+  return 'ContenidoGeneral';
+}
+

@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../contexto/AuthContext';
 import { actualizarPerfil } from '../servicios/api';
 import { getBaseUrl } from '../config/api';
+import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
 const LOGO_THUGS = require('../../assets/logothugs.png');
@@ -25,6 +26,7 @@ const LOGO_THUGS = require('../../assets/logothugs.png');
 export default function Perfil({ navigation }) {
   const insets = useSafeAreaInsets();
   const { perfil, establecerPerfil } = useAuth();
+  const rutaHomeHeader = esAdmin(perfil) ? 'ContenidoGeneral' : nombreRutaHomeApp(perfil);
 
   const [nombreCompleto, setNombreCompleto] = useState('');
   const [username, setUsername] = useState('');
@@ -74,7 +76,7 @@ export default function Perfil({ navigation }) {
       const nuevoPerfil = await actualizarPerfil(body);
       establecerPerfil(nuevoPerfil);
       Alert.alert('Perfil', 'Cambios guardados.');
-      navigation.goBack();
+      navigation.navigate(rutaHomeHeader);
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo guardar.');
     } finally {
@@ -170,7 +172,7 @@ export default function Perfil({ navigation }) {
     <View style={[estilos.contenedor, { paddingTop: insets.top + 8 }]}>
       <View style={estilos.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate(rutaHomeHeader)}
           style={estilos.headerBack}
           hitSlop={10}
           activeOpacity={0.8}

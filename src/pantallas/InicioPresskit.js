@@ -13,18 +13,15 @@ import {
   Platform,
   KeyboardAvoidingView,
   Linking,
-  Modal,
-  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getBaseUrl } from '../config/api';
 import { useAuth } from '../contexto/AuthContext';
 import { iniciarSesionEmail, registrarEmail, iniciarSesionConTokenGoogle } from '../servicios/auth';
-import { puedeVerContenidoExclusivo, esAdmin } from '../constantes/nivelesAcceso';
+import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -96,14 +93,21 @@ const REDES_FOOTER = [
   { id: 'email', icon: 'mail', url: `mailto:${EMAIL_CONTACTO}` },
 ];
 
-/** Solo los admin van al panel; el resto se queda en Inicio y ve el movimiento logo + contenido. */
+/** Tras login/registro/Google: admin → panel; resto → Contenido general (Inicio). */
 function navegarSegunPerfil(navigation, perfil) {
-  if (esAdmin(perfil)) navigation.replace('ModoAdmin');
-  // Fan y thug se quedan aquí: se muestra logo ancho completo + presskit (no redirigir)
+  navigation.replace(nombreRutaHomeApp(perfil));
 }
 
 const PRESENTACIONES_ITEMS = 6;
 const CARRUSEL_GAP = 12;
+const FLYERS_PRESENTACIONES = [
+  require('../../assets/flyers/flyer1.jpeg'),
+  require('../../assets/flyers/flyer2.jpeg'),
+  require('../../assets/flyers/flyer3.jpeg'),
+  require('../../assets/flyers/flyer4.jpeg'),
+  require('../../assets/flyers/flyer5.jpeg'),
+  require('../../assets/flyers/flyer6.jpeg'),
+];
 
 // Añade álbumes: id único, titulo, spotifyUrl (ej: https://open.spotify.com/album/xxxxx)
 const ALBUMS = [
@@ -203,10 +207,12 @@ export default function InicioPresskit({ navigation }) {
   const width = Platform.OS === 'web' && webSize != null ? webSize.width : dimensions.width;
   const windowHeight = Platform.OS === 'web' && webSize != null ? webSize.height : dimensions.height;
   const contentWidth = Math.max(width - 64, 320);
+  const footerIconSize = Platform.OS === 'web' ? (width < 360 ? 22 : width < 520 ? 24 : 28) : 28;
   const carruselItemWidth = Math.min((contentWidth - 48) * 0.52, 220);
   const carruselSnapInterval = carruselItemWidth + CARRUSEL_GAP;
   const { perfil, cerrarSesion, establecerPerfil } = useAuth();
   const estaAutenticado = !!perfil;
+  const rutaHomeHeader = esAdmin(perfil) ? 'ContenidoGeneral' : nombreRutaHomeApp(perfil);
 
   const [modo, setModo] = useState('registro'); // 'login' | 'registro'
   const [nombre, setNombre] = useState('');
@@ -224,26 +230,6 @@ export default function InicioPresskit({ navigation }) {
   const [albumExpandidoId, setAlbumExpandidoId] = useState(null);
   const [singleExpandidoId, setSingleExpandidoId] = useState(null);
   const scrollRef = useRef(null);
-  const [menuHamburgerVisible, setMenuHamburgerVisible] = useState(false);
-  const [avatarError, setAvatarError] = useState(false);
-  const [avatarDirectFailed, setAvatarDirectFailed] = useState(false);
-  const avatarUri = perfil?.fotoUrl
-    ? (perfil.fotoUrl.startsWith('http') ? perfil.fotoUrl : getBaseUrl() + perfil.fotoUrl)
-    : null;
-  const isGoogleAvatar = !!(avatarUri && avatarUri.includes('googleusercontent.com'));
-  // Google en web: primero 1 petición directa al navegador (evita 429 por no usar proxy); si falla, probar proxy (puede tener caché).
-  const avatarUriDisplay = isGoogleAvatar
-    ? (Platform.OS === 'web' && !avatarDirectFailed ? avatarUri : `${getBaseUrl()}/avatar-proxy?url=${encodeURIComponent(avatarUri)}`)
-    : avatarUri;
-  useEffect(() => {
-    setAvatarError(false);
-    setAvatarDirectFailed(false);
-  }, [perfil?.fotoUrl]);
-  // Reintentar carga del avatar al volver a la pantalla (p. ej. fallo puntual de red o proxy)
-  useEffect(() => {
-    const sub = navigation.addListener?.('focus', () => setAvatarError(false));
-    return () => sub?.();
-  }, [navigation]);
   const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : undefined;
   const [request, , promptAsync] = Google.useIdTokenAuthRequest(
     {
@@ -383,103 +369,23 @@ export default function InicioPresskit({ navigation }) {
       <View style={[estilos.header, Platform.OS !== 'web' && { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           onPress={() => {
-            scrollRef.current?.scrollTo({ y: 0, animated: true });
-            navigation.navigate('Inicio');
+            if (estaAutenticado) {
+              navigation.navigate(rutaHomeHeader);
+            } else {
+              scrollRef.current?.scrollTo({ y: 0, animated: true });
+            }
           }}
-          style={estilos.headerIzq}
+          style={estilos.headerBack}
+          hitSlop={10}
           activeOpacity={0.8}
         >
+          <Ionicons name="arrow-back" size={20} color="#fff" />
           <Image source={LOGO_THUGS} style={estilos.headerLogoImg} resizeMode="contain" />
-          <Text style={estilos.logoTexto}>{LOGO_TEXTO}</Text>
         </TouchableOpacity>
-        {estaAutenticado && (
-          <View style={estilos.headerDerecha}>
-            <Text style={estilos.headerUsuario} numberOfLines={1}>
-              {perfil?.username || (perfil?.nombreCompleto || '').trim().split(/\s+/)[0] || 'Usuario'}
-            </Text>
-            <View style={estilos.headerAvatarWrap}>
-            <TouchableOpacity
-              style={estilos.headerAvatarTouchable}
-              onPress={() => setMenuHamburgerVisible(true)}
-              activeOpacity={0.8}
-            >
-              {avatarUriDisplay && !avatarError ? (
-                <Image
-                  source={{ uri: avatarUriDisplay }}
-                  style={estilos.headerAvatarImg}
-                  onError={() => {
-                    if (Platform.OS === 'web' && isGoogleAvatar && !avatarDirectFailed) {
-                      setAvatarDirectFailed(true);
-                      setAvatarError(false);
-                    } else {
-                      setAvatarError(true);
-                    }
-                  }}
-                  {...(Platform.OS === 'web' && isGoogleAvatar && !avatarDirectFailed && { referrerPolicy: 'no-referrer' })}
-                />
-              ) : (
-                <View style={estilos.headerAvatarPlaceholder}>
-                  <Ionicons name="person-circle" size={40} color="#00dc57" />
-                </View>
-              )}
-            </TouchableOpacity>
-            <Modal
-              visible={menuHamburgerVisible}
-              transparent
-              animationType="fade"
-              onRequestClose={() => setMenuHamburgerVisible(false)}
-            >
-              <View style={estilos.menuHamburgerOverlay}>
-                <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuHamburgerVisible(false)} />
-                <View style={estilos.menuHamburgerCaja}>
-                  <View style={estilos.menuHamburger}>
-                    <TouchableOpacity
-                      style={estilos.menuHamburgerItem}
-                      onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('Perfil'); }}
-                    >
-                      <Text style={estilos.menuHamburgerItemTexto}>Perfil</Text>
-                    </TouchableOpacity>
-                    {esAdmin(perfil) && (
-                      <TouchableOpacity
-                        style={estilos.menuHamburgerItem}
-                        onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('ModoAdmin'); }}
-                      >
-                        <Text style={estilos.menuHamburgerItemTexto}>Panel de Admin</Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      style={estilos.menuHamburgerItem}
-                      onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('ContenidoGeneral'); }}
-                    >
-                      <View style={estilos.menuHamburgerItemFila}>
-                        <Text style={estilos.menuHamburgerItemTexto}>Zona Thug</Text>
-                        {!puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol) && (
-                          <Ionicons name="glasses" size={18} color="#6b7280" style={estilos.menuHamburgerCandado} />
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={estilos.menuHamburgerItem}
-                      onPress={() => { setMenuHamburgerVisible(false); navigation.navigate('EventosGeneral'); }}
-                    >
-                      <Text style={estilos.menuHamburgerItemTexto}>Eventos</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[estilos.menuHamburgerItem, estilos.menuHamburgerItemCerrar]}
-                      onPress={() => {
-                        setMenuHamburgerVisible(false);
-                        cerrarSesion().then(() => navigation.replace('Inicio'));
-                      }}
-                    >
-                      <Text style={estilos.menuHamburgerItemTexto}>Cerrar sesión</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </Modal>
-            </View>
-          </View>
-        )}
+        <Text style={estilos.headerTituloPresskit} pointerEvents="none">
+          Presskit
+        </Text>
+        <View style={estilos.headerEspacioPresskit} />
       </View>
       <ScrollView
         ref={scrollRef}
@@ -757,11 +663,14 @@ export default function InicioPresskit({ navigation }) {
               contentContainerStyle={estilos.carruselPresentacionesContenido}
               style={estilos.carruselPresentaciones}
             >
-              {Array.from({ length: PRESENTACIONES_ITEMS }, (_, i) => i + 1).map((i) => (
-                <View key={i} style={[estilos.carruselPresentacionesItem, { width: carruselItemWidth }]}>
+              {FLYERS_PRESENTACIONES.map((flyer, idx) => (
+                <View key={`flyer-${idx}`} style={[estilos.carruselPresentacionesItem, { width: carruselItemWidth }]}>
                   <View style={estilos.carruselPresentacionesPlaceholder}>
-                    <Ionicons name="images-outline" size={40} color="rgba(34,197,94,0.5)" />
-                    <Text style={estilos.carruselPresentacionesLabel}>Presentación {i}</Text>
+                    <Image
+                      source={flyer}
+                      style={estilos.carruselPresentacionesImagen}
+                      resizeMode="cover"
+                    />
                   </View>
                 </View>
               ))}
@@ -989,7 +898,7 @@ export default function InicioPresskit({ navigation }) {
                 style={estilos.iconoFooter}
                 activeOpacity={0.8}
               >
-                <Ionicons name={red.icon} size={28} color="#fff" />
+                <Ionicons name={red.icon} size={footerIconSize} color="#fff" />
               </TouchableOpacity>
             ))}
           </View>
@@ -1025,8 +934,28 @@ const estilos = StyleSheet.create({
     paddingTop: Platform.OS === 'web' ? 10 : 8,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
+    backgroundColor: '#0d0d0d',
   },
-  headerIzq: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  headerBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 4,
+    flex: 1,
+    zIndex: 1,
+    minWidth: 0,
+  },
+  headerTituloPresskit: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    zIndex: 0,
+  },
+  headerEspacioPresskit: { width: 80, zIndex: 1 },
   headerLogoImg: { width: 36, height: 36 },
   logoTexto: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
   botonesHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
@@ -1329,6 +1258,10 @@ const estilos = StyleSheet.create({
     fontWeight: '600',
     marginTop: 12,
   },
+  carruselPresentacionesImagen: {
+    width: '100%',
+    height: '100%',
+  },
   bioTextoVerde: { color: '#22c55e', fontSize: 15, lineHeight: 24, marginBottom: 14, fontWeight: '500' },
   bioTextoVerdeDestacado: {
     color: '#00dc57',
@@ -1489,15 +1422,30 @@ const estilos = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 10,
     paddingHorizontal: 16,
+    ...(Platform.OS === 'web'
+      ? { width: '100%', maxWidth: '100%', alignSelf: 'stretch', boxSizing: 'border-box' }
+      : null),
   },
-  filaIconosFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20 },
-  iconoFooter: { padding: 4 },
+  filaIconosFooter: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    alignContent: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    maxWidth: '100%',
+    paddingHorizontal: 4,
+  },
+  iconoFooter: { padding: 6, minWidth: 40, alignItems: 'center', justifyContent: 'center' },
   footerContacto: {
     backgroundColor: '#22c55e',
     paddingTop: 10,
     paddingBottom: 28,
     paddingHorizontal: 24,
     alignItems: 'center',
+    ...(Platform.OS === 'web'
+      ? { width: '100%', maxWidth: '100%', alignSelf: 'stretch', boxSizing: 'border-box' }
+      : null),
   },
   footerContactoTexto: { color: 'rgba(255,255,255,0.9)', fontSize: 14, marginBottom: 6 },
   footerContactoLink: { color: 'rgba(255,255,255,0.95)', fontSize: 14, fontWeight: '600' },

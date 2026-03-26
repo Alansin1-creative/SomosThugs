@@ -16,6 +16,7 @@ const usuarioSchema = new mongoose.Schema(
     activo: { type: Boolean, default: true },
     aceptaNotificaciones: { type: Boolean, default: true },
     notificacionesPushActivas: Boolean,
+    expoPushTokens: [String],
     // Auth (no exponer en perfil público)
     passwordHash: String,
     uid: String,

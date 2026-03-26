@@ -223,4 +223,20 @@ router.patch('/perfil', authMiddleware, async (req, res) => {
   }
 });
 
+router.patch('/push-token', authMiddleware, async (req, res) => {
+  try {
+    const token = String(req.body?.token || '').trim();
+    if (!token) return res.status(400).json({ error: 'Falta token' });
+    const usuario = await Usuario.findByIdAndUpdate(
+      req.userId,
+      { $addToSet: { expoPushTokens: token }, $set: { notificacionesPushActivas: true } },
+      { new: true }
+    );
+    if (!usuario) return res.status(404).json({ error: 'No encontrado' });
+    res.json({ ok: true, totalTokens: Array.isArray(usuario.expoPushTokens) ? usuario.expoPushTokens.length : 0 });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 module.exports = router;

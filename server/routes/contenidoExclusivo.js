@@ -4,6 +4,8 @@ const path = require('path');
 const ContenidoExclusivo = require('../models/ContenidoExclusivo');
 const Usuario = require('../models/Usuario');
 const { authMiddleware, requireThug, requireAdmin, requireThugOrAdmin } = require('../middleware/auth');
+const { crearNotificacionParaTodos } = require('../services/notificaciones');
+const { enviarPush } = require('../services/push');
 
 const router = express.Router();
 const UPLOADS_CONTENIDO = path.join(__dirname, '..', 'uploads', 'contenido');
@@ -22,16 +24,46 @@ function guardarMediaBase64(base64, subdir = '') {
   return subdir ? `/uploads/contenido/${subdir}/${nombre}` : `/uploads/contenido/${nombre}`;
 }
 
+function normalizarRutaMedia(valor) {
+  const s = typeof valor === 'string' ? valor.trim() : '';
+  if (!s) return '';
+  if (s.startsWith('/uploads/')) return s;
+  if (s.startsWith('http://') || s.startsWith('https://')) {
+    try {
+      const u = new URL(s);
+      const p = `${u.pathname || ''}${u.search || ''}${u.hash || ''}`;
+      if (p.startsWith('/uploads/')) return p;
+      return s;
+    } catch {
+      return s;
+    }
+  }
+  if (s.startsWith('uploads/')) return `/${s}`;
+  return s;
+}
+
+function normalizarDocMedia(doc) {
+  if (!doc || typeof doc !== 'object') return doc;
+  return {
+    ...doc,
+    urlMedia: normalizarRutaMedia(doc.urlMedia),
+    urlMediaCompleta: normalizarRutaMedia(doc.urlMediaCompleta),
+    urlMediaPreview: normalizarRutaMedia(doc.urlMediaPreview),
+    urlImagen: normalizarRutaMedia(doc.urlImagen),
+  };
+}
+
 function toDoc(doc) {
   if (!doc) return null;
   const o = doc.toObject ? doc.toObject() : doc;
-  return { id: o._id.toString(), ...o, _id: undefined };
+  const base = { id: o._id.toString(), ...o, _id: undefined };
+  return normalizarDocMedia(base);
 }
 
 router.get('/', authMiddleware, requireThugOrAdmin, async (req, res) => {
   try {
     const lista = await ContenidoExclusivo.find().sort({ fechaPublicacion: -1 }).limit(50).lean();
-    res.json(lista.map((d) => ({ id: d._id.toString(), ...d, _id: undefined })));
+    res.json(lista.map((d) => normalizarDocMedia({ id: d._id.toString(), ...d, _id: undefined })));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -47,7 +79,7 @@ router.get('/feed', authMiddleware, async (req, res) => {
       .sort({ fechaPublicacion: -1 })
       .limit(50)
       .lean();
-    res.json(lista.map((d) => ({ id: d._id.toString(), ...d, _id: undefined })));
+    res.json(lista.map((d) => normalizarDocMedia({ id: d._id.toString(), ...d, _id: undefined })));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -65,7 +97,7 @@ router.get('/feed-unificado', authMiddleware, async (req, res) => {
     const items = lista.map((d) => {
       const id = d._id.toString();
       const nivelRequerido = d.nivelRequerido || 'thug';
-      const base = { id, ...d, _id: undefined };
+      const base = normalizarDocMedia({ id, ...d, _id: undefined });
       if (!esThugOAdmin && nivelRequerido === 'thug') {
         return {
           id: base.id,
@@ -195,8 +227,8 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     // Solo trabajamos con los campos nuevos:
     // - urlMedia: preview principal (imagen/video)
     // - urlMediaCompleta: archivo principal (PDF, video, etc.)
-    let urlMedia = '';
-    let urlMediaCompleta = '';
+    let urlMedia = normalizarRutaMedia(typeof b.urlMedia === 'string' ? b.urlMedia : '');
+    let urlMediaCompleta = normalizarRutaMedia(typeof b.urlMediaCompleta === 'string' ? b.urlMediaCompleta : '');
     if (b.mediaPreviewBase64) {
       urlMedia = guardarMediaBase64(b.mediaPreviewBase64, 'preview') || '';
     }
@@ -226,6 +258,31 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     };
     const [item] = await ContenidoExclusivo.create([payload]);
     console.log('[contenido-exclusivo POST] guardado keys:', Object.keys(item.toObject ? item.toObject() : item));
+    try {
+      await crearNotificacionParaTodos({
+        tipo: 'nuevo_contenido',
+        titulo: 'Nuevo contenido publicado',
+        mensaje: item?.titulo ? `Se publicó: ${item.titulo}` : 'Hay nuevo contenido disponible.',
+        entidadId: item?._id?.toString?.(),
+      });
+      const usuarios = await Usuario.find({
+        activo: { $ne: false },
+        aceptaNotificaciones: { $ne: false },
+        expoPushTokens: { $exists: true, $ne: [] },
+      })
+        .select('expoPushTokens')
+        .lean();
+      const tokens = usuarios.flatMap((u) => (Array.isArray(u.expoPushTokens) ? u.expoPushTokens : []));
+      if (tokens.length > 0) {
+        await enviarPush(tokens, {
+          title: 'Nuevo contenido publicado',
+          body: item?.titulo ? `Se publicó: ${item.titulo}` : 'Hay nuevo contenido disponible.',
+          data: { tipo: 'nuevo_contenido', entidadId: item?._id?.toString?.() || '' },
+        });
+      }
+    } catch (notifErr) {
+      console.warn('[notificaciones][contenido]', notifErr?.message || notifErr);
+    }
     res.json(toDoc(item));
   } catch (e) {
     console.error('[contenido-exclusivo POST] error:', e.message);
@@ -243,8 +300,8 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
     if (!existing) return res.status(404).json({ error: 'No encontrado' });
 
     // Siempre partimos de los valores actuales
-    let urlMedia = existing.urlMedia ?? '';
-    let urlMediaCompleta = existing.urlMediaCompleta ?? '';
+    let urlMedia = normalizarRutaMedia(existing.urlMedia ?? '');
+    let urlMediaCompleta = normalizarRutaMedia(existing.urlMediaCompleta ?? '');
 
     // Si llegan nuevos archivos en base64, generamos nuevas URLs
     if (b.mediaPreviewBase64) {
@@ -252,6 +309,12 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
     }
     if (b.mediaCompletaBase64) {
       urlMediaCompleta = guardarMediaBase64(b.mediaCompletaBase64, 'completa') || urlMediaCompleta;
+    }
+    if (!b.mediaPreviewBase64 && typeof b.urlMedia === 'string') {
+      urlMedia = normalizarRutaMedia(b.urlMedia);
+    }
+    if (!b.mediaCompletaBase64 && typeof b.urlMediaCompleta === 'string') {
+      urlMediaCompleta = normalizarRutaMedia(b.urlMediaCompleta);
     }
 
     // Limpiar explícitamente cuando se pide desde el frontend

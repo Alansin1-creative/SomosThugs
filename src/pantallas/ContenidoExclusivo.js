@@ -1,11 +1,11 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Image, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Platform, Image, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexto/AuthContext';
 import { puedeVerContenidoExclusivo, esAdmin } from '../constantes/nivelesAcceso';
+import HeaderAppConMenu from '../componentes/HeaderAppConMenu';
+
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
-const LOGO_THUGS = require('../../assets/logothugs.png');
 
 export default function ContenidoExclusivo({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -31,20 +31,8 @@ export default function ContenidoExclusivo({ navigation }) {
       : null;
 
   return (
-    <View style={[estilos.contenedor, { paddingTop: insets.top + 8 }]}>
-      <View style={estilos.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={estilos.headerBack}
-          hitSlop={10}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-          <Image source={LOGO_THUGS} style={estilos.headerLogoImg} resizeMode="contain" />
-        </TouchableOpacity>
-        <Text style={estilos.headerTitulo} pointerEvents="none">Zona Thug</Text>
-        <View style={estilos.headerEspacioDer} />
-      </View>
+    <View style={estilos.contenedor}>
+      <HeaderAppConMenu navigation={navigation} tituloCentro="Zona Thug" scrollRef={null} />
       <View style={estilos.cuerpo}>
         <View
           style={[
@@ -99,36 +87,6 @@ const estilos = StyleSheet.create({
     backgroundColor: '#050505',
     ...(Platform.OS !== 'web' && { overflow: 'visible' }),
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0d0d0d',
-  },
-  headerBack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 4,
-    width: 80,
-    zIndex: 1,
-  },
-  headerLogoImg: { width: 36, height: 36 },
-  headerTitulo: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-    zIndex: 0,
-  },
-  headerEspacioDer: { width: 80, zIndex: 1 },
   cuerpo: {
     flex: 1,
     justifyContent: 'center',

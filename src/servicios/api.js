@@ -35,6 +35,10 @@ export async function apiPerfil() {
   return request('/auth/perfil');
 }
 
+export async function registrarPushToken(token) {
+  return request('/auth/push-token', { method: 'PATCH', body: JSON.stringify({ token }) });
+}
+
 export async function actualizarPerfil(body) {
   return request('/auth/perfil', { method: 'PATCH', body: JSON.stringify(body) });
 }
@@ -224,4 +228,23 @@ export async function actualizarContenidoExclusivo(id, body) {
 
 export async function eliminarContenidoExclusivo(id) {
   return request(`/contenido-exclusivo/${id}`, { method: 'DELETE' });
+}
+
+export async function listarNotificaciones(limit = 50) {
+  const n = Number(limit);
+  const safe = Number.isFinite(n) ? Math.min(Math.max(n, 1), 100) : 50;
+  return request(`/notificaciones?limit=${safe}`);
+}
+
+export async function contarNotificacionesNoLeidas() {
+  return request('/notificaciones/no-leidas/count');
+}
+
+export async function marcarNotificacionLeida(id) {
+  const idStr = id != null ? String(id) : '';
+  return request(`/notificaciones/${idStr}/leida`, { method: 'PATCH', body: JSON.stringify({}) });
+}
+
+export async function marcarTodasNotificacionesLeidas() {
+  return request('/notificaciones/marcar-todas/leidas', { method: 'PATCH', body: JSON.stringify({}) });
 }

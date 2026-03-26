@@ -20,7 +20,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useAuth } from '../contexto/AuthContext';
 import { registrarEmail, iniciarSesionConTokenGoogle } from '../servicios/auth';
-import { puedeVerContenidoExclusivo, esAdmin } from '../constantes/nivelesAcceso';
+import { nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -107,13 +107,7 @@ export default function Registro({ navigation }) {
         fotoUrl: fotoUri || '',
       });
       establecerPerfil(perfil);
-      if (esAdmin(perfil)) {
-        navigation.replace('ModoAdmin');
-      } else if (puedeVerContenidoExclusivo(perfil.nivelAcceso)) {
-        navigation.replace('ContenidoExclusivo');
-      } else {
-        navigation.replace('ContenidoGeneral');
-      }
+      navigation.replace(nombreRutaHomeApp(perfil));
     } catch (e) {
       Alert.alert('Error', e.message);
     } finally {
@@ -136,13 +130,7 @@ export default function Registro({ navigation }) {
       }
       const perfil = await iniciarSesionConTokenGoogle(result.params.id_token);
       establecerPerfil(perfil);
-      if (esAdmin(perfil)) {
-        navigation.replace('ModoAdmin');
-      } else if (puedeVerContenidoExclusivo(perfil.nivelAcceso)) {
-        navigation.replace('ContenidoExclusivo');
-      } else {
-        navigation.replace('ContenidoGeneral');
-      }
+      navigation.replace(nombreRutaHomeApp(perfil));
     } catch (e) {
       Alert.alert('Error', e?.message || String(e));
     } finally {

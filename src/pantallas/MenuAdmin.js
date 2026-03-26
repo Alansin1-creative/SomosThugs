@@ -1,24 +1,19 @@
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { puedeVerContenidoExclusivo, esAdmin } from '../constantes/nivelesAcceso';
+import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 import { useAuth } from '../contexto/AuthContext';
 
 export default function MenuAdmin({ navigation }) {
   const { perfil } = useAuth();
-  const puedeExclusivo = puedeVerContenidoExclusivo(perfil?.nivelAcceso);
 
   useEffect(() => {
     if (perfil && !esAdmin(perfil)) {
-      navigation.replace(puedeExclusivo ? 'ContenidoExclusivo' : 'ContenidoGeneral');
+      navigation.replace(nombreRutaHomeApp(perfil));
     }
-  }, [perfil, navigation, puedeExclusivo]);
+  }, [perfil, navigation]);
 
   const irALaApp = () => {
-    if (puedeExclusivo) {
-      navigation.replace('ContenidoExclusivo');
-    } else {
-      navigation.replace('ContenidoGeneral');
-    }
+    navigation.replace('ContenidoGeneral');
   };
 
   return (

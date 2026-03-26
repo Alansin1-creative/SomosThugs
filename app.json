@@ -16,11 +16,12 @@
       "expo-router",
       ["expo-camera", { "cameraPermission": "Cámara para subir fotos." }],
       ["expo-location", { "locationWhenInUsePermission": "Ubicación para el mapa de eventos." }],
+      "expo-notifications",
       "expo-asset",
       "expo-web-browser"
     ],
     "web": {
-      "favicon": "./assets/favicon.png",
+      "favicon": "./assets/logothugs.png",
       "name": "Somos Thugs",
       "shortName": "Somos Thugs",
       "lang": "es",

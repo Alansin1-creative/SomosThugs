@@ -1,6 +1,9 @@
 const express = require('express');
 const Evento = require('../models/Evento');
+const Usuario = require('../models/Usuario');
 const { authMiddleware, requireAdmin } = require('../middleware/auth');
+const { crearNotificacionParaTodos } = require('../services/notificaciones');
+const { enviarPush } = require('../services/push');
 const fs = require('fs');
 const path = require('path');
 
@@ -129,6 +132,31 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     }
     const evento = new Evento(doc);
     await evento.save();
+    try {
+      await crearNotificacionParaTodos({
+        tipo: 'nuevo_evento',
+        titulo: 'Nuevo evento creado',
+        mensaje: evento?.titulo ? `Se publicó: ${evento.titulo}` : 'Hay un nuevo evento disponible.',
+        entidadId: evento?._id?.toString?.(),
+      });
+      const usuarios = await Usuario.find({
+        activo: { $ne: false },
+        aceptaNotificaciones: { $ne: false },
+        expoPushTokens: { $exists: true, $ne: [] },
+      })
+        .select('expoPushTokens')
+        .lean();
+      const tokens = usuarios.flatMap((u) => (Array.isArray(u.expoPushTokens) ? u.expoPushTokens : []));
+      if (tokens.length > 0) {
+        await enviarPush(tokens, {
+          title: 'Nuevo evento creado',
+          body: evento?.titulo ? `Se publicó: ${evento.titulo}` : 'Hay un nuevo evento disponible.',
+          data: { tipo: 'nuevo_evento', entidadId: evento?._id?.toString?.() || '' },
+        });
+      }
+    } catch (notifErr) {
+      console.warn('[notificaciones][evento]', notifErr?.message || notifErr);
+    }
     res.json(toDoc(evento));
   } catch (e) {
     res.status(500).json({ error: e.message });

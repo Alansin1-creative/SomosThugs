@@ -11,20 +11,39 @@ const eventosRoutes = require('./routes/eventos');
 const publicacionesRoutes = require('./routes/publicaciones');
 const contenidoExclusivoRoutes = require('./routes/contenidoExclusivo');
 const mapsRoutes = require('./routes/maps');
+const notificacionesRoutes = require('./routes/notificaciones');
 
 const app = express();
-// CORS explícito: solo orígenes permitidos (web en Hostinger, dev local, otros dominios autorizados)
+
+const ORIGEN_CORS_FIJOS = [
+  'https://somosthugs.com',
+  'https://www.somosthugs.com',
+  'https://rolandocalles.com',
+  'https://www.rolandocalles.com',
+];
+
+const ORIGEN_CORS_REGEX = [
+  /^https:\/\/.*\.github\.io$/,
+  /^http:\/\/localhost(:\d+)?$/,
+  /^http:\/\/127\.0\.0\.1(:\d+)?$/,
+  /^http:\/\/\[::1\](:\d+)?$/,
+  // Expo web / Vite en red local (http://192.168.x.x:8081, etc.)
+  /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+  /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+  /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+];
+
+function origenCorsPermitido(origin) {
+  if (!origin) return true;
+  if (ORIGEN_CORS_FIJOS.includes(origin)) return true;
+  return ORIGEN_CORS_REGEX.some((re) => re.test(origin));
+}
+
+// CORS: producción + dev local y LAN (mismo equipo o móvil en la WiFi)
 const corsOptions = {
-  origin: [
-    'https://somosthugs.com',
-    'https://www.somosthugs.com',
-    // GitHub Pages / dominio custom
-    'https://rolandocalles.com',
-    'https://www.rolandocalles.com',
-    /^https:\/\/.*\.github\.io$/,
-    /^http:\/\/localhost(:\d+)?$/,
-    /^http:\/\/127\.0\.0\.1(:\d+)?$/,
-  ],
+  origin(origin, callback) {
+    callback(null, origenCorsPermitido(origin));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
@@ -79,6 +98,7 @@ app.use('/eventos', eventosRoutes);
 app.use('/publicaciones', publicacionesRoutes);
 app.use('/contenido-exclusivo', contenidoExclusivoRoutes);
 app.use('/maps', mapsRoutes);
+app.use('/notificaciones', notificacionesRoutes);
 
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/somos-thugs';

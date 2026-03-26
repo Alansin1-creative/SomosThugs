@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { listarEventosPublicos } from '../servicios/api';
 import { getBaseUrl } from '../config/api';
+import { useAuth } from '../contexto/AuthContext';
+import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
 const LOGO_THUGS = require('../../assets/logothugs.png');
@@ -30,13 +32,16 @@ function normalizarUrlMedia(raw) {
 
 export default function EventosGeneral({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { perfil } = useAuth();
   const [eventos, setEventos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
   const [ubicacion, setUbicacion] = useState(null); // { latitude, longitude }
   const [etaPorEvento, setEtaPorEvento] = useState({}); // id -> { texto, segundos }
   const [imgIdxPorEvento, setImgIdxPorEvento] = useState({}); // id -> idx de candidato
-  const { height: ventanaAlto } = Dimensions.get('window');
+  const { height: ventanaAlto, width: ventanaAncho } = Dimensions.get('window');
+  const esWeb = Platform.OS === 'web';
+  const esWebMovil = esWeb && ventanaAncho < 820;
 
   const pedirUbicacion = async () => {
     try {
@@ -142,6 +147,7 @@ export default function EventosGeneral({ navigation }) {
   };
 
   const titulo = 'Eventos';
+  const rutaHomeHeader = esAdmin(perfil) ? 'ContenidoGeneral' : nombreRutaHomeApp(perfil);
   const alturaFondoNativo =
     Platform.OS !== 'web'
       ? Dimensions.get('window').height - (insets.top + 8 + 48) + insets.bottom
@@ -151,7 +157,7 @@ export default function EventosGeneral({ navigation }) {
     <View style={[estilos.contenedor, { paddingTop: insets.top + 8 }]}>
       <View style={estilos.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={() => navigation.navigate(rutaHomeHeader)}
           style={estilos.headerBack}
           hitSlop={10}
           activeOpacity={0.8}
@@ -192,14 +198,17 @@ export default function EventosGeneral({ navigation }) {
 
         <ScrollView
           style={estilos.scroll}
-          contentContainerStyle={estilos.scrollContenido}
+          contentContainerStyle={[
+            estilos.scrollContenido,
+            esWebMovil && estilos.scrollContenidoWebMovil,
+          ]}
           refreshControl={
             <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
           }
           showsVerticalScrollIndicator={false}
         >
           <View style={estilos.contenidoSobreFondo}>
-            <View style={estilos.contenidoCentrado}>
+            <View style={[estilos.contenidoCentrado, esWebMovil && estilos.contenidoCentradoWebMovil]}>
               {cargando ? (
                 <Text style={estilos.vacio}>Cargando…</Text>
               ) : eventos.length === 0 ? (
@@ -302,7 +311,12 @@ export default function EventosGeneral({ navigation }) {
                       {(lat != null && lng != null) || telefono || enlace ? (
                         <>
                           {lat != null && lng != null ? (
-                            <View style={estilos.accionesPrincipalesFila}>
+                            <View
+                              style={[
+                                estilos.accionesPrincipalesFila,
+                                esWebMovil && estilos.accionesPrincipalesFilaWebMovil,
+                              ]}
+                            >
                               {telefono ? (
                                 <View style={estilos.bloqueWhatsapp}>
                                   <TouchableOpacity
@@ -315,7 +329,7 @@ export default function EventosGeneral({ navigation }) {
                                   </TouchableOpacity>
                                 </View>
                               ) : null}
-                              <View style={estilos.bloqueMapa}>
+                              <View style={[estilos.bloqueMapa, esWebMovil && estilos.bloqueMapaWebMovil]}>
                                 <TouchableOpacity
                                   style={estilos.botonAccion}
                                   onPress={() => abrirMapa(lat, lng)}
@@ -439,11 +453,20 @@ const estilos = StyleSheet.create({
     zIndex: 1,
     ...(Platform.OS === 'web' ? { alignItems: 'center' } : null),
   },
+  scrollContenidoWebMovil: {
+    padding: 14,
+    alignItems: 'stretch',
+  },
   contenidoSobreFondo: { zIndex: 1, alignItems: 'center', width: '100%' },
   contenidoCentrado: {
     width: Platform.OS === 'web' ? '50%' : '100%',
     maxWidth: Platform.OS === 'web' ? 700 : '100%',
     alignSelf: Platform.OS === 'web' ? 'center' : 'stretch',
+  },
+  contenidoCentradoWebMovil: {
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
   },
   vacioCaja: { padding: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10 },
   vacio: { color: '#888', fontSize: 14 },
@@ -499,8 +522,14 @@ const estilos = StyleSheet.create({
     gap: 10,
     marginTop: 14,
   },
+  accionesPrincipalesFilaWebMovil: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+  },
   bloqueWhatsapp: { alignItems: 'flex-start' },
   bloqueMapa: { marginTop: -1, alignItems: 'flex-end' },
+  bloqueMapaWebMovil: { alignItems: 'flex-start', marginTop: 4 },
   accionesFila: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
   botonAccion: {
     flexDirection: 'row',

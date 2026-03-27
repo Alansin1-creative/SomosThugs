@@ -14,11 +14,22 @@
     },
     "plugins": [
       "expo-router",
-      ["expo-camera", { "cameraPermission": "Cámara para subir fotos." }],
-      ["expo-location", { "locationWhenInUsePermission": "Ubicación para el mapa de eventos." }],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cámara para subir fotos."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Ubicación para el mapa de eventos."
+        }
+      ],
       "expo-notifications",
       "expo-asset",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-video"
     ],
     "web": {
       "favicon": "./assets/logothugs.png",

@@ -44,10 +44,28 @@ function toDoc(doc) {
   };
 }
 
-router.get('/publicos', async (req, res) => {
+router.get('/publicos', authMiddleware, async (req, res) => {
   try {
+    const usuario = await Usuario.findById(req.userId).lean();
+    const esThugOAdmin = usuario && (usuario.nivelAcceso === 'thug' || usuario.rol === 'admin');
     const lista = await Evento.find({ esPublico: true }).sort({ fechaInicio: -1 }).limit(50).lean();
-    res.json(lista.map((d) => toDoc(d)));
+    const items = lista.map((d) => {
+      const base = toDoc(d);
+      const nivelRequerido = d?.nivelRequerido || 'libre';
+      if (!esThugOAdmin && nivelRequerido === 'thug') {
+        return {
+          id: base.id,
+          titulo: base.titulo,
+          descripcion: base.descripcion,
+          fechaInicio: base.fechaInicio,
+          nivelRequerido: 'thug',
+          bloqueado: true,
+          esPublico: true,
+        };
+      }
+      return { ...base, nivelRequerido, bloqueado: false };
+    });
+    res.json(items);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

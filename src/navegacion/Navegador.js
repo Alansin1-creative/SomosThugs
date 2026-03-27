@@ -10,6 +10,7 @@ import ModoAdmin from '../pantallas/ModoAdmin';
 import AdminUsuarios from '../pantallas/AdminUsuarios';
 import AdminContenidoExclusivo from '../pantallas/AdminContenidoExclusivo';
 import AdminEventos from '../pantallas/AdminEventos';
+import AdminFlyers from '../pantallas/AdminFlyers';
 import EventosGeneral from '../pantallas/EventosGeneral';
 import ContenidoGeneral from '../pantallas/ContenidoGeneral';
 import ContenidoExclusivo from '../pantallas/ContenidoExclusivo';
@@ -65,6 +66,7 @@ export default function Navegador() {
               <Stack.Screen name="AdminUsuarios" component={AdminUsuarios} options={{ title: 'Admin Usuarios' }} />
               <Stack.Screen name="AdminContenidoExclusivo" component={AdminContenidoExclusivo} options={{ title: 'Admin Contenido' }} />
               <Stack.Screen name="AdminEventos" component={AdminEventos} options={{ title: 'Admin Eventos' }} />
+              <Stack.Screen name="AdminFlyers" component={AdminFlyers} options={{ title: 'Admin Flyers' }} />
               <Stack.Screen name="EventosGeneral" component={EventosGeneral} options={{ title: 'Eventos' }} />
               <Stack.Screen name="ContenidoGeneral" component={ContenidoGeneral} options={{ title: 'Contenido' }} />
               <Stack.Screen name="ContenidoExclusivo" component={ContenidoExclusivo} options={{ title: 'Contenido Exclusivo' }} />

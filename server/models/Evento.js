@@ -20,6 +20,7 @@ const eventoSchema = new mongoose.Schema({
   enlaceEntradas: String,
   hashtags: [String],
   notasInternas: String,
+  nivelRequerido: { type: String, enum: ['libre', 'fan', 'thug'], default: 'libre' },
   asistentes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' }],
 }, { timestamps: true });
 

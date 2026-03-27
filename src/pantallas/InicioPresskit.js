@@ -21,6 +21,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexto/AuthContext';
 import { iniciarSesionEmail, registrarEmail, iniciarSesionConTokenGoogle } from '../servicios/auth';
+import { listarFlyersPublicos } from '../servicios/api';
+import { getBaseUrl } from '../config/api';
 import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -34,13 +36,11 @@ const LOGO_THUGS = require('../../assets/logothugs.png');
 // Logo del bloque (registro + logo lateral y logo ancho completo al iniciar sesión). Cambia la ruta para usar otro archivo.
 const LOGO_BLOQUE = require('../../assets/logo2.png');
 const IMAGEN_ARTIST = require('../../assets/artist.png');
-const LINKTREE_URL = 'https://linktr.ee/losthugs';
 const REDES_SOCIALES = [
   { id: 'youtube', icon: 'logo-youtube', label: 'Los Thugs', url: 'https://www.youtube.com/@losthugs33' },
   { id: 'facebook', icon: 'logo-facebook', label: 'LosThugs', url: 'https://www.facebook.com/losthugs614' },
   { id: 'instagram', icon: 'logo-instagram', label: 'Los.Thugs', url: 'https://instagram.com/Los.Thugs' },
   { id: 'spotify', icon: 'musical-notes', label: 'Los Thugs', url: 'https://open.spotify.com/artist/1ZqgJzPb8hw9d5NnnvGnzk' },
-  { id: 'linktree', icon: 'link', label: 'Linktree', url: LINKTREE_URL },
 ];
 
 const REDES_HANDLES = [
@@ -89,7 +89,6 @@ const REDES_FOOTER = [
   { id: 'facebook', icon: 'logo-facebook', url: 'https://www.facebook.com/losthugs614' },
   { id: 'whatsapp', icon: 'logo-whatsapp', url: `https://wa.me/52${WHATSAPP_NUMERO.replace(/\s/g, '')}` },
   { id: 'instagram', icon: 'logo-instagram', url: 'https://instagram.com/los.thugs' },
-  { id: 'linktree', icon: 'link', url: LINKTREE_URL },
   { id: 'email', icon: 'mail', url: `mailto:${EMAIL_CONTACTO}` },
 ];
 
@@ -108,6 +107,14 @@ const FLYERS_PRESENTACIONES = [
   require('../../assets/flyers/flyer5.jpeg'),
   require('../../assets/flyers/flyer6.jpeg'),
 ];
+
+function absolutizarFlyer(url) {
+  const s = String(url || '').trim();
+  if (!s) return '';
+  if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:')) return s;
+  const base = getBaseUrl();
+  return `${base}${s.startsWith('/') ? s : `/${s}`}`;
+}
 
 // Añade álbumes: id único, titulo, spotifyUrl (ej: https://open.spotify.com/album/xxxxx)
 const ALBUMS = [
@@ -206,6 +213,7 @@ export default function InicioPresskit({ navigation }) {
 
   const width = Platform.OS === 'web' && webSize != null ? webSize.width : dimensions.width;
   const windowHeight = Platform.OS === 'web' && webSize != null ? webSize.height : dimensions.height;
+  const esWebDesktop = Platform.OS === 'web' && width >= 768;
   const contentWidth = Math.max(width - 64, 320);
   const footerIconSize = Platform.OS === 'web' ? (width < 360 ? 22 : width < 520 ? 24 : 28) : 28;
   const carruselItemWidth = Math.min((contentWidth - 48) * 0.52, 220);
@@ -229,7 +237,29 @@ export default function InicioPresskit({ navigation }) {
   const [cargandoGoogle, setCargandoGoogle] = useState(false);
   const [albumExpandidoId, setAlbumExpandidoId] = useState(null);
   const [singleExpandidoId, setSingleExpandidoId] = useState(null);
+  const [flyersDinamicos, setFlyersDinamicos] = useState([]);
   const scrollRef = useRef(null);
+  useEffect(() => {
+    let cancel = false;
+    (async () => {
+      try {
+        const data = await listarFlyersPublicos();
+        if (cancel) return;
+        const arr = Array.isArray(data) ? data : [];
+        setFlyersDinamicos(
+          arr
+            .map((x) => absolutizarFlyer(x?.urlImagen))
+            .filter((x) => typeof x === 'string' && x.length > 0)
+        );
+      } catch (_) {
+        if (!cancel) setFlyersDinamicos([]);
+      }
+    })();
+    return () => {
+      cancel = true;
+    };
+  }, []);
+
   const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : undefined;
   const [request, , promptAsync] = Google.useIdTokenAuthRequest(
     {
@@ -631,10 +661,23 @@ export default function InicioPresskit({ navigation }) {
               ))}
             </View>
 
-            <View style={estilos.enVivoWrapper}>
+            <View
+              style={[
+                estilos.enVivoWrapper,
+                esWebDesktop
+                  ? estilos.enVivoWrapperWebDesktop
+                  : Platform.OS === 'web'
+                    ? estilos.enVivoWrapperWebMobile
+                    : estilos.enVivoWrapperNative,
+              ]}
+            >
               <Text style={estilos.enVivoEtiqueta}>EN VIVO</Text>
-              <View style={estilos.imagenArtistInfoContenedor}>
-                <Image source={IMAGEN_ARTIST} style={estilos.imagenArtistInfo} resizeMode="contain" />
+              <View style={[estilos.imagenArtistInfoContenedor, esWebDesktop && estilos.imagenArtistInfoContenedorWebDesktop]}>
+                <Image
+                  source={IMAGEN_ARTIST}
+                  style={[estilos.imagenArtistInfo, esWebDesktop && estilos.imagenArtistInfoWebDesktop]}
+                  resizeMode={esWebDesktop ? 'cover' : 'contain'}
+                />
               </View>
             </View>
             <Text style={[estilos.bioTexto, estilos.bioTextoBlock]}>
@@ -663,11 +706,11 @@ export default function InicioPresskit({ navigation }) {
               contentContainerStyle={estilos.carruselPresentacionesContenido}
               style={estilos.carruselPresentaciones}
             >
-              {FLYERS_PRESENTACIONES.map((flyer, idx) => (
+              {(flyersDinamicos.length > 0 ? flyersDinamicos : FLYERS_PRESENTACIONES).map((flyer, idx) => (
                 <View key={`flyer-${idx}`} style={[estilos.carruselPresentacionesItem, { width: carruselItemWidth }]}>
                   <View style={estilos.carruselPresentacionesPlaceholder}>
                     <Image
-                      source={flyer}
+                      source={typeof flyer === 'string' ? { uri: flyer } : flyer}
                       style={estilos.carruselPresentacionesImagen}
                       resizeMode="cover"
                     />
@@ -1127,6 +1170,21 @@ const estilos = StyleSheet.create({
     marginTop: 0,
     marginBottom: 14,
   },
+  enVivoWrapperWebDesktop: {
+    width: 'auto',
+    alignSelf: 'stretch',
+    marginHorizontal: 50,
+  },
+  enVivoWrapperWebMobile: {
+    width: 'auto',
+    alignSelf: 'stretch',
+    marginHorizontal: 8,
+  },
+  enVivoWrapperNative: {
+    width: 'auto',
+    alignSelf: 'stretch',
+    marginHorizontal: -8,
+  },
   enVivoEtiqueta: {
     alignSelf: 'stretch',
     textAlign: 'center',
@@ -1159,10 +1217,18 @@ const estilos = StyleSheet.create({
     borderColor: '#00dc57',
     overflow: 'hidden',
   },
+  imagenArtistInfoContenedorWebDesktop: {
+    alignSelf: 'stretch',
+    width: '100%',
+    marginHorizontal: 0,
+  },
   imagenArtistInfo: {
     width: '100%',
     height: '100%',
     ...(Platform.OS === 'web' && { objectFit: 'contain' }),
+  },
+  imagenArtistInfoWebDesktop: {
+    ...(Platform.OS === 'web' && { objectFit: 'cover' }),
   },
   placeholderConcierto: {
     minHeight: 220,

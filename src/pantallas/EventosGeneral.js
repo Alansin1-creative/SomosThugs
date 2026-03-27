@@ -18,7 +18,7 @@ import * as Location from 'expo-location';
 import { listarEventosPublicos } from '../servicios/api';
 import { getBaseUrl } from '../config/api';
 import { useAuth } from '../contexto/AuthContext';
-import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
+import { esAdmin, nombreRutaHomeApp, puedeVerContenidoExclusivo } from '../constantes/nivelesAcceso';
 
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
 const LOGO_THUGS = require('../../assets/logothugs.png');
@@ -238,6 +238,11 @@ export default function EventosGeneral({ navigation }) {
                 const eta = id ? etaPorEvento[id]?.texto : null;
                 const imgIdx = id ? (imgIdxPorEvento[id] ?? 0) : 0;
                 const img = candidatos[imgIdx] || null;
+                const nivelEv = String(ev?.nivelRequerido || '').toLowerCase();
+                const bloqueado =
+                  ev?.bloqueado === true ||
+                  (nivelEv === 'thug' &&
+                    !puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol));
 
                 return (
                   <View key={ev.id || ev._id} style={estilos.cardContenedor}>
@@ -253,8 +258,9 @@ export default function EventosGeneral({ navigation }) {
                         {img ? (
                           <Image
                             source={{ uri: img }}
-                            style={estilos.cardImg}
+                            style={[estilos.cardImg, bloqueado && estilos.cardImgBloqueada]}
                             resizeMode="cover"
+                            blurRadius={bloqueado ? 12 : 0}
                             onError={() => {
                               if (!id) return;
                               setImgIdxPorEvento((prev) => {
@@ -270,28 +276,36 @@ export default function EventosGeneral({ navigation }) {
                             <Text style={estilos.cardImgPlaceholderTexto}>Sin imagen</Text>
                           </View>
                         )}
+                        {bloqueado ? (
+                          <View pointerEvents="none" style={estilos.cardBloqueadoOverlay}>
+                            <Text style={estilos.cardBloqueadoTitulo}>Evento Thug</Text>
+                            <Text style={estilos.cardBloqueadoSub}>Sube de nivel para verlo completo</Text>
+                          </View>
+                        ) : null}
                       </View>
 
-                      {ev.descripcion ? (
+                      {!bloqueado && ev.descripcion ? (
                         <Text style={estilos.cardTexto}>{ev.descripcion}</Text>
                       ) : null}
 
-                      <View style={estilos.metaFila}>
-                        {fechaTexto ? (
-                          <View style={estilos.metaItem}>
-                            <Ionicons name="calendar-outline" size={16} color="#9ca3af" />
-                            <Text style={estilos.metaTexto}>{fechaTexto}</Text>
-                          </View>
-                        ) : null}
-                        {ev.lugar ? (
-                          <View style={estilos.metaItem}>
-                            <Ionicons name="location-outline" size={16} color="#9ca3af" />
-                            <Text style={estilos.metaTexto}>{ev.lugar}</Text>
-                          </View>
-                        ) : null}
-                      </View>
+                      {!bloqueado ? (
+                        <View style={estilos.metaFila}>
+                          {fechaTexto ? (
+                            <View style={estilos.metaItem}>
+                              <Ionicons name="calendar-outline" size={16} color="#9ca3af" />
+                              <Text style={estilos.metaTexto}>{fechaTexto}</Text>
+                            </View>
+                          ) : null}
+                          {ev.lugar ? (
+                            <View style={estilos.metaItem}>
+                              <Ionicons name="location-outline" size={16} color="#9ca3af" />
+                              <Text style={estilos.metaTexto}>{ev.lugar}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                      ) : null}
 
-                      {(precio != null || cupo != null) ? (
+                      {!bloqueado && (precio != null || cupo != null) ? (
                         <View style={estilos.metaFila}>
                           {precio != null ? (
                             <View style={estilos.metaItem}>
@@ -308,7 +322,7 @@ export default function EventosGeneral({ navigation }) {
                         </View>
                       ) : null}
 
-                      {(lat != null && lng != null) || telefono || enlace ? (
+                      {!bloqueado && ((lat != null && lng != null) || telefono || enlace) ? (
                         <>
                           {lat != null && lng != null ? (
                             <View
@@ -503,6 +517,16 @@ const estilos = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.08)',
   },
   cardImg: { width: '100%', height: '100%' },
+  cardImgBloqueada: { opacity: Platform.OS === 'web' ? 0.78 : 0.82 },
+  cardBloqueadoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    paddingHorizontal: 14,
+  },
+  cardBloqueadoTitulo: { color: '#00dc57', fontSize: 15, fontWeight: '800', marginBottom: 4 },
+  cardBloqueadoSub: { color: '#d1d5db', fontSize: 12, fontWeight: '700', textAlign: 'center' },
   cardImgPlaceholder: {
     flex: 1,
     justifyContent: 'center',

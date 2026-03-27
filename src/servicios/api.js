@@ -248,3 +248,20 @@ export async function marcarNotificacionLeida(id) {
 export async function marcarTodasNotificacionesLeidas() {
   return request('/notificaciones/marcar-todas/leidas', { method: 'PATCH', body: JSON.stringify({}) });
 }
+
+export async function listarFlyersPublicos() {
+  return request('/flyers');
+}
+
+export async function listarFlyersAdmin() {
+  return request('/flyers/admin');
+}
+
+export async function crearFlyer(body) {
+  return request('/flyers', { method: 'POST', body: JSON.stringify(body || {}) });
+}
+
+export async function eliminarFlyer(id) {
+  const idStr = id != null ? String(id) : '';
+  return request(`/flyers/${idStr}`, { method: 'DELETE' });
+}

@@ -7,6 +7,7 @@ const OPCIONES = [
   { id: 'usuarios', titulo: 'Usuarios', descripcion: 'Lista de usuarios, premium, admin, editar y borrar' },
   { id: 'contenido-exclusivo', titulo: 'Subir contenido Thug', descripcion: 'Crear y editar publicaciones exclusivas (texto, media, métricas)' },
   { id: 'eventos', titulo: 'Eventos', descripcion: 'Agregar y editar eventos' },
+  { id: 'flyers', titulo: 'Flyers Presskit', descripcion: 'Agregar o quitar imágenes del carrusel' },
 ];
 
 export default function ModoAdmin({ navigation }) {
@@ -22,6 +23,7 @@ export default function ModoAdmin({ navigation }) {
     if (id === 'usuarios') navigation.navigate('AdminUsuarios');
     if (id === 'contenido-exclusivo') navigation.navigate('AdminContenidoExclusivo');
     if (id === 'eventos') navigation.navigate('AdminEventos');
+    if (id === 'flyers') navigation.navigate('AdminFlyers');
   };
 
   return (

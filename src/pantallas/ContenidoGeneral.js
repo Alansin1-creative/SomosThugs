@@ -17,7 +17,8 @@ import {
   Pressable,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Video } from 'expo-av';
+import { useEventListener } from 'expo';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -62,10 +63,48 @@ function absolutizarRutaMedia(raw) {
   return base + (s.startsWith('/') ? s : `/${s}`);
 }
 
+function urlPareceArchivoVideo(url) {
+  const s = String(url || '').toLowerCase();
+  if (!s) return false;
+  if (/\.(mp4|webm|ogg|m4v|mov)(\?|#|$)/.test(s)) return true;
+  if (s.startsWith('data:video/')) return true;
+  return false;
+}
+
+function urlPareceArchivoAudio(url) {
+  const s = String(url || '').toLowerCase();
+  if (!s) return false;
+  if (/\.(mp3|wav|aac|m4a|flac|oga)(\?|#|$)/.test(s)) return true;
+  if (s.startsWith('data:audio/')) return true;
+  return false;
+}
+
+function elegirUrlReproducible(item, tipoDetectado) {
+  const urlCompleta = String(item?.urlMediaCompleta || '').trim();
+  const urlPreview = String(item?.urlMedia || item?.imagenUrl || '').trim();
+  if (tipoDetectado === 'video') {
+    if (urlPareceArchivoVideo(urlCompleta)) return urlCompleta;
+    if (urlPareceArchivoVideo(urlPreview)) return urlPreview;
+    return urlCompleta || urlPreview || '';
+  }
+  if (tipoDetectado === 'audio') {
+    if (urlPareceArchivoAudio(urlCompleta)) return urlCompleta;
+    if (urlPareceArchivoAudio(urlPreview)) return urlPreview;
+    return urlCompleta || urlPreview || '';
+  }
+  return urlPreview || urlCompleta || '';
+}
+
 function clasificarMedia(item, urlAValidar) {
   const tipo = String(item?.tipoContenido || item?.tipo || '').toLowerCase().trim();
+  const src = String(
+    urlAValidar || item?.urlMediaCompleta || item?.urlMedia || item?.imagenUrl || ''
+  ).toLowerCase();
+  // Si en BD dice "video" pero la URL es claramente imagen, el <video> queda negro en 0:00 — mostrar como imagen.
+  if (tipo === 'video' && /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/.test(src)) {
+    return 'imagen';
+  }
   if (tipo === 'video' || tipo === 'audio' || tipo === 'imagen') return tipo;
-  const src = String(urlAValidar || item?.urlMediaCompleta || item?.urlMedia || '').toLowerCase();
   if (/\.(mp4|webm|ogg|m4v|mov)(\?|#|$)/.test(src)) return 'video';
   if (/\.(mp3|wav|aac|m4a|flac|oga)(\?|#|$)/.test(src)) return 'audio';
   if (/\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/.test(src)) return 'imagen';
@@ -159,6 +198,55 @@ function VideoModalPlayerWeb({ src, poster, videoRef, onAspectKnown, onEnded, on
     },
     onEnded: onEnded,
   });
+}
+
+/** Nativo (iOS/Android): expo-video reemplaza expo-av (deprecado en SDK 54). */
+function VideoModalPlayerNative({ uri, style, playerRef, onAspectKnown, onEnded, onVideoError }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.play();
+  });
+
+  useEffect(() => {
+    if (playerRef && typeof playerRef === 'object' && 'current' in playerRef) {
+      playerRef.current = player;
+    }
+    return () => {
+      if (playerRef && typeof playerRef === 'object' && 'current' in playerRef) {
+        playerRef.current = null;
+      }
+    };
+  }, [player, playerRef]);
+
+  useEventListener(player, 'sourceLoad', (payload) => {
+    const tracks = payload?.availableVideoTracks;
+    const t = Array.isArray(tracks) ? tracks[0] : null;
+    const w = t?.size?.width;
+    const h = t?.size?.height;
+    if (w && h) onAspectKnown?.(w / h);
+  });
+
+  useEventListener(player, 'playToEnd', () => {
+    onEnded?.();
+  });
+
+  useEventListener(player, 'statusChange', ({ status, error }) => {
+    if (status === 'error' && error?.message) {
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        console.warn('[VideoModal native]', error.message, uri);
+      }
+      onVideoError?.(error.message);
+    }
+  });
+
+  return (
+    <VideoView
+      player={player}
+      style={style}
+      nativeControls
+      contentFit="contain"
+      {...(Platform.OS === 'android' ? { surfaceType: 'textureView' } : {})}
+    />
+  );
 }
 
 export default function ContenidoGeneral({ navigation }) {
@@ -389,15 +477,11 @@ export default function ContenidoGeneral({ navigation }) {
   };
 
   const abrirMediaEnModal = async (item) => {
-    const previewUrl = item.urlMedia || null;
-    const mediaUrl = item.urlMediaCompleta || item.urlMedia || null;
+    const previewUrl = item.urlMedia || item.imagenUrl || null;
+    const mediaUrl = item.urlMediaCompleta || item.urlMedia || item.imagenUrl || null;
     if (!mediaUrl && !previewUrl) return;
     const tipo = clasificarMedia(item, mediaUrl);
-    // Preview suele ser miniatura imagen; vídeo/audio deben usar el archivo completo primero.
-    const urlCruda =
-      tipo === 'video' || tipo === 'audio'
-        ? item.urlMediaCompleta || item.urlMedia
-        : previewUrl || mediaUrl;
+    const urlCruda = elegirUrlReproducible(item, tipo);
     const urlVisual = absolutizarRutaMedia(urlCruda);
     if (!urlVisual) return;
     setMediaItem(item);
@@ -408,6 +492,13 @@ export default function ContenidoGeneral({ navigation }) {
     if (Platform.OS === 'web' && webVideoRef.current) {
       try {
         webVideoRef.current.pause();
+      } catch (_) {
+        /* noop */
+      }
+    }
+    if (Platform.OS !== 'web' && videoRef.current) {
+      try {
+        videoRef.current.pause();
       } catch (_) {
         /* noop */
       }
@@ -612,7 +703,9 @@ export default function ContenidoGeneral({ navigation }) {
   const tipoModalAbierto = mediaItem
     ? clasificarMedia(mediaItem, mediaUrlSeleccionada)
     : '';
-  const posterModalVideoAbs = esWeb && mediaItem && tipoModalAbierto === 'video' && mediaItem.urlMedia
+  const usarVideoEnModal =
+    tipoModalAbierto === 'video' && urlPareceArchivoVideo(mediaUrlSeleccionada);
+  const posterModalVideoAbs = esWeb && mediaItem && usarVideoEnModal && mediaItem.urlMedia
     ? absolutizarRutaMedia(mediaItem.urlMedia)
     : null;
   const posterModalVideoWeb =
@@ -704,8 +797,8 @@ export default function ContenidoGeneral({ navigation }) {
                 item.bloqueado === true ||
                 (item.nivelRequerido === 'thug' &&
                   !puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol));
-              const previewUrl = item.urlMedia || null;
-              const mediaUrl = item.urlMediaCompleta || item.urlMedia || null;
+              const previewUrl = item.urlMedia || item.imagenUrl || null;
+              const mediaUrl = item.urlMediaCompleta || item.urlMedia || item.imagenUrl || null;
               const urlCompleta = previewUrl ? absolutizarRutaMedia(previewUrl) : null;
               const mostrarPreview = !!urlCompleta || bloqueado;
               const previewSource = urlCompleta ? { uri: urlCompleta } : FONDO_THUGS;
@@ -894,7 +987,7 @@ export default function ContenidoGeneral({ navigation }) {
                   <View style={estilos.cardTipoBadge}>
                     <Ionicons
                       name={
-                        tipoModalAbierto === 'video'
+                        usarVideoEnModal
                           ? 'videocam'
                           : tipoModalAbierto === 'audio'
                             ? 'musical-notes'
@@ -929,7 +1022,7 @@ export default function ContenidoGeneral({ navigation }) {
                         ]}
                       >
                         <View style={estilos.mediaCenterBox}>
-                          {tipoModalAbierto === 'video' ? (
+                          {usarVideoEnModal ? (
                             Platform.OS === 'web' ? (
                               <VideoModalPlayerWeb
                                 key={mediaUrlSeleccionada}
@@ -946,8 +1039,10 @@ export default function ContenidoGeneral({ navigation }) {
                                 }
                               />
                             ) : (
-                              <Video
-                                source={{ uri: mediaUrlSeleccionada }}
+                              <VideoModalPlayerNative
+                                key={mediaUrlSeleccionada}
+                                uri={mediaUrlSeleccionada}
+                                playerRef={videoRef}
                                 style={[
                                   estilos.cardPreviewVideo,
                                   {
@@ -956,25 +1051,14 @@ export default function ContenidoGeneral({ navigation }) {
                                     aspectRatio: mediaAspectRatio || 16 / 9,
                                   },
                                 ]}
-                                resizeMode="contain"
-                                useNativeControls
-                                shouldPlay
-                                ref={videoRef}
-                                onLoad={({ naturalSize }) => {
-                                  if (naturalSize?.width && naturalSize?.height) {
-                                    setMediaAspectRatio(
-                                      naturalSize.width / naturalSize.height || 16 / 9
-                                    );
-                                  }
-                                }}
-                                onPlaybackStatusUpdate={(status) => {
-                                  if (!status || !status.isLoaded) return;
-                                  if (status.didJustFinish) {
-                                    setVideoTerminado(true);
-                                  } else if (status.isPlaying) {
-                                    setVideoTerminado(false);
-                                  }
-                                }}
+                                onAspectKnown={(ar) => setMediaAspectRatio(ar)}
+                                onEnded={() => setVideoTerminado(true)}
+                                onVideoError={(msg) =>
+                                  Alert.alert(
+                                    'Vídeo',
+                                    `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
+                                  )
+                                }
                               />
                             )
                           ) : (
@@ -1010,7 +1094,7 @@ export default function ContenidoGeneral({ navigation }) {
                             />
                           )}
                         </View>
-                        {videoTerminado ? (
+                        {videoTerminado && usarVideoEnModal ? (
                           <Pressable
                             style={estilos.videoReplayOverlay}
                             onPress={async () => {
@@ -1028,9 +1112,13 @@ export default function ContenidoGeneral({ navigation }) {
                                 return;
                               }
                               try {
-                                await videoRef.current?.replayAsync?.();
-                              } catch (e) {
-                                // noop
+                                const p = videoRef.current;
+                                if (p) {
+                                  p.replay();
+                                  p.play();
+                                }
+                              } catch (_) {
+                                /* noop */
                               }
                             }}
                           >

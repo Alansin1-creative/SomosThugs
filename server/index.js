@@ -12,6 +12,7 @@ const publicacionesRoutes = require('./routes/publicaciones');
 const contenidoExclusivoRoutes = require('./routes/contenidoExclusivo');
 const mapsRoutes = require('./routes/maps');
 const notificacionesRoutes = require('./routes/notificaciones');
+const flyersRoutes = require('./routes/flyers');
 
 const app = express();
 
@@ -45,7 +46,9 @@ const corsOptions = {
     callback(null, origenCorsPermitido(origin));
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  // Range: el navegador lo envía al reproducir vídeo por HTTP; sin esto el <video> puede quedarse en 0:00 en otro origen.
+  allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
+  exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges'],
   credentials: true,
 };
 app.use(cors(corsOptions));
@@ -99,6 +102,7 @@ app.use('/publicaciones', publicacionesRoutes);
 app.use('/contenido-exclusivo', contenidoExclusivoRoutes);
 app.use('/maps', mapsRoutes);
 app.use('/notificaciones', notificacionesRoutes);
+app.use('/flyers', flyersRoutes);
 
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/somos-thugs';

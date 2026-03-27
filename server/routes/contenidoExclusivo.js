@@ -53,6 +53,31 @@ function normalizarDocMedia(doc) {
   };
 }
 
+function pareceVideo(url) {
+  const s = String(url || '').toLowerCase();
+  return /\.(mp4|webm|ogg|m4v|mov)(\?|#|$)/.test(s);
+}
+
+function pareceAudio(url) {
+  const s = String(url || '').toLowerCase();
+  return /\.(mp3|wav|aac|m4a|flac|oga)(\?|#|$)/.test(s);
+}
+
+function reconciliarUrlsMedia(tipoContenido, urlMedia, urlMediaCompleta) {
+  const tipo = String(tipoContenido || '').toLowerCase().trim();
+  const preview = normalizarRutaMedia(urlMedia);
+  const completa = normalizarRutaMedia(urlMediaCompleta);
+  if (tipo === 'video') {
+    if (pareceVideo(completa)) return { urlMedia: preview, urlMediaCompleta: completa };
+    if (pareceVideo(preview)) return { urlMedia: preview, urlMediaCompleta: preview };
+  }
+  if (tipo === 'audio') {
+    if (pareceAudio(completa)) return { urlMedia: preview, urlMediaCompleta: completa };
+    if (pareceAudio(preview)) return { urlMedia: preview, urlMediaCompleta: preview };
+  }
+  return { urlMedia: preview, urlMediaCompleta: completa };
+}
+
 function toDoc(doc) {
   if (!doc) return null;
   const o = doc.toObject ? doc.toObject() : doc;
@@ -235,14 +260,15 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     if (b.mediaCompletaBase64) {
       urlMediaCompleta = guardarMediaBase64(b.mediaCompletaBase64, 'completa') || '';
     }
+    const mediaFinal = reconciliarUrlsMedia(tipoContenido, urlMedia, urlMediaCompleta);
     const payload = {
       titulo,
       descripcion,
       previewTexto,
       contenidoCompleto,
       complementario,
-      urlMedia,
-      urlMediaCompleta,
+      urlMedia: mediaFinal.urlMedia,
+      urlMediaCompleta: mediaFinal.urlMediaCompleta,
       tipoContenido,
       nivelRequerido,
       categoria,
@@ -325,6 +351,11 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
       urlMediaCompleta = '';
     }
 
+    const tipoContenidoFinal =
+      typeof b.tipoContenido === 'string' && b.tipoContenido.trim()
+        ? b.tipoContenido.trim()
+        : existing.tipoContenido;
+    const mediaFinal = reconciliarUrlsMedia(tipoContenidoFinal, urlMedia, urlMediaCompleta);
     const $set = {
       titulo: typeof b.titulo === 'string' ? b.titulo.trim() : existing.titulo,
       descripcion: typeof b.descripcion === 'string' ? b.descripcion.trim() : existing.descripcion,
@@ -333,12 +364,9 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
         typeof b.contenidoCompleto === 'string' ? b.contenidoCompleto.trim() : existing.contenidoCompleto,
       complementario:
         typeof b.complementario === 'string' ? b.complementario.trim() : existing.complementario,
-      urlMedia,
-      urlMediaCompleta,
-      tipoContenido:
-        typeof b.tipoContenido === 'string' && b.tipoContenido.trim()
-          ? b.tipoContenido.trim()
-          : existing.tipoContenido,
+      urlMedia: mediaFinal.urlMedia,
+      urlMediaCompleta: mediaFinal.urlMediaCompleta,
+      tipoContenido: tipoContenidoFinal,
       nivelRequerido:
         typeof b.nivelRequerido === 'string' && b.nivelRequerido.trim()
           ? b.nivelRequerido.trim()

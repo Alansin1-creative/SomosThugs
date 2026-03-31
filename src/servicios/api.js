@@ -99,10 +99,11 @@ export async function listarFeedUnificado() {
   return request('/contenido-exclusivo/feed-unificado');
 }
 
-/** Registra una vista en el contenido (conteo de vistas) */
-export async function registrarVistaContenido(id) {
+/** Registra una vista en el contenido. Feed: una por usuario. Modal: pasar { desdeAperturaModal: true } para +1 en cada apertura. */
+export async function registrarVistaContenido(id, opts = {}) {
   const idStr = id != null ? String(id) : '';
-  return request(`/contenido-exclusivo/${idStr}/vista`, { method: 'POST', body: JSON.stringify({}) });
+  const body = opts.desdeAperturaModal ? { desdeAperturaModal: true } : {};
+  return request(`/contenido-exclusivo/${idStr}/vista`, { method: 'POST', body: JSON.stringify(body) });
 }
 
 /** Dar like a un contenido (incrementa numeroLikes) */

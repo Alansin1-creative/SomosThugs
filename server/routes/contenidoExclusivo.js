@@ -150,22 +150,20 @@ router.get('/:id', authMiddleware, requireThug, async (req, res) => {
   }
 });
 
-// Registrar una vista ÚNICA por usuario (cualquier usuario autenticado que pueda ver el contenido)
+// Vista en feed: como máximo +1 por usuario (vistasUsuarios). Apertura de modal: +1 en cada clic (body.desdeAperturaModal).
 router.post('/:id/vista', authMiddleware, async (req, res) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id?.toString?.();
+    const desdeAperturaModal = req.body?.desdeAperturaModal === true;
     const doc = await ContenidoExclusivo.findById(req.params.id);
     if (!doc) return res.status(404).json({ error: 'No encontrado' });
 
-    // Si ya contamos la vista de este usuario, solo devolvemos el número actual
-    if (userId && Array.isArray(doc.vistasUsuarios) && doc.vistasUsuarios.includes(userId)) {
+    if (!desdeAperturaModal && userId && Array.isArray(doc.vistasUsuarios) && doc.vistasUsuarios.includes(userId)) {
       return res.json({ numeroVistas: doc.numeroVistas });
     }
 
-    const update = {
-      $inc: { numeroVistas: 1 },
-    };
-    if (userId) {
+    const update = { $inc: { numeroVistas: 1 } };
+    if (userId && !desdeAperturaModal) {
       update.$addToSet = { vistasUsuarios: userId };
     }
 

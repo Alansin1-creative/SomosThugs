@@ -15,6 +15,7 @@ import {
   Modal,
   TextInput,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEventListener } from 'expo';
@@ -252,10 +253,19 @@ function VideoModalPlayerNative({ uri, style, playerRef, onAspectKnown, onEnded,
 export default function ContenidoGeneral({ navigation }) {
   const insets = useSafeAreaInsets();
   const { perfil, cerrarSesion, cargando: authCargando } = useAuth();
-  const { height: ventanaAlto, width: ventanaAncho } = Dimensions.get('window');
+  const { height: ventanaAlto, width: ventanaAncho } = useWindowDimensions();
   const esWeb = Platform.OS === 'web';
-  const esWebMovil = esWeb && ventanaAncho < 820;
+  const esNavegadorMovilWeb = (() => {
+    if (!esWeb || typeof navigator === 'undefined') return false;
+    return /android|iphone|ipad|ipod|iemobile|mobile|opera mini/i.test(
+      String(navigator.userAgent || '')
+    );
+  })();
+  // Evitar que escritorio con ventana mediana caiga en layout móvil.
+  const esWebMovil = esWeb && (esNavegadorMovilWeb || ventanaAncho < 700);
   const esWebDesktop = esWeb && !esWebMovil;
+  // Para el modal conviene apilar en más casos para evitar solapes entre media y acciones.
+  const esModalWebApilado = esWeb && (esNavegadorMovilWeb || ventanaAncho < 980);
   const scrollRef = useRef(null);
   const [eventos, setEventos] = useState([]);
   const [publicaciones, setPublicaciones] = useState([]);
@@ -484,7 +494,15 @@ export default function ContenidoGeneral({ navigation }) {
     const urlCruda = elegirUrlReproducible(item, tipo);
     const urlVisual = absolutizarRutaMedia(urlCruda);
     if (!urlVisual) return;
-    setMediaItem(item);
+    const id = getId(item);
+    if (id) {
+      registrarVistaPorClickModal(id);
+    }
+    setMediaItem(
+      id
+        ? { ...(item || {}), numeroVistas: (item?.numeroVistas ?? 0) + 1 }
+        : item
+    );
     setMediaUrlSeleccionada(urlVisual);
   };
 
@@ -634,6 +652,28 @@ export default function ContenidoGeneral({ navigation }) {
     }
   };
 
+  const actualizarVistasLocal = (itemId, { sumar = false, totalServidor } = {}) => {
+    if (!itemId) return;
+    const idStr = String(itemId);
+    setContenidoUnificado((prev) =>
+      prev.map((it) => {
+        const itId = String(getId(it) ?? '');
+        if (itId !== idStr) return it;
+        const actual = it.numeroVistas ?? 0;
+        const nuevo = typeof totalServidor === 'number' ? totalServidor : sumar ? actual + 1 : actual;
+        return nuevo === actual ? it : { ...it, numeroVistas: nuevo };
+      })
+    );
+    setMediaItem((prev) => {
+      if (!prev) return prev;
+      const prevId = String(getId(prev) ?? '');
+      if (prevId !== idStr) return prev;
+      const actual = prev.numeroVistas ?? 0;
+      const nuevo = typeof totalServidor === 'number' ? totalServidor : sumar ? actual + 1 : actual;
+      return nuevo === actual ? prev : { ...prev, numeroVistas: nuevo };
+    });
+  };
+
   const registrarVistaSiAplica = async (itemId) => {
     if (!itemId) return;
     const idStr = String(itemId);
@@ -644,15 +684,11 @@ export default function ContenidoGeneral({ navigation }) {
     try {
       const res = await registrarVistaContenido(idStr);
       const totalServidor = res?.numeroVistas;
-      setContenidoUnificado((prev) =>
-        prev.map((it) => {
-          const itId = String(getId(it) ?? '');
-          if (itId !== idStr) return it;
-          const actual = it.numeroVistas ?? 0;
-          const nuevo = typeof totalServidor === 'number' ? totalServidor : actual + 1;
-          return { ...it, numeroVistas: nuevo };
-        })
-      );
+      if (typeof totalServidor === 'number') {
+        actualizarVistasLocal(idStr, { totalServidor });
+      } else {
+        actualizarVistasLocal(idStr, { sumar: true });
+      }
       try {
         const key = getVistasStorageKey();
         const raw = await AsyncStorage.getItem(key);
@@ -668,6 +704,35 @@ export default function ContenidoGeneral({ navigation }) {
       vistasHechasRef.current.delete(idStr);
     } finally {
       vistasGuardandoRef.current.delete(idStr);
+    }
+  };
+
+  // Cada clic para abrir modal suma una vista adicional, sin limitar por usuario.
+  const registrarVistaPorClickModal = async (itemId) => {
+    if (!itemId) return;
+    const idStr = String(itemId);
+    actualizarVistasLocal(idStr, { sumar: true });
+    try {
+      const res = await registrarVistaContenido(idStr, { desdeAperturaModal: true });
+      const totalServidor = res?.numeroVistas;
+      if (typeof totalServidor === 'number') {
+        actualizarVistasLocal(idStr, { totalServidor });
+      }
+    } catch (e) {
+      console.warn('Vista por clic modal no registrada:', e);
+      setMediaItem((prev) => {
+        if (!prev || String(getId(prev) ?? '') !== idStr) return prev;
+        const actual = prev.numeroVistas ?? 0;
+        return actual > 0 ? { ...prev, numeroVistas: actual - 1 } : prev;
+      });
+      setContenidoUnificado((prev) =>
+        prev.map((it) => {
+          const itId = String(getId(it) ?? '');
+          if (itId !== idStr) return it;
+          const v = it.numeroVistas ?? 0;
+          return v > 0 ? { ...it, numeroVistas: v - 1 } : it;
+        })
+      );
     }
   };
 
@@ -983,43 +1048,237 @@ export default function ContenidoGeneral({ navigation }) {
           <View style={estilos.modalMediaCaja}>
             {mediaItem && (
               <>
-                <View style={estilos.modalMediaHeader}>
-                  <View style={estilos.cardTipoBadge}>
-                    <Ionicons
-                      name={
-                        usarVideoEnModal
-                          ? 'videocam'
-                          : tipoModalAbierto === 'audio'
-                            ? 'musical-notes'
-                            : tipoModalAbierto === 'imagen'
-                              ? 'image'
-                              : 'document-text'
-                      }
-                      size={14}
-                      color="#00dc57"
-                    />
-                    <Text style={estilos.cardTipoTexto}>
-                      {mediaItem.tipoContenido || mediaItem.tipo || 'articulo'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity onPress={cerrarMediaModal} style={estilos.modalMediaCerrar}>
-                    <Ionicons name="close" size={20} color="#fff" />
-                  </TouchableOpacity>
-                </View>
-                <View style={[estilos.modalMediaCuerpoRow, esWebMovil && estilos.modalMediaCuerpoRowWebMovil]}>
-                  {esWebMovil ? (
-                    <View style={estilos.modalMediaBloqueTextoWebMovil}>
-                      <Text style={[estilos.modalMediaTitulo, estilos.modalMediaTituloEncimaVideoWebMovil]}>
-                        {mediaItem.titulo || 'Sin título'}
+                <View style={estilos.modalMediaCabecera}>
+                  <View style={estilos.modalMediaHeader}>
+                    <View style={estilos.cardTipoBadge}>
+                      <Ionicons
+                        name={
+                          usarVideoEnModal
+                            ? 'videocam'
+                            : tipoModalAbierto === 'audio'
+                              ? 'musical-notes'
+                              : tipoModalAbierto === 'imagen'
+                                ? 'image'
+                                : 'document-text'
+                        }
+                        size={14}
+                        color="#00dc57"
+                      />
+                      <Text style={estilos.cardTipoTexto}>
+                        {mediaItem.tipoContenido || mediaItem.tipo || 'articulo'}
                       </Text>
-                      {mediaItem.previewTexto || mediaItem.descripcion ? (
-                        <Text style={[estilos.cardTexto, estilos.modalMediaDescripcionEncimaVideoWebMovil]}>
-                          {mediaItem.previewTexto || mediaItem.descripcion}
-                        </Text>
-                      ) : null}
                     </View>
+                    <TouchableOpacity onPress={cerrarMediaModal} style={estilos.modalMediaCerrar}>
+                      <Ionicons name="close" size={20} color="#fff" />
+                    </TouchableOpacity>
+                  </View>
+                  <Text style={estilos.modalMediaTituloTop}>{mediaItem.titulo || 'Sin título'}</Text>
+                  {mediaItem.previewTexto || mediaItem.descripcion ? (
+                    <Text style={estilos.modalMediaDescripcionTop} numberOfLines={esModalWebApilado ? 4 : 3}>
+                      {mediaItem.previewTexto || mediaItem.descripcion}
+                    </Text>
                   ) : null}
-                  <View style={[estilos.modalMediaColMedia, esWebMovil && estilos.modalMediaColMediaWebMovil]}>
+                </View>
+                {esModalWebApilado ? (
+                  <View style={estilos.modalMediaFlujoApilado}>
+                    <View style={estilos.modalMediaZonaVideoApilada}>
+                      {mediaUrlSeleccionada && (
+                        <View
+                          style={[
+                            estilos.cardPreviewImgModal,
+                            estilos.cardPreviewImgModalWebMovil,
+                            {
+                              height: Math.min(ventanaAlto * 0.4, 340),
+                            },
+                          ]}
+                        >
+                          <View style={estilos.mediaCenterBox}>
+                            {usarVideoEnModal ? (
+                              Platform.OS === 'web' ? (
+                                <VideoModalPlayerWeb
+                                  key={mediaUrlSeleccionada}
+                                  src={mediaUrlSeleccionada}
+                                  poster={posterModalVideoWeb}
+                                  videoRef={webVideoRef}
+                                  onAspectKnown={(ar) => setMediaAspectRatio(ar)}
+                                  onEnded={() => setVideoTerminado(true)}
+                                  onVideoError={(msg) =>
+                                    Alert.alert(
+                                      'Vídeo',
+                                      `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
+                                    )
+                                  }
+                                />
+                              ) : (
+                                <VideoModalPlayerNative
+                                  key={mediaUrlSeleccionada}
+                                  uri={mediaUrlSeleccionada}
+                                  playerRef={videoRef}
+                                  style={[
+                                    estilos.cardPreviewVideo,
+                                    {
+                                      maxHeight: '100%',
+                                      maxWidth: '100%',
+                                      aspectRatio: mediaAspectRatio || 16 / 9,
+                                    },
+                                  ]}
+                                  onAspectKnown={(ar) => setMediaAspectRatio(ar)}
+                                  onEnded={() => setVideoTerminado(true)}
+                                  onVideoError={(msg) =>
+                                    Alert.alert(
+                                      'Vídeo',
+                                      `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
+                                    )
+                                  }
+                                />
+                              )
+                            ) : (
+                              <Image
+                                source={{ uri: mediaUrlSeleccionada }}
+                                style={[
+                                  estilos.cardPreviewImgInner,
+                                  Platform.OS === 'web'
+                                    ? {
+                                        display: 'block',
+                                        alignSelf: 'center',
+                                        width: '100%',
+                                        height: '100%',
+                                        maxWidth: '100%',
+                                        maxHeight: '100%',
+                                        objectFit: 'contain',
+                                        objectPosition: 'center center',
+                                      }
+                                    : {
+                                        maxHeight: '100%',
+                                        maxWidth: '100%',
+                                        aspectRatio: mediaAspectRatio || 16 / 9,
+                                      },
+                                ]}
+                                resizeMode="contain"
+                                onLoad={(e) => {
+                                  const w = e?.nativeEvent?.source?.width;
+                                  const h = e?.nativeEvent?.source?.height;
+                                  if (w && h) {
+                                    setMediaAspectRatio(w / h);
+                                  }
+                                }}
+                              />
+                            )}
+                          </View>
+                          {videoTerminado && usarVideoEnModal ? (
+                            <Pressable
+                              style={estilos.videoReplayOverlay}
+                              onPress={async () => {
+                                setVideoTerminado(false);
+                                if (Platform.OS === 'web') {
+                                  const el = webVideoRef.current;
+                                  if (el) {
+                                    el.currentTime = 0;
+                                    try {
+                                      await el.play();
+                                    } catch (_) {
+                                      /* noop */
+                                    }
+                                  }
+                                  return;
+                                }
+                                try {
+                                  const p = videoRef.current;
+                                  if (p) {
+                                    p.replay();
+                                    p.play();
+                                  }
+                                } catch (_) {
+                                  /* noop */
+                                }
+                              }}
+                            >
+                              <View style={estilos.videoReplayBoton}>
+                                <Ionicons name="refresh" size={22} color="#000" />
+                                <Text style={estilos.videoReplayTexto}>Reproducir</Text>
+                              </View>
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      )}
+                    </View>
+                    <View style={[estilos.modalMediaColDerMobile, esWeb && estilos.modalMediaColDerMobileWebApilado]}>
+                      <View style={estilos.modalAccionesFilaMobile}>
+                        <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
+                          <View style={estilos.cardAccionItem}>
+                            <Ionicons name="eye-outline" size={18} color="#888" />
+                            <Text style={estilos.cardAccionNumero}>
+                              {mediaItem.numeroVistas ?? 0}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={estilos.cardAccionItem}
+                            onPress={() => onLike(mediaItem)}
+                            activeOpacity={0.7}
+                            disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}
+                          >
+                            <Ionicons name="heart-outline" size={20} color="#888" />
+                            <Text style={estilos.cardAccionNumero}>
+                              {mediaItem.numeroLikes ?? 0}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={estilos.cardAccionItem}
+                            onPress={() => abrirComentarios(mediaItem)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="chatbubble-outline" size={18} color="#888" />
+                            <Text style={estilos.cardAccionNumero}>
+                              {Array.isArray(mediaItem.comentarios) ? mediaItem.comentarios.length : mediaItem.numeroComentarios ?? 0}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ? (
+                          <TouchableOpacity
+                            style={estilos.modalAbrirArchivo}
+                            onPress={() => abrirContenido(mediaItem)}
+                          >
+                            <Ionicons name="open-outline" size={16} color="#00dc57" />
+                            <Text style={estilos.modalAbrirArchivoTexto}>Abrir archivo</Text>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                      <View style={estilos.modalComentariosMobile}>
+                        <Text style={estilos.modalComentariosTitulo}>Comentarios</Text>
+                        {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ? (
+                          <ScrollView
+                            style={estilos.modalComentariosScrollMobile}
+                            contentContainerStyle={estilos.modalComentariosScrollContenido}
+                            showsVerticalScrollIndicator={false}
+                            nestedScrollEnabled
+                            keyboardShouldPersistTaps="handled"
+                          >
+                            {mediaItem.comentarios.map((c, idx) => {
+                              const esObjeto = c && typeof c === 'object';
+                              const texto = esObjeto ? c.texto || '' : String(c || '');
+                              const usuario = esObjeto ? c.usuario || '' : '';
+                              if (!texto) return null;
+                              return (
+                                <View key={idx} style={estilos.modalComentarioCaja}>
+                                  {usuario ? (
+                                    <Text style={estilos.modalComentarioUsuario}>{usuario}</Text>
+                                  ) : null}
+                                  <Text style={estilos.modalComentarioItem}>{texto}</Text>
+                                </View>
+                              );
+                            })}
+                          </ScrollView>
+                        ) : (
+                          <View style={estilos.modalComentariosVacioMobile}>
+                            <Text style={estilos.modalComentarioVacio}>Sé el primero en comentar.</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                <View style={estilos.modalMediaCuerpoRow}>
+                  <View style={estilos.modalMediaColMedia}>
                     {mediaUrlSeleccionada && (
                       <View
                         style={[
@@ -1027,9 +1286,7 @@ export default function ContenidoGeneral({ navigation }) {
                           {
                             height: esWebDesktop
                               ? ventanaAlto * 0.78
-                              : esWebMovil
-                                ? Math.min(ventanaAlto * 0.4, 340)
-                                : ventanaAlto * 0.45,
+                              : ventanaAlto * 0.45,
                           },
                         ]}
                       >
@@ -1143,14 +1400,8 @@ export default function ContenidoGeneral({ navigation }) {
                       </View>
                     )}
                   </View>
-                  {esWebDesktop ? (
+                  {esWeb ? (
                     <View style={estilos.modalMediaColDer}>
-                      <Text style={estilos.modalMediaTitulo}>{mediaItem.titulo || 'Sin título'}</Text>
-                      {mediaItem.previewTexto || mediaItem.descripcion ? (
-                        <Text style={estilos.cardTexto}>
-                          {mediaItem.previewTexto || mediaItem.descripcion}
-                        </Text>
-                      ) : null}
                       <View style={estilos.modalAccionesFila}>
                         <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
                           <View style={estilos.cardAccionItem}>
@@ -1222,16 +1473,6 @@ export default function ContenidoGeneral({ navigation }) {
                     </View>
                   ) : (
                     <View style={[estilos.modalMediaColDerMobile, esWeb && estilos.modalMediaColDerMobileWeb]}>
-                      {!esWebMovil ? (
-                        <>
-                          <Text style={estilos.modalMediaTitulo}>{mediaItem.titulo || 'Sin título'}</Text>
-                          {mediaItem.previewTexto || mediaItem.descripcion ? (
-                            <Text style={estilos.cardTexto} numberOfLines={3}>
-                              {mediaItem.previewTexto || mediaItem.descripcion}
-                            </Text>
-                          ) : null}
-                        </>
-                      ) : null}
                       <View style={estilos.modalAccionesFilaMobile}>
                         <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
                           <View style={estilos.cardAccionItem}>
@@ -1306,6 +1547,7 @@ export default function ContenidoGeneral({ navigation }) {
                     </View>
                   )}
                 </View>
+                )}
               </>
             )}
           </View>
@@ -1467,12 +1709,40 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     overflow: 'hidden',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    zIndex: 1,
+    ...(Platform.OS === 'web' ? { position: 'relative' } : null),
+  },
+  modalMediaCabecera: {
+    width: '100%',
+    flexShrink: 0,
+    marginBottom: 0,
+    paddingBottom: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    zIndex: 20,
+    elevation: 20,
+    backgroundColor: Platform.OS === 'web' ? '#121212' : 'rgba(18,18,18,0.99)',
   },
   modalMediaHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  modalMediaTituloTop: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  modalMediaDescripcionTop: {
+    color: '#bbb',
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 0,
+    paddingBottom: 0,
   },
   modalMediaCerrar: { padding: 4 },
   modalMediaTitulo: {
@@ -1491,15 +1761,46 @@ const estilos = StyleSheet.create({
   },
   modalMediaCuerpoRowWebMovil: {
     flexDirection: 'column',
-    gap: 10,
+    gap: 0,
     minHeight: 0,
+  },
+  /** Web modal apilado: columna fija (cabecera → video → acciones) sin flex raro que empalme el &lt;video&gt; con el texto. */
+  modalMediaFlujoApilado: {
+    flex: 1,
+    minHeight: 0,
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    ...(Platform.OS === 'web' ? { position: 'relative' } : null),
+  },
+  modalMediaZonaVideoApilada: {
+    width: '100%',
+    flexShrink: 0,
+    overflow: 'hidden',
+    position: 'relative',
+    zIndex: 0,
+    marginTop: 0,
+  },
+  modalMediaColDerMobileWebApilado: {
+    flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
+    position: 'relative',
+    zIndex: 1,
+    marginTop: 14,
   },
   // Web móvil: título y descripción arriba; el vídeo empieza después (evita texto encima del reproductor).
   modalMediaBloqueTextoWebMovil: {
     width: '100%',
     flexShrink: 0,
-    marginBottom: 4,
+    marginBottom: 10,
+    paddingBottom: 4,
     zIndex: 1,
+    position: 'relative',
+    backgroundColor: 'rgba(0,0,0,0.24)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingTop: 4,
   },
   modalMediaTituloEncimaVideoWebMovil: {
     marginTop: 0,
@@ -1520,6 +1821,10 @@ const estilos = StyleSheet.create({
     flex: 0,
     flexGrow: 0,
     alignSelf: 'stretch',
+    marginTop: 0,
+    marginBottom: 12,
+    position: 'relative',
+    zIndex: 1,
   },
   modalMediaColDer: {
     flex: Platform.OS === 'web' ? 2 : 5,
@@ -1548,6 +1853,9 @@ const estilos = StyleSheet.create({
     flex: 1,
     minHeight: 120,
     overflow: 'hidden',
+    position: 'relative',
+    zIndex: 2,
+    marginTop: 16,
   },
   modalMediaColDerScroll: {
     flex: 1,
@@ -1602,7 +1910,7 @@ const estilos = StyleSheet.create({
     borderTopColor: 'rgba(255,255,255,0.06)',
   },
   modalAccionesFilaMobile: {
-    marginTop: 12,
+    marginTop: 0,
     flexDirection: 'column',
     alignItems: 'stretch',
     gap: 10,
@@ -1669,6 +1977,16 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     minHeight: 0,
+  },
+  cardPreviewImgModalWebMovil: {
+    marginTop: 0,
+    marginBottom: 0,
+    position: 'relative',
+    zIndex: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
   },
   mediaCenterBox: {
     flex: 1,

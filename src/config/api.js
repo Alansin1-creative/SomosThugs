@@ -4,9 +4,9 @@ function clean(url) {
   return String(url || '').replace(/\/+$/, '');
 }
 
-/** URL del API en producción (Render u otro). Sobrescribir con EXPO_PUBLIC_API_PRODUCTION_URL si cambia el host. */
+/** URL del API en producción (Railway u otro). Sobrescribir con EXPO_PUBLIC_API_PRODUCTION_URL si cambia el host. */
 const API_URL_PRODUCCION = clean(
-  process.env.EXPO_PUBLIC_API_PRODUCTION_URL || 'https://somosthugs-api.onrender.com'
+  process.env.EXPO_PUBLIC_API_PRODUCTION_URL || 'https://somosthugs-production.up.railway.app'
 );
 const API_URL_LOCAL = 'http://localhost:4000';
 
@@ -37,7 +37,7 @@ function urlApiWebLocal(hostname) {
 
 function getBaseUrl() {
   // En app nativa (Expo Go/dispositivo), localhost no funciona para backend de la PC.
-  // Usamos producción (Render por defecto) para evitar bloqueos de login/API.
+  // Usamos Railway por defecto para evitar bloqueos de login/API.
   if (Platform.OS !== 'web') {
     return clean(process.env.EXPO_PUBLIC_API_URL_NATIVE || API_URL_PRODUCCION);
   }

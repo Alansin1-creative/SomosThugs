@@ -1,4 +1,4 @@
-# Docker para la API Node en carpeta `server` (el `npm start` de la raíz es Expo — no usar para este servicio).
+# Railway / Docker: API Node en carpeta `server` (el `npm start` de la raíz es Expo — no usar para este servicio).
 FROM node:20-alpine
 
 WORKDIR /app

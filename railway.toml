@@ -1,0 +1,7 @@
+# Monorepo: el backend vive en /server. Sin esto, Railway usa el package.json de la raíz y ejecuta `expo start` (se queda colgado → build timeout).
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"

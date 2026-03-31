@@ -22,10 +22,6 @@ const usuarioSchema = new mongoose.Schema(
     uid: String,
     // Acceso a contenido (thug = premium)
     nivelAcceso: { type: String, default: 'fan' },
-    // Stripe (no exponer al cliente en toPerfil)
-    stripeCustomerId: String,
-    stripeSubscriptionId: String,
-    stripeSubscriptionStatus: String,
   },
   { timestamps: true }
 );

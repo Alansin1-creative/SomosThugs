@@ -265,21 +265,3 @@ export async function eliminarFlyer(id) {
   const idStr = id != null ? String(id) : '';
   return request(`/flyers/${idStr}`, { method: 'DELETE' });
 }
-
-/** Stripe Checkout: suscripción mensual Thug — devuelve { url } */
-export async function stripeCrearSesionSuscripcionThug() {
-  return request('/stripe/create-checkout-subscription', { method: 'POST', body: JSON.stringify({}) });
-}
-
-/** Stripe Checkout: boleto de evento (precio > 0) — devuelve { url } */
-export async function stripeCrearSesionBoletoEvento(eventoId) {
-  return request('/stripe/create-checkout-event', {
-    method: 'POST',
-    body: JSON.stringify({ eventoId: String(eventoId) }),
-  });
-}
-
-/** Portal Stripe: cancelar suscripción, tarjeta, facturas (requiere haber pagado con Stripe antes). */
-export async function stripeCrearSesionPortalFacturacion() {
-  return request('/stripe/create-billing-portal-session', { method: 'POST', body: JSON.stringify({}) });
-}

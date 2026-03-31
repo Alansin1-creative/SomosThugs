@@ -38,6 +38,18 @@
       "lang": "es",
       "themeColor": "#0d0d0d",
       "backgroundColor": "#0d0d0d"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4febf8d7-ad14-4d48-9641-974ccded68a3"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.alan2869.somosthugs",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     }
   }
 }

@@ -1007,6 +1007,18 @@ export default function ContenidoGeneral({ navigation }) {
                   </TouchableOpacity>
                 </View>
                 <View style={[estilos.modalMediaCuerpoRow, esWebMovil && estilos.modalMediaCuerpoRowWebMovil]}>
+                  {esWebMovil ? (
+                    <View style={estilos.modalMediaBloqueTextoWebMovil}>
+                      <Text style={[estilos.modalMediaTitulo, estilos.modalMediaTituloEncimaVideoWebMovil]}>
+                        {mediaItem.titulo || 'Sin título'}
+                      </Text>
+                      {mediaItem.previewTexto || mediaItem.descripcion ? (
+                        <Text style={[estilos.cardTexto, estilos.modalMediaDescripcionEncimaVideoWebMovil]}>
+                          {mediaItem.previewTexto || mediaItem.descripcion}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
                   <View style={[estilos.modalMediaColMedia, esWebMovil && estilos.modalMediaColMediaWebMovil]}>
                     {mediaUrlSeleccionada && (
                       <View
@@ -1210,11 +1222,15 @@ export default function ContenidoGeneral({ navigation }) {
                     </View>
                   ) : (
                     <View style={[estilos.modalMediaColDerMobile, esWeb && estilos.modalMediaColDerMobileWeb]}>
-                      <Text style={estilos.modalMediaTitulo}>{mediaItem.titulo || 'Sin título'}</Text>
-                      {mediaItem.previewTexto || mediaItem.descripcion ? (
-                        <Text style={estilos.cardTexto} numberOfLines={3}>
-                          {mediaItem.previewTexto || mediaItem.descripcion}
-                        </Text>
+                      {!esWebMovil ? (
+                        <>
+                          <Text style={estilos.modalMediaTitulo}>{mediaItem.titulo || 'Sin título'}</Text>
+                          {mediaItem.previewTexto || mediaItem.descripcion ? (
+                            <Text style={estilos.cardTexto} numberOfLines={3}>
+                              {mediaItem.previewTexto || mediaItem.descripcion}
+                            </Text>
+                          ) : null}
+                        </>
                       ) : null}
                       <View style={estilos.modalAccionesFilaMobile}>
                         <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
@@ -1477,6 +1493,20 @@ const estilos = StyleSheet.create({
     flexDirection: 'column',
     gap: 10,
     minHeight: 0,
+  },
+  // Web móvil: título y descripción arriba; el vídeo empieza después (evita texto encima del reproductor).
+  modalMediaBloqueTextoWebMovil: {
+    width: '100%',
+    flexShrink: 0,
+    marginBottom: 4,
+    zIndex: 1,
+  },
+  modalMediaTituloEncimaVideoWebMovil: {
+    marginTop: 0,
+    marginBottom: 4,
+  },
+  modalMediaDescripcionEncimaVideoWebMovil: {
+    marginBottom: 0,
   },
   modalMediaColMedia: {
     flex: Platform.OS === 'web' ? 5 : 0,

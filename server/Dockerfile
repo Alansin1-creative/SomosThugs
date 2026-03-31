@@ -1,4 +1,4 @@
-# Docker con contexto solo en /server (p. ej. Root Directory = server en Railway).
+# Docker con contexto solo en /server (p. ej. Root Directory = server en el hosting).
 # Si el build es desde la raíz del repo, usa el Dockerfile de la raíz del proyecto.
 FROM node:20-alpine
 

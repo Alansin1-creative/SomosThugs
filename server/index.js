@@ -23,6 +23,15 @@ const ORIGEN_CORS_FIJOS = [
   'https://www.rolandocalles.com',
 ];
 
+/** Orígenes extra desde Render (coma-separados), sin espacios o con trim. */
+function origenesDesdeEnv() {
+  const raw = process.env.CORS_ORIGINS || '';
+  return raw
+    .split(',')
+    .map((s) => s.trim().replace(/\/+$/, ''))
+    .filter(Boolean);
+}
+
 const ORIGEN_CORS_REGEX = [
   /^https:\/\/.*\.github\.io$/,
   /^http:\/\/localhost(:\d+)?$/,
@@ -34,22 +43,48 @@ const ORIGEN_CORS_REGEX = [
   /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/,
 ];
 
-function origenCorsPermitido(origin) {
-  if (!origin) return true;
-  if (ORIGEN_CORS_FIJOS.includes(origin)) return true;
-  return ORIGEN_CORS_REGEX.some((re) => re.test(origin));
+function normalizarOriginHeader(origin) {
+  if (!origin || typeof origin !== 'string') return '';
+  return origin.trim().replace(/\/+$/, '');
 }
 
-// CORS: producción + dev local y LAN (mismo equipo o móvil en la WiFi)
+function origenCorsPermitido(origin) {
+  const o = normalizarOriginHeader(origin);
+  if (!o) return true;
+  if (ORIGEN_CORS_FIJOS.includes(o)) return true;
+  if (origenesDesdeEnv().includes(o)) return true;
+  return ORIGEN_CORS_REGEX.some((re) => re.test(o));
+}
+
+// CORS: con credentials hay que devolver el origen explícito en el preflight (no basta con que falle silenciosamente).
 const corsOptions = {
   origin(origin, callback) {
-    callback(null, origenCorsPermitido(origin));
+    const o = normalizarOriginHeader(origin);
+    if (!o) {
+      callback(null, true);
+      return;
+    }
+    if (origenCorsPermitido(o)) {
+      callback(null, o);
+      return;
+    }
+    callback(null, false);
   },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  // Range: el navegador lo envía al reproducir vídeo por HTTP; sin esto el <video> puede quedarse en 0:00 en otro origen.
-  allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'Range',
+    'Accept',
+    'Accept-Language',
+    'X-Requested-With',
+    'Cache-Control',
+    'Pragma',
+  ],
   exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges'],
   credentials: true,
+  optionsSuccessStatus: 204,
+  maxAge: 86400,
 };
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));

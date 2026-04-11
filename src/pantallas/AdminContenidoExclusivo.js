@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import {
   View,
   Text,
@@ -16,7 +17,6 @@ import {
   Modal,
   Pressable } from
 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +27,122 @@ import { esAdmin } from '../constantes/nivelesAcceso';
 
 const TIPOS_CONTENIDO = ['articulo', 'video', 'imagen', 'audio'];
 const NIVELES = ['fan', 'thug'];
+
+/** Nombre legible del archivo (Firebase Storage u otras URLs). */
+function nombreArchivoDesdeUrlMedia(url) {
+  const s = String(url || '').trim();
+  if (!s) return null;
+  if (s.includes('firebasestorage.googleapis.com')) {
+    try {
+      const u = new URL(s);
+      const parts = u.pathname.split('/o/');
+      if (parts[1]) {
+        const decoded = decodeURIComponent(parts[1]);
+        const tail = decoded.split('/').filter(Boolean).pop();
+        if (tail) return tail.split('?')[0];
+      }
+    } catch (_) {
+      /* seguir */
+    }
+  }
+  const tail = s.split('/').pop();
+  return tail ? tail.split('?')[0] : null;
+}
+
+function firebaseStorageDecodedObjectPath(url) {
+  const s = String(url || '').trim();
+  if (!s.toLowerCase().includes('firebasestorage.googleapis.com')) return '';
+  try {
+    const u = new URL(s);
+    const parts = u.pathname.split('/o/');
+    if (!parts[1]) return '';
+    return decodeURIComponent(parts[1]);
+  } catch {
+    return '';
+  }
+}
+
+function urlPareceArchivoVideo(url) {
+  const s = String(url || '').toLowerCase();
+  if (!s) return false;
+  if (/\.(mp4|webm|ogg|m4v|mov)(\?|#|$)/i.test(s)) return true;
+  if (s.startsWith('data:video/')) return true;
+  const dec = firebaseStorageDecodedObjectPath(url).toLowerCase();
+  if (dec && /\.(mp4|webm|ogg|m4v|mov)(\?|#|$)/i.test(dec)) return true;
+  return false;
+}
+
+function urlPareceArchivoImagen(url) {
+  const s = String(url || '').toLowerCase();
+  if (!s) return false;
+  if (/\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/i.test(s)) return true;
+  if (s.startsWith('data:image/')) return true;
+  const dec = firebaseStorageDecodedObjectPath(url).toLowerCase();
+  if (dec && /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/i.test(dec)) return true;
+  return false;
+}
+
+function urlPareceArchivoAudio(url) {
+  const s = String(url || '').toLowerCase();
+  if (!s) return false;
+  if (s.startsWith('data:audio/')) return true;
+  if (/\.(mp3|mpeg|wav|aac|m4a|flac|oga|ogg|webm|opus)(\?|#|$)/.test(s)) return true;
+  const dec = firebaseStorageDecodedObjectPath(url).toLowerCase();
+  if (dec && /\.(mp3|mpeg|wav|aac|m4a|flac|oga|ogg|webm|opus)(\?|#|$)/i.test(dec)) return true;
+  return false;
+}
+
+const ACCEPT_PREVIEW_WEB = 'image/*,video/*,audio/*';
+
+function absolutizarMediaUri(raw) {
+  const p = String(raw || '').trim();
+  if (!p) return null;
+  if (p.startsWith('http') || p.startsWith('data:')) return p;
+  if (p.startsWith('/')) return getBaseUrl() + p;
+  return `${getBaseUrl()}/${p.replace(/^\/+/, '')}`;
+}
+
+function abrirMediaContenidoAdmin(mediaUrl) {
+  const u = absolutizarMediaUri(mediaUrl);
+  if (u) Linking.openURL(u);
+}
+
+/** Miniatura de vídeo en lista admin (Image no puede mostrar mp4/webm). */
+function AdminListVideoThumbWeb({ uri }) {
+  return React.createElement('video', {
+    src: uri,
+    muted: true,
+    playsInline: true,
+    autoPlay: true,
+    loop: true,
+    controls: false,
+    style: {
+      width: '100%',
+      height: '100%',
+      objectFit: 'cover',
+      backgroundColor: '#111',
+      pointerEvents: 'none',
+      display: 'block'
+    }
+  });
+}
+
+function AdminListVideoThumbNative({ uri }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+  return (
+    <VideoView
+      player={player}
+      style={{ width: '100%', height: '100%', backgroundColor: '#111' }}
+      nativeControls={false}
+      contentFit="cover"
+      {...Platform.OS === 'android' ? { surfaceType: 'textureView' } : {}}
+    />
+  );
+}
 
 export default function AdminContenidoExclusivo({ navigation }) {
   const { perfil } = useAuth();
@@ -121,7 +237,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'image/*,video/*';
+      input.accept = ACCEPT_PREVIEW_WEB;
       input.style.display = 'none';
       input.onchange = (e) => {
         const file = e.target?.files?.[0];
@@ -139,19 +255,19 @@ export default function AdminContenidoExclusivo({ navigation }) {
       return;
     }
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
-        allowsEditing: true,
-        quality: 0.8,
-        base64: true
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'video/*', 'audio/*'],
+        copyToCacheDirectory: true
       });
-      if (result.canceled || !result.assets[0]) return;
+      if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
-      const base64 = asset.base64 ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}` : null;
-      setImagenUri(asset.uri);
-      setImagenBase64(base64);
+      const base64Raw = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const mime = asset.mimeType || 'application/octet-stream';
+      const dataUrl = `data:${mime};base64,${base64Raw}`;
+      setImagenUri(dataUrl);
+      setImagenBase64(dataUrl);
     } catch (e) {
-      Alert.alert('Error', e?.message || 'No se pudo elegir la imagen.');
+      Alert.alert('Error', e?.message || 'No se pudo elegir el archivo.');
     }
   };
 
@@ -280,7 +396,9 @@ export default function AdminContenidoExclusivo({ navigation }) {
         null
       );
       const nombreExistente =
-      (doc.urlMediaCompleta || '').split('/').pop() || null;
+        nombreArchivoDesdeUrlMedia(doc.urlMediaCompleta) ||
+        nombreArchivoDesdeUrlMedia(doc.urlMedia) ||
+        null;
       setEditMediaArchivoNombre(nombreExistente);
       setEditClearPreview(false);
       setEditClearMedia(false);
@@ -307,7 +425,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const input = document.createElement('input');
       input.type = 'file';
-      input.accept = 'image/*,video/*';
+      input.accept = ACCEPT_PREVIEW_WEB;
       input.style.display = 'none';
       input.onchange = (e) => {
         const file = e.target?.files?.[0];
@@ -325,20 +443,20 @@ export default function AdminContenidoExclusivo({ navigation }) {
       return;
     }
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
-        allowsEditing: true,
-        quality: 0.8,
-        base64: true
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/*', 'video/*', 'audio/*'],
+        copyToCacheDirectory: true
       });
-      if (result.canceled || !result.assets[0]) return;
+      if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
-      const base64 = asset.base64 ? `data:${asset.mimeType || 'image/jpeg'};base64,${asset.base64}` : null;
-      setEditImagenUri(asset.uri);
-      setEditImagenBase64(base64);
+      const base64Raw = await FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.Base64 });
+      const mime = asset.mimeType || 'application/octet-stream';
+      const dataUrl = `data:${mime};base64,${base64Raw}`;
+      setEditImagenUri(dataUrl);
+      setEditImagenBase64(dataUrl);
       setEditClearPreview(false);
     } catch (e) {
-      Alert.alert('Error', e?.message || 'No se pudo elegir la imagen.');
+      Alert.alert('Error', e?.message || 'No se pudo elegir el archivo.');
     }
   };
 
@@ -499,6 +617,42 @@ export default function AdminContenidoExclusivo({ navigation }) {
         {lista.map((item) => {
           const previewUrl = item.urlMedia || '';
           const mediaUrl = item.urlMediaCompleta || '';
+          const previewUri = absolutizarMediaUri(previewUrl);
+          const mediaUri = absolutizarMediaUri(mediaUrl);
+          const videoThumbUri = (() => {
+            const order = [previewUrl, mediaUrl].filter(Boolean);
+            for (const raw of order) {
+              if (urlPareceArchivoVideo(raw)) {
+                const u = absolutizarMediaUri(raw);
+                if (u) return u;
+              }
+            }
+            return null;
+          })();
+          const audioThumbUri = (() => {
+            const order = [previewUrl, mediaUrl].filter(Boolean);
+            for (const raw of order) {
+              if (urlPareceArchivoAudio(raw)) {
+                const u = absolutizarMediaUri(raw);
+                if (u) return u;
+              }
+            }
+            return null;
+          })();
+          const tipoItem = String(item.tipoContenido || item.tipo || 'articulo').toLowerCase().trim();
+          /** Audio: nunca miniatura imagen aunque `urlMedia` apunte a un PNG/JPG por error. */
+          const imageThumbUri =
+          tipoItem !== 'audio' &&
+          !videoThumbUri &&
+          !audioThumbUri &&
+          previewUri &&
+          urlPareceArchivoImagen(previewUrl) ? previewUri :
+          tipoItem !== 'audio' &&
+          !videoThumbUri &&
+          !audioThumbUri &&
+          mediaUri &&
+          urlPareceArchivoImagen(mediaUrl) ? mediaUri :
+          null;
           const numComentarios = Array.isArray(item.comentarios) ? item.comentarios.length : 0;
           const vistas = item.numeroVistas ?? 0;
           const likes = item.numeroLikes ?? 0;
@@ -541,13 +695,37 @@ export default function AdminContenidoExclusivo({ navigation }) {
                 </View>
               </View>
               <View style={estilos.workspacePreview}>
-                {previewUrl && (previewUrl.startsWith('http') || previewUrl.startsWith('/') || previewUrl.startsWith('data:')) ?
-                <TouchableOpacity style={estilos.workspaceThumb} onPress={() => mediaUrl && Linking.openURL(mediaUrl.startsWith('http') ? mediaUrl : getBaseUrl() + mediaUrl)}>
-                    <Image source={{ uri: previewUrl.startsWith('http') || previewUrl.startsWith('data:') ? previewUrl : getBaseUrl() + previewUrl }} style={estilos.workspaceThumbImg} resizeMode="cover" />
+                {videoThumbUri ?
+                <TouchableOpacity style={estilos.workspaceThumb} onPress={() => abrirMediaContenidoAdmin(mediaUrl || previewUrl)}>
+                    {Platform.OS === 'web' ?
+                  <AdminListVideoThumbWeb uri={videoThumbUri} /> :
+                  <AdminListVideoThumbNative uri={videoThumbUri} />
+                  }
                   </TouchableOpacity> :
+                tipoItem === 'audio' || audioThumbUri ?
+                <TouchableOpacity
+                  style={[estilos.workspaceThumb, estilos.workspaceThumbIconoTipoLista]}
+                  onPress={() => audioThumbUri && abrirMediaContenidoAdmin(mediaUrl || previewUrl)}
+                  disabled={!audioThumbUri}
+                  activeOpacity={0.75}>
+                  
+                    <Ionicons name="musical-notes" size={36} color="#00dc57" />
+                  </TouchableOpacity> :
+                imageThumbUri ?
+                <TouchableOpacity style={estilos.workspaceThumb} onPress={() => abrirMediaContenidoAdmin(mediaUrl || previewUrl)}>
+                    <Image source={{ uri: imageThumbUri }} style={estilos.workspaceThumbImg} resizeMode="cover" />
+                  </TouchableOpacity> :
+                tipoItem === 'articulo' ?
+                <View style={[estilos.workspaceThumb, estilos.workspaceThumbIconoTipoLista]}>
+                    <Ionicons name="document-text" size={36} color="#00dc57" />
+                  </View> :
 
                 <View style={estilos.workspaceThumbPlaceholder}>
-                    <Ionicons name="image-outline" size={32} color="#444" />
+                    <Ionicons
+                    name={tipoItem === 'video' ? 'videocam' : 'image-outline'}
+                    size={32}
+                    color="#5a5a5a" />
+                  
                   </View>
                 }
                 <Text style={estilos.workspacePreviewTexto} numberOfLines={3}>{item.previewTexto || item.descripcion || ''}</Text>
@@ -634,20 +812,26 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   style={[estilos.input, estilos.inputMultiline]}
                   value={complementario}
                   onChangeText={setComplementario}
-                  placeholder="Contenido complementario o adicional"
+                  placeholder="Opcional: nota en cursiva (no es enlace). Si pegás una URL, se verá como enlace verde. El archivo (PDF, etc.) tiene su propio enlace debajo."
                   placeholderTextColor="#666"
                   multiline />
                 
-          <Text style={estilos.label}>Imagen o video (preview)</Text>
+          <Text style={estilos.label}>Imagen, vídeo o audio (preview)</Text>
           <View style={estilos.uploadRow}>
             <TouchableOpacity style={estilos.botonUpload} onPress={elegirImagen}>
-              <Text style={estilos.botonUploadTexto}>{imagenUri ? 'Cambiar foto' : 'Subir foto'}</Text>
+              <Text style={estilos.botonUploadTexto}>{imagenUri ? 'Cambiar' : 'Elegir archivo'}</Text>
             </TouchableOpacity>
             {imagenUri &&
                   <>
-                <View style={estilos.previewMini}>
+                {tipoContenido === 'audio' || urlPareceArchivoAudio(imagenUri) ?
+                  <View style={estilos.previewMiniAudio}>
+                      <Ionicons name="musical-notes" size={26} color="#00dc57" />
+                    </View> :
+
+                  <View style={estilos.previewMini}>
                   <Image source={{ uri: imagenUri }} style={estilos.previewImg} resizeMode="cover" />
                 </View>
+                  }
                 <TouchableOpacity onPress={limpiarImagen} style={estilos.quitar}>
                   <Text style={estilos.quitarTexto}>Quitar</Text>
                 </TouchableOpacity>
@@ -782,20 +966,26 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   style={[estilos.input, estilos.inputMultiline]}
                   value={editComplementario}
                   onChangeText={setEditComplementario}
-                  placeholder="Contenido complementario o adicional"
+                  placeholder="Opcional: nota en cursiva (no es enlace). Si pegás una URL, enlace verde. El archivo tiene enlace aparte."
                   placeholderTextColor="#666"
                   multiline />
                 
-                <Text style={estilos.label}>Imagen o video (preview)</Text>
+                <Text style={estilos.label}>Imagen, vídeo o audio (preview)</Text>
                 <View style={estilos.uploadRow}>
                   <TouchableOpacity style={estilos.botonUpload} onPress={elegirImagenEdit}>
-                    <Text style={estilos.botonUploadTexto}>{editImagenUri ? 'Cambiar foto' : 'Subir foto'}</Text>
+                    <Text style={estilos.botonUploadTexto}>{editImagenUri ? 'Cambiar' : 'Elegir archivo'}</Text>
                   </TouchableOpacity>
                   {editImagenUri &&
                   <>
+                      {editTipoContenido === 'audio' || urlPareceArchivoAudio(editImagenUri) ?
+                    <View style={estilos.previewMiniAudio}>
+                          <Ionicons name="musical-notes" size={26} color="#00dc57" />
+                        </View> :
+
                       <View style={estilos.previewMini}>
                         <Image source={{ uri: editImagenUri }} style={estilos.previewImg} resizeMode="cover" />
                       </View>
+                      }
                       <TouchableOpacity onPress={limpiarImagenEdit} style={estilos.quitar}>
                         <Text style={estilos.quitarTexto}>Quitar</Text>
                       </TouchableOpacity>
@@ -957,6 +1147,16 @@ const estilos = StyleSheet.create({
   },
   botonUploadTexto: { color: '#00dc57', fontSize: 14 },
   previewMini: { width: 56, height: 56, borderRadius: 8, overflow: 'hidden', backgroundColor: '#222' },
+  previewMiniAudio: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    backgroundColor: '#2a2a2a',
+    borderWidth: 1,
+    borderColor: 'rgba(0,220,87,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
   previewImg: { width: '100%', height: '100%' },
   archivoNombre: { color: '#888', fontSize: 12, maxWidth: 120 },
   quitar: { padding: 4 },
@@ -1046,6 +1246,14 @@ const estilos = StyleSheet.create({
     borderColor: '#252525'
   },
   workspaceThumb: { width: 80, height: 80, borderRadius: 8, overflow: 'hidden', backgroundColor: '#222' },
+  /** Misma caja que audio: fondo #2a2a2a, borde verde, icono centrado (audio / artículo en lista). */
+  workspaceThumbIconoTipoLista: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#2a2a2a',
+    borderWidth: 1,
+    borderColor: 'rgba(0,220,87,0.35)'
+  },
   workspaceThumbImg: { width: '100%', height: '100%' },
   workspaceThumbPlaceholder: {
     width: 80,

@@ -1,6 +1,7 @@
 const express = require('express');
 const Usuario = require('../models/Usuario');
 const { authMiddleware, requireAdmin } = require('../middleware/auth');
+const firebaseStorage = require('../lib/firebaseStorage');
 
 const router = express.Router();
 
@@ -55,12 +56,21 @@ router.patch('/:id', authMiddleware, requireAdmin, async (req, res) => {
     if (telefono !== undefined) update.telefono = telefono;
     if (biografia !== undefined) update.biografia = biografia;
     if (nota !== undefined) update.nota = nota;
-    if (fotoUrl !== undefined) update.fotoUrl = fotoUrl;
+    let fotoAnterior = '';
+    if (fotoUrl !== undefined) {
+      const prev = await Usuario.findById(id).select('fotoUrl').lean();
+      fotoAnterior = String(prev?.fotoUrl || '').trim();
+      update.fotoUrl = fotoUrl;
+    }
     if (typeof activo === 'boolean') update.activo = activo;
     if (typeof aceptaNotificaciones === 'boolean') update.aceptaNotificaciones = aceptaNotificaciones;
     if (typeof notificacionesPushActivas === 'boolean') update.notificacionesPushActivas = notificacionesPushActivas;
     const usuario = await Usuario.findByIdAndUpdate(id, { $set: update }, { new: true });
     if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const nuevaFoto = String(usuario.fotoUrl || '').trim();
+    if (fotoUrl !== undefined && fotoAnterior && fotoAnterior !== nuevaFoto) {
+      await firebaseStorage.deleteMediaUrl(fotoAnterior);
+    }
     res.json(toUsuarioPublico(usuario));
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -74,8 +84,10 @@ router.delete('/:id', authMiddleware, requireAdmin, async (req, res) => {
     if (id === req.userId) {
       return res.status(400).json({ error: 'No puedes eliminarte a ti mismo' });
     }
+    const prev = await Usuario.findById(id).select('fotoUrl').lean();
     const usuario = await Usuario.findByIdAndDelete(id);
     if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+    await firebaseStorage.deleteMediaUrl(String(prev?.fotoUrl || usuario.fotoUrl || ''));
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

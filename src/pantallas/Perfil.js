@@ -177,7 +177,7 @@ export default function Perfil({ navigation }) {
           hitSlop={10}
           activeOpacity={0.8}>
           
-          <Ionicons name="arrow-back" size={20} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color="#fff" style={estilos.headerFlechaAtras} />
           <Image source={LOGO_HEADER_BANNER} style={estilos.headerLogoAlLado} resizeMode="contain" />
         </TouchableOpacity>
         <Text style={estilos.headerTitulo} pointerEvents="none" numberOfLines={1} ellipsizeMode="tail">
@@ -323,20 +323,24 @@ const estilos = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.08)',
     backgroundColor: '#0d0d0d'
   },
+  headerFlechaAtras: { marginRight: -18 },
   headerBack: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 0,
     padding: 4,
-    flex: 1,
+    flexGrow: 0,
+    flexShrink: 1,
+    alignSelf: 'flex-start',
     minWidth: 0,
     zIndex: 1
   },
   headerLogoAlLado: {
-    height: 36,
-    width: 118,
+    height: 44,
+    width: 176,
     flexShrink: 1,
-    maxWidth: 140
+    maxWidth: 200,
+    marginLeft: -28
   },
   headerTitulo: {
     position: 'absolute',

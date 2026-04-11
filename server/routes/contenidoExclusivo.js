@@ -3,25 +3,36 @@ const fs = require('fs');
 const path = require('path');
 const ContenidoExclusivo = require('../models/ContenidoExclusivo');
 const Usuario = require('../models/Usuario');
-const { authMiddleware, requireThug, requireAdmin, requireThugOrAdmin } = require('../middleware/auth');
+const { authMiddleware, requireAdmin, requireThugOrAdmin } = require('../middleware/auth');
 const { crearNotificacionParaTodos } = require('../services/notificaciones');
 const { enviarPush } = require('../services/push');
 
 const router = express.Router();
 const UPLOADS_CONTENIDO = path.join(__dirname, '..', 'uploads', 'contenido');
+const firebaseStorage = require('../lib/firebaseStorage');
 
-function guardarMediaBase64(base64, subdir = '') {
+function guardarMediaBase64Disco(base64, subdir = '') {
   if (!base64) return undefined;
   const dir = subdir ? path.join(UPLOADS_CONTENIDO, subdir) : UPLOADS_CONTENIDO;
-  const match = base64.match(/^data:([^;]+);base64,(.+)$/);
-  const ext = match ? match[1].indexOf('jpeg') !== -1 || match[1].indexOf('jpg') !== -1 ? 'jpg' : match[1].split('/')[1] || 'bin' : 'bin';
-  const data = match ? match[2] : base64;
-  const buffer = Buffer.from(data, 'base64');
+  const { buffer, ext } = firebaseStorage.parseBase64Media(base64);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const nombre = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
   const ruta = path.join(dir, nombre);
   fs.writeFileSync(ruta, buffer);
   return subdir ? `/uploads/contenido/${subdir}/${nombre}` : `/uploads/contenido/${nombre}`;
+}
+
+async function guardarMediaBase64(base64, subdir = '') {
+  if (!base64) return undefined;
+  if (firebaseStorage.isConfigured()) {
+    try {
+      const url = await firebaseStorage.uploadContenidoMediaFromBase64(base64, subdir);
+      if (url) return url;
+    } catch (e) {
+      console.error('[contenido-exclusivo] Media Firebase:', e.message);
+    }
+  }
+  return guardarMediaBase64Disco(base64, subdir);
 }
 
 function normalizarRutaMedia(valor) {
@@ -44,10 +55,12 @@ function normalizarRutaMedia(valor) {
 
 function normalizarDocMedia(doc) {
   if (!doc || typeof doc !== 'object') return doc;
+  const tipo = doc.tipoContenido || doc.tipo || 'articulo';
+  const rec = reconciliarUrlsMedia(tipo, doc.urlMedia, doc.urlMediaCompleta);
   return {
     ...doc,
-    urlMedia: normalizarRutaMedia(doc.urlMedia),
-    urlMediaCompleta: normalizarRutaMedia(doc.urlMediaCompleta),
+    urlMedia: rec.urlMedia,
+    urlMediaCompleta: rec.urlMediaCompleta,
     urlMediaPreview: normalizarRutaMedia(doc.urlMediaPreview),
     urlImagen: normalizarRutaMedia(doc.urlImagen)
   };
@@ -60,7 +73,7 @@ function pareceVideo(url) {
 
 function pareceAudio(url) {
   const s = String(url || '').toLowerCase();
-  return /\.(mp3|wav|aac|m4a|flac|oga)(\?|#|$)/.test(s);
+  return /\.(mp3|mpeg|wav|aac|m4a|flac|oga|ogg|webm)(\?|#|$)/.test(s);
 }
 
 function reconciliarUrlsMedia(tipoContenido, urlMedia, urlMediaCompleta) {
@@ -72,8 +85,10 @@ function reconciliarUrlsMedia(tipoContenido, urlMedia, urlMediaCompleta) {
     if (pareceVideo(preview)) return { urlMedia: preview, urlMediaCompleta: preview };
   }
   if (tipo === 'audio') {
-    if (pareceAudio(completa)) return { urlMedia: preview, urlMediaCompleta: completa };
-    if (pareceAudio(preview)) return { urlMedia: preview, urlMediaCompleta: preview };
+    if (pareceAudio(completa)) return { urlMedia: preview || completa, urlMediaCompleta: completa };
+    if (pareceAudio(preview)) return { urlMedia: preview, urlMediaCompleta: completa || preview };
+    const unico = String(completa || preview || '').trim();
+    if (unico) return { urlMedia: preview || unico, urlMediaCompleta: completa || preview || unico };
   }
   return { urlMedia: preview, urlMediaCompleta: completa };
 }
@@ -195,16 +210,29 @@ router.get('/feed-unificado', authMiddleware, async (req, res) => {
         const numeroComentarios = Array.isArray(base.comentarios) ?
         base.comentarios.length :
         base.numeroComentarios ?? 0;
+        const urlImagen = normalizarRutaMedia(base.urlImagen || '');
+        const urlMedia = normalizarRutaMedia(base.urlMedia || '');
         return {
           id: base.id,
           titulo: base.titulo,
           tipoContenido: base.tipoContenido || 'articulo',
           fechaPublicacion: base.fechaPublicacion,
+          fechaActualizacion: base.fechaActualizacion,
           numeroVistas: base.numeroVistas ?? 0,
           numeroLikes: base.numeroLikes ?? 0,
           numeroComentarios,
           nivelRequerido: 'thug',
-          bloqueado: true
+          bloqueado: true,
+          /** Preview en feed (velado en cliente). Sin URL completa para no exponer el archivo principal. */
+          urlMedia,
+          urlImagen,
+          imagenUrl: urlImagen,
+          previewTexto: base.previewTexto || '',
+          descripcion: base.descripcion || '',
+          complementario: base.complementario || '',
+          destacado: Boolean(base.destacado),
+          categoria: base.categoria || '',
+          etiquetas: Array.isArray(base.etiquetas) ? base.etiquetas : []
         };
       }
       return { ...base, nivelRequerido, bloqueado: false };
@@ -215,7 +243,7 @@ router.get('/feed-unificado', authMiddleware, async (req, res) => {
   }
 });
 
-router.get('/:id', authMiddleware, requireThug, async (req, res) => {
+router.get('/:id', authMiddleware, requireThugOrAdmin, async (req, res) => {
   try {
     const doc = await ContenidoExclusivo.findById(req.params.id);
     if (!doc) return res.json(null);
@@ -272,6 +300,16 @@ router.post('/:id/comentarios', authMiddleware, async (req, res) => {
   try {
     const texto = typeof req.body?.texto === 'string' ? req.body.texto.trim() : '';
     if (!texto) return res.status(400).json({ error: 'Falta el texto del comentario' });
+
+    const docPrevio = await ContenidoExclusivo.findById(req.params.id).lean();
+    if (!docPrevio) return res.status(404).json({ error: 'No encontrado' });
+    const usuarioComenta = await Usuario.findById(req.userId).lean();
+    const puedeComentarThug =
+    usuarioComenta &&
+    (usuarioComenta.nivelAcceso === 'thug' || usuarioComenta.rol === 'admin');
+    if ((docPrevio.nivelRequerido || 'thug') === 'thug' && !puedeComentarThug) {
+      return res.status(403).json({ error: 'Solo usuarios Thug pueden comentar este contenido' });
+    }
 
     let usuarioNombre = 'Anónimo';
     let usuarioRol = 'fan';
@@ -336,10 +374,10 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     let urlMedia = normalizarRutaMedia(typeof b.urlMedia === 'string' ? b.urlMedia : '');
     let urlMediaCompleta = normalizarRutaMedia(typeof b.urlMediaCompleta === 'string' ? b.urlMediaCompleta : '');
     if (b.mediaPreviewBase64) {
-      urlMedia = guardarMediaBase64(b.mediaPreviewBase64, 'preview') || '';
+      urlMedia = (await guardarMediaBase64(b.mediaPreviewBase64, 'preview')) || '';
     }
     if (b.mediaCompletaBase64) {
-      urlMediaCompleta = guardarMediaBase64(b.mediaCompletaBase64, 'completa') || '';
+      urlMediaCompleta = (await guardarMediaBase64(b.mediaCompletaBase64, 'completa')) || '';
     }
     const mediaFinal = reconciliarUrlsMedia(tipoContenido, urlMedia, urlMediaCompleta);
     const payload = {
@@ -412,10 +450,10 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
 
 
     if (b.mediaPreviewBase64) {
-      urlMedia = guardarMediaBase64(b.mediaPreviewBase64, 'preview') || urlMedia;
+      urlMedia = (await guardarMediaBase64(b.mediaPreviewBase64, 'preview')) || urlMedia;
     }
     if (b.mediaCompletaBase64) {
-      urlMediaCompleta = guardarMediaBase64(b.mediaCompletaBase64, 'completa') || urlMediaCompleta;
+      urlMediaCompleta = (await guardarMediaBase64(b.mediaCompletaBase64, 'completa')) || urlMediaCompleta;
     }
     if (!b.mediaPreviewBase64 && typeof b.urlMedia === 'string') {
       urlMedia = normalizarRutaMedia(b.urlMedia);
@@ -431,6 +469,9 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
     if (b.clearMedia) {
       urlMediaCompleta = '';
     }
+
+    const oldMedia = normalizarRutaMedia(existing.urlMedia ?? '');
+    const oldCompleta = normalizarRutaMedia(existing.urlMediaCompleta ?? '');
 
     const tipoContenidoFinal =
     typeof b.tipoContenido === 'string' && b.tipoContenido.trim() ?
@@ -459,7 +500,16 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
       fechaActualizacion: new Date()
     };
 
+    const newMedia = normalizarRutaMedia(mediaFinal.urlMedia);
+    const newCompleta = normalizarRutaMedia(mediaFinal.urlMediaCompleta);
+    const urlsObsoletas = [];
+    if (oldMedia && oldMedia !== newMedia) urlsObsoletas.push(oldMedia);
+    if (oldCompleta && oldCompleta !== newCompleta) urlsObsoletas.push(oldCompleta);
+
     await ContenidoExclusivo.updateOne({ _id: req.params.id }, { $set });
+    if (urlsObsoletas.length > 0) {
+      await firebaseStorage.deleteMediaUrls(urlsObsoletas);
+    }
     const doc = await ContenidoExclusivo.findById(req.params.id);
     res.json(toDoc(doc));
   } catch (e) {
@@ -472,6 +522,13 @@ router.delete('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const doc = await ContenidoExclusivo.findByIdAndDelete(req.params.id);
     if (!doc) return res.status(404).json({ error: 'No encontrado' });
+    const o = doc.toObject ? doc.toObject() : doc;
+    await firebaseStorage.deleteMediaUrls([
+      o.urlMedia,
+      o.urlMediaCompleta,
+      o.urlMediaPreview,
+      o.urlImagen
+    ]);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

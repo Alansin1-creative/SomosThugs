@@ -217,14 +217,25 @@ export default function HeaderAppConMenu({
   if (!perfil) return null;
 
   return (
-    <View style={[styles.header, Platform.OS !== 'web' && { paddingTop: insets.top + 8 }]}>
+    <View
+    style={[
+    styles.header,
+    Platform.OS !== 'web' && {
+      paddingTop: insets.top + 8,
+      paddingLeft: 14 + insets.left,
+      paddingRight: 14 + insets.right
+    }]
+    }>
       {esVistaContenidoFeed ?
-      <TouchableOpacity onPress={irHomeContenido} style={styles.headerIzq} activeOpacity={0.8}>
+      <TouchableOpacity
+        onPress={irHomeContenido}
+        style={[styles.headerIzq, styles.headerIzqFeed]}
+        activeOpacity={0.8}>
           <Image source={LOGO_CENTRO_HEADER} style={styles.headerLogoBannerFeed} resizeMode="contain" />
         </TouchableOpacity> :
 
       <TouchableOpacity onPress={irAtrasOCasa} style={[styles.headerIzq, styles.headerIzqNav]} activeOpacity={0.8} hitSlop={10}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color="#fff" style={styles.headerFlechaAtras} />
           <Image source={LOGO_CENTRO_HEADER} style={styles.headerLogoAlLado} resizeMode="contain" />
         </TouchableOpacity>
       }
@@ -368,7 +379,7 @@ export default function HeaderAppConMenu({
               </TouchableOpacity>
             </View>
             {notifCargando ?
-            <Text style={styles.notifVacio}>Cargando...</Text> :
+            <Text style={styles.notifVacio}>Cargando…</Text> :
 
             <ScrollView style={styles.notifScroll} nestedScrollEnabled>
                 {notificaciones.length === 0 ?
@@ -417,21 +428,37 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2a2a2a',
     backgroundColor: '#0d0d0d'
   },
-  headerIzq: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0, zIndex: 1, paddingVertical: 4 },
-  headerIzqNav: { gap: 6 },
+  headerIzq: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexGrow: 0,
+    flexShrink: 1,
+    alignSelf: 'flex-start',
+    minWidth: 0,
+    zIndex: 1,
+    paddingVertical: 4,
+    overflow: 'hidden'
+  },
+  headerIzqNav: { gap: 0 },
+  headerIzqFeed: {
+    marginLeft: Platform.OS === 'web' ? -14 : -10
+  },
+  headerFlechaAtras: { marginRight: -18 },
 
   headerLogoBannerFeed: {
-    height: 40,
-    width: 150,
+    height: 44,
+    width: 176,
     flexShrink: 1,
-    maxWidth: '72%'
+    maxWidth: 200,
+    marginLeft: Platform.OS === 'web' ? -6 : -4
   },
 
   headerLogoAlLado: {
-    height: 36,
-    width: 118,
+    height: 44,
+    width: 176,
     flexShrink: 1,
-    maxWidth: 140
+    maxWidth: 200,
+    marginLeft: -28
   },
   headerTituloCentro: {
     position: 'absolute',

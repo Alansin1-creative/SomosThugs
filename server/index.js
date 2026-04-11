@@ -1,4 +1,9 @@
 require('dotenv').config();
+try {
+  require('./lib/firebaseStorage').logFirebaseStorageBoot();
+} catch (e) {
+  console.warn('[firebaseStorage] arranque:', e.message);
+}
 const dns = require('dns');
 const path = require('path');
 dns.setServers(['8.8.8.8', '1.1.1.1']);
@@ -80,7 +85,30 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+const uploadsRoot = path.join(__dirname, 'uploads');
+app.use(
+'/uploads',
+express.static(uploadsRoot, {
+  setHeaders(res, filePath) {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    const lower = String(filePath || '').toLowerCase();
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    } else if (lower.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/png');
+    } else if (lower.endsWith('.webp')) {
+      res.setHeader('Content-Type', 'image/webp');
+    } else if (lower.endsWith('.gif')) {
+      res.setHeader('Content-Type', 'image/gif');
+    }
+  }
+})
+);
+
+app.use('/uploads', (_req, res) => {
+  res.status(404).type('application/json').json({ error: 'Archivo no encontrado' });
+});
 
 
 app.get('/health', (_, res) => res.status(200).json({ ok: true }));

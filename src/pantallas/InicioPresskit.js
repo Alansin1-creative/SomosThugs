@@ -60,10 +60,6 @@ const VIDEOS_TRAYECTORIA = [
   titulo: 'Thugs Sessionz Cap 1',
   subtitulo: 'Segunda sesión programada de consumo cannábico',
   youtubeUrl: 'https://www.youtube.com/watch?v=DqncmZCz8oQ'
-},
-{
-  titulo: 'Thugs Sessionz Cap 2',
-  youtubeUrl: 'https://www.youtube.com/watch?v=OV2TSIbEJBQ'
 }];
 
 const REDES_SOCIALES = [
@@ -176,8 +172,17 @@ require('../../assets/flyers/flyer5.jpeg'),
 require('../../assets/flyers/flyer6.jpeg')];
 
 
-function absolutizarFlyer(url) {
+function normalizarPathFlyerLegacy(url) {
   const s = String(url || '').trim();
+  if (!s) return '';
+  if (s.includes('/uploads/flyer_') && !s.includes('/uploads/flyers/')) {
+    return s.replace('/uploads/flyer_', '/uploads/flyers/flyer_');
+  }
+  return s;
+}
+
+function absolutizarFlyer(url) {
+  const s = normalizarPathFlyerLegacy(url);
   if (!s) return '';
   if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:')) return s;
   const base = getBaseUrl();
@@ -731,8 +736,14 @@ export default function InicioPresskit({ navigation }) {
           hitSlop={10}
           activeOpacity={0.8}>
           
-          {estaAutenticado ? <Ionicons name="arrow-back" size={20} color="#fff" /> : null}
-          <Image source={LOGO_HEADER_INVITADO} style={estilos.headerLogoAlLado} resizeMode="contain" />
+          {estaAutenticado ?
+          <Ionicons name="arrow-back" size={22} color="#fff" style={estilos.headerFlechaAtras} /> :
+          null}
+          <Image
+            source={LOGO_HEADER_INVITADO}
+            style={[estilos.headerLogoAlLado, estaAutenticado && estilos.headerLogoJuntoFlecha]}
+            resizeMode="contain"
+          />
         </TouchableOpacity>
         <Text style={estilos.headerTituloPresskit} pointerEvents="none" numberOfLines={2}>
           {TITULO_HEADER_PRESSKIT}
@@ -793,10 +804,10 @@ export default function InicioPresskit({ navigation }) {
               <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
             </View>
             <Text style={[estilos.bioTexto, estilos.bioTextoBlock]}>
-              <Text style={estilos.bioDestacado}>Los Thugs</Text> es un proyecto de HipHop estilero Chihuahuense formado por un Dueto de viejos amigos (Chards y Omega) a mediados del 2019.
+              <Text style={estilos.bioDestacado}>Los Thugs</Text> es un proyecto de hip hop estilero chihuahuense formado por un dueto de viejos amigos (Chards y Omega) a mediados del 2019.
             </Text>
             <Text style={[estilos.bioTexto, estilos.bioTextoBlock]}>
-              Cruzando la pandemia del Covid19 la creatividad llegó y creamos 5 canciones con las cuales comenzamos a ensayar y en el año 2021... salimos a la luz.
+              Cruzando la pandemia del COVID-19 la creatividad llegó y creamos 5 canciones con las cuales comenzamos a ensayar y en el año 2021… salimos a la luz.
             </Text>
 
             <View style={[estilos.filaRedes, estilos.filaRedesCentrada]}>
@@ -1293,24 +1304,28 @@ const estilos = StyleSheet.create({
     borderBottomColor: '#2a2a2a',
     backgroundColor: '#0d0d0d'
   },
+  headerFlechaAtras: { marginRight: -18 },
+  headerLogoJuntoFlecha: { marginLeft: -28 },
   headerBack: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 0,
     paddingVertical: 4,
     paddingRight: 4,
-    paddingLeft: 2,
-    flex: 1,
+    paddingLeft: 0,
+    flexGrow: 0,
+    flexShrink: 1,
+    alignSelf: 'flex-start',
     zIndex: 1,
     minWidth: 0
   },
 
   headerBackInvitado: { gap: 0 },
   headerLogoAlLado: {
-    height: 36,
-    width: 118,
+    height: 44,
+    width: 176,
     flexShrink: 1,
-    maxWidth: 140
+    maxWidth: 200
   },
   headerTituloPresskit: {
     position: 'absolute',

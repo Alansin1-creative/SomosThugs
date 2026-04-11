@@ -52,6 +52,12 @@ function setLinkRel(rel, href) {
 
 
 
+/** Verificación / vinculación de cuenta AdSense en <head> (solo web). */
+export function aplicarMetaCuentaAdSense(idCliente) {
+  if (Platform.OS !== 'web' || typeof document === 'undefined' || !idCliente) return;
+  setMetaName('google-adsense-account', String(idCliente).trim());
+}
+
 export function aplicarSeoWeb(opts = {}) {
   if (Platform.OS !== 'web' || typeof document === 'undefined') return;
 

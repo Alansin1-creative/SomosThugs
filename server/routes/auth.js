@@ -9,8 +9,9 @@ const { authMiddleware } = require('../middleware/auth');
 
 const router = express.Router();
 const UPLOADS_AVATAR = path.join(__dirname, '..', 'uploads', 'avatars');
+const firebaseStorage = require('../lib/firebaseStorage');
 
-function guardarAvatarBase64(base64) {
+function guardarAvatarBase64Disco(base64) {
   if (!base64) return undefined;
   const match = base64.match(/^data:image\/(\w+);base64,(.+)$/);
   const ext = match ? match[1] === 'jpeg' ? 'jpg' : match[1] : 'jpg';
@@ -21,6 +22,19 @@ function guardarAvatarBase64(base64) {
   const ruta = path.join(UPLOADS_AVATAR, nombre);
   fs.writeFileSync(ruta, buffer);
   return `/uploads/avatars/${nombre}`;
+}
+
+async function guardarAvatarBase64(base64) {
+  if (!base64) return undefined;
+  if (firebaseStorage.isConfigured()) {
+    try {
+      const url = await firebaseStorage.uploadAvatarFromBase64(base64);
+      if (url) return url;
+    } catch (e) {
+      console.error('[auth] Avatar Firebase:', e.message);
+    }
+  }
+  return guardarAvatarBase64Disco(base64);
 }
 const googleClientIds = [process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_WEB_CLIENT_ID].filter(Boolean);
 const clientGoogle = googleClientIds.length ? new OAuth2Client(googleClientIds[0]) : null;
@@ -54,7 +68,7 @@ router.post('/register', async (req, res) => {
     let fotoUrl;
     if (fotoBase64) {
       try {
-        fotoUrl = guardarAvatarBase64(fotoBase64);
+        fotoUrl = await guardarAvatarBase64(fotoBase64);
       } catch (e) {
         console.error('Avatar base64:', e.message);
       }
@@ -165,10 +179,13 @@ router.patch('/perfil', authMiddleware, async (req, res) => {
     } = req.body;
 
     const update = {};
+    let fotoUrlAnterior = '';
 
     if (fotoBase64) {
       try {
-        update.fotoUrl = guardarAvatarBase64(fotoBase64);
+        const prev = await Usuario.findById(req.userId).select('fotoUrl').lean();
+        fotoUrlAnterior = String(prev?.fotoUrl || '').trim();
+        update.fotoUrl = await guardarAvatarBase64(fotoBase64);
       } catch (e) {
         console.error('Avatar perfil:', e.message);
       }
@@ -213,6 +230,10 @@ router.patch('/perfil', authMiddleware, async (req, res) => {
     );
 
     if (!usuario) return res.status(404).json({ error: 'No encontrado' });
+
+    if (fotoUrlAnterior && update.fotoUrl && fotoUrlAnterior !== update.fotoUrl) {
+      await firebaseStorage.deleteMediaUrl(fotoUrlAnterior);
+    }
 
     res.json(toPerfil(usuario));
   } catch (e) {

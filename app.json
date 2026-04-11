@@ -29,10 +29,11 @@
       "expo-notifications",
       "expo-asset",
       "expo-web-browser",
-      "expo-video"
+      "expo-video",
+      "expo-audio"
     ],
     "web": {
-      "favicon": "./assets/logothugs.png",
+      "favicon": "./assets/favicon.png",
       "name": "Somos Thugs",
       "shortName": "Somos Thugs",
       "lang": "es",

@@ -6,12 +6,13 @@ const { crearNotificacionParaTodos } = require('../services/notificaciones');
 const { enviarPush } = require('../services/push');
 const fs = require('fs');
 const path = require('path');
+const firebaseStorage = require('../lib/firebaseStorage');
 
 const router = express.Router();
 
 const UPLOADS_EVENTOS = path.join(__dirname, '..', 'uploads', 'eventos');
 
-function guardarImagenBase64(base64) {
+function guardarImagenBase64Disco(base64) {
   if (!base64) return undefined;
   const s = String(base64);
   const match = s.match(/^data:([^;]+);base64,(.+)$/);
@@ -24,6 +25,19 @@ function guardarImagenBase64(base64) {
   const ruta = path.join(UPLOADS_EVENTOS, nombre);
   fs.writeFileSync(ruta, buffer);
   return `/uploads/eventos/${nombre}`;
+}
+
+async function guardarImagenBase64(base64) {
+  if (!base64) return undefined;
+  if (firebaseStorage.isConfigured()) {
+    try {
+      const url = await firebaseStorage.uploadEventoImagenFromBase64(base64);
+      if (url) return url;
+    } catch (e) {
+      console.error('[eventos] Imagen Firebase:', e.message);
+    }
+  }
+  return guardarImagenBase64Disco(base64);
 }
 
 function toDoc(doc) {
@@ -53,14 +67,22 @@ router.get('/publicos', authMiddleware, async (req, res) => {
       const base = toDoc(d);
       const nivelRequerido = d?.nivelRequerido || 'libre';
       if (!esThugOAdmin && nivelRequerido === 'thug') {
+        const teaserImg =
+        base.imagenUrl ||
+        base.imagenPromocionalUrl ||
+        base.urlImagen ||
+        base.imagen ||
+        base.imagenPromocional ||
+        '';
         return {
           id: base.id,
           titulo: base.titulo,
-          descripcion: base.descripcion,
+          descripcion: base.descripcion || '',
           fechaInicio: base.fechaInicio,
           nivelRequerido: 'thug',
           bloqueado: true,
-          esPublico: true
+          esPublico: true,
+          imagenUrl: typeof teaserImg === 'string' ? teaserImg : ''
         };
       }
       return { ...base, nivelRequerido, bloqueado: false };
@@ -141,11 +163,11 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     delete doc.cupoMaximo;
 
     if (b.imagenBase64) {
-      doc.imagenUrl = guardarImagenBase64(b.imagenBase64) || doc.imagenUrl;
+      doc.imagenUrl = (await guardarImagenBase64(b.imagenBase64)) || doc.imagenUrl;
       delete doc.imagenBase64;
     }
     if (b.imagenPromocionalBase64) {
-      doc.imagenUrl = guardarImagenBase64(b.imagenPromocionalBase64) || doc.imagenUrl;
+      doc.imagenUrl = (await guardarImagenBase64(b.imagenPromocionalBase64)) || doc.imagenUrl;
       delete doc.imagenPromocionalBase64;
     }
     const evento = new Evento(doc);
@@ -183,6 +205,10 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
 
 router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
+    const prev = await Evento.findById(req.params.id).lean();
+    if (!prev) return res.status(404).json({ error: 'No encontrado' });
+    const oldImagen = String(prev.imagenUrl || '').trim();
+
     const b = req.body || {};
     const update = { ...b };
     const tel = String(b.telefonoContacto ?? b.telefono ?? '').trim();
@@ -196,11 +222,11 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
     }
     delete update.cupoMaximo;
     if (b.imagenBase64) {
-      update.imagenUrl = guardarImagenBase64(b.imagenBase64) || update.imagenUrl;
+      update.imagenUrl = (await guardarImagenBase64(b.imagenBase64)) || update.imagenUrl;
       delete update.imagenBase64;
     }
     if (b.imagenPromocionalBase64) {
-      update.imagenUrl = guardarImagenBase64(b.imagenPromocionalBase64) || update.imagenUrl;
+      update.imagenUrl = (await guardarImagenBase64(b.imagenPromocionalBase64)) || update.imagenUrl;
       delete update.imagenPromocionalBase64;
     }
     const doc = await Evento.findByIdAndUpdate(req.params.id, update, { new: true });
@@ -215,6 +241,7 @@ router.delete('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const doc = await Evento.findByIdAndDelete(req.params.id);
     if (!doc) return res.status(404).json({ error: 'No encontrado' });
+    await firebaseStorage.deleteMediaUrl(doc.imagenUrl || '');
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

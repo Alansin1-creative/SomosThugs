@@ -19,6 +19,7 @@ import {
 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEventListener } from 'expo';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +40,17 @@ import HeaderAppConMenu from '../componentes/HeaderAppConMenu';
 
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
 
+if (typeof document !== 'undefined' && Platform.OS === 'web') {
+  const id = 'st-modal-media-scrollbar-none';
+  if (!document.getElementById(id)) {
+    const s = document.createElement('style');
+    s.id = id;
+    s.textContent =
+    '[data-st-modal-media-scroll="1"]{scrollbar-width:none;-ms-overflow-style:none;}' +
+    '[data-st-modal-media-scroll="1"]::-webkit-scrollbar{width:0!important;height:0!important;display:none!important;}';
+    document.head.appendChild(s);
+  }
+}
 
 function absolutizarRutaMedia(raw) {
   const s = String(raw || '').trim();
@@ -64,25 +76,70 @@ function absolutizarRutaMedia(raw) {
   return base + (s.startsWith('/') ? s : `/${s}`);
 }
 
+function itemMediaUrlPrincipal(item) {
+  return (
+    item?.urlMediaCompleta ||
+    item?.urlMedia ||
+    item?.urlMediaPreview ||
+    item?.imagenUrl ||
+    item?.urlImagen ||
+    null
+  );
+}
+
+function itemMediaUrlVistaPrevia(item) {
+  return item?.urlMedia || item?.urlMediaPreview || item?.imagenUrl || item?.urlImagen || null;
+}
+
+/** Ruta de objeto decodificada en URLs de Firebase Storage (`.../o/<encoded>`). */
+function firebaseStorageDecodedObjectPath(url) {
+  const s = String(url || '').trim();
+  if (!s.toLowerCase().includes('firebasestorage.googleapis.com')) return '';
+  try {
+    const u = new URL(s);
+    const parts = u.pathname.split('/o/');
+    if (!parts[1]) return '';
+    return decodeURIComponent(parts[1]);
+  } catch {
+    return '';
+  }
+}
+
 function urlPareceArchivoVideo(url) {
   const s = String(url || '').toLowerCase();
   if (!s) return false;
-  if (/\.(mp4|webm|ogg|m4v|mov)(\?|#|$)/.test(s)) return true;
+  if (/\.(mp4|webm|ogg|m4v|mov)(\?|#|$)/i.test(s)) return true;
   if (s.startsWith('data:video/')) return true;
+  const dec = firebaseStorageDecodedObjectPath(url).toLowerCase();
+  if (dec && /\.(mp4|webm|ogg|m4v|mov)(\?|#|$)/i.test(dec)) return true;
   return false;
 }
 
 function urlPareceArchivoAudio(url) {
   const s = String(url || '').toLowerCase();
   if (!s) return false;
-  if (/\.(mp3|wav|aac|m4a|flac|oga)(\?|#|$)/.test(s)) return true;
+  if (/\.(mp3|mpeg|wav|aac|m4a|flac|oga|ogg|webm|opus)(\?|#|$)/.test(s)) return true;
   if (s.startsWith('data:audio/')) return true;
+  const dec = firebaseStorageDecodedObjectPath(url).toLowerCase();
+  if (dec && /\.(mp3|mpeg|wav|aac|m4a|flac|oga|ogg|webm|opus)(\?|#|$)/i.test(dec)) return true;
+  return false;
+}
+
+function urlPareceArchivoImagen(url) {
+  const s = String(url || '').toLowerCase();
+  if (!s) return false;
+  if (/\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/i.test(s)) return true;
+  if (s.startsWith('data:image/')) return true;
+  const dec = firebaseStorageDecodedObjectPath(url).toLowerCase();
+  if (dec && /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/i.test(dec)) return true;
   return false;
 }
 
 function elegirUrlReproducible(item, tipoDetectado) {
   const urlCompleta = String(item?.urlMediaCompleta || '').trim();
-  const urlPreview = String(item?.urlMedia || item?.imagenUrl || '').trim();
+  const urlPreview = String(
+    item?.urlMedia || item?.urlMediaPreview || item?.imagenUrl || item?.urlImagen || ''
+  ).trim();
   if (tipoDetectado === 'video') {
     if (urlPareceArchivoVideo(urlCompleta)) return urlCompleta;
     if (urlPareceArchivoVideo(urlPreview)) return urlPreview;
@@ -96,20 +153,73 @@ function elegirUrlReproducible(item, tipoDetectado) {
   return urlPreview || urlCompleta || '';
 }
 
+/** True si hay URL resuelta para abrir el modal (p. ej. solo `urlMediaCompleta` sin preview en tarjeta). */
+function itemTieneUrlParaModal(item) {
+  const previewUrl = itemMediaUrlVistaPrevia(item);
+  const mediaUrl = itemMediaUrlPrincipal(item);
+  if (!mediaUrl && !previewUrl) return false;
+  const tipo = clasificarMedia(item, mediaUrl);
+  const urlCruda = elegirUrlReproducible(item, tipo);
+  return !!absolutizarRutaMedia(urlCruda);
+}
+
+/** Artículo con título o cuerpo, aunque no haya archivo (solo texto en el feed). */
+function itemPuedeAbrirModalLecturaArticulo(item) {
+  const mediaUrl = itemMediaUrlPrincipal(item);
+  if (clasificarMedia(item, mediaUrl) !== 'articulo') return false;
+  const tit = String(item?.titulo || '').trim();
+  const cuerpo = String(item?.previewTexto || item?.descripcion || '').trim();
+  return !!(tit || cuerpo);
+}
+
+function itemPuedeAbrirModalDesdeTituloODesc(item) {
+  return itemTieneUrlParaModal(item) || itemPuedeAbrirModalLecturaArticulo(item);
+}
+
 function clasificarMedia(item, urlAValidar) {
   const tipo = String(item?.tipoContenido || item?.tipo || '').toLowerCase().trim();
   const src = String(
-    urlAValidar || item?.urlMediaCompleta || item?.urlMedia || item?.imagenUrl || ''
+    urlAValidar ||
+    item?.urlMediaCompleta ||
+    item?.urlMedia ||
+    item?.urlMediaPreview ||
+    item?.imagenUrl ||
+    item?.urlImagen ||
+    ''
   ).toLowerCase();
 
-  if (tipo === 'video' && /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/.test(src)) {
+  if (tipo === 'video' && urlPareceArchivoImagen(src)) {
     return 'imagen';
   }
   if (tipo === 'video' || tipo === 'audio' || tipo === 'imagen') return tipo;
-  if (/\.(mp4|webm|ogg|m4v|mov)(\?|#|$)/.test(src)) return 'video';
-  if (/\.(mp3|wav|aac|m4a|flac|oga)(\?|#|$)/.test(src)) return 'audio';
-  if (/\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/.test(src)) return 'imagen';
+  if (urlPareceArchivoVideo(src)) return 'video';
+  if (urlPareceArchivoAudio(src)) return 'audio';
+  if (urlPareceArchivoImagen(src)) return 'imagen';
   return 'articulo';
+}
+
+/** Texto en tarjeta del feed: primer párrafo + "…" si sigue más cuerpo (párrafo o lista). */
+function textoVistaPreviaFeed(textoCompleto) {
+  const raw = String(textoCompleto || '').replace(/\r\n/g, '\n');
+  const s = raw.trim();
+  if (!s) return '';
+
+  const partes = s.split(/\n\s*\n/);
+  if (partes.length > 1) {
+    const primero = partes[0].trim();
+    return primero ? `${primero}…` : s;
+  }
+
+  const lineas = s.split('\n');
+  if (lineas.length >= 2) {
+    const segunda = lineas[1] ?? '';
+    if (/^\s*(?:[-*•]|\d+[\.)])\s/.test(segunda)) {
+      const primero = lineas[0].trim();
+      return primero ? `${primero}…` : s;
+    }
+  }
+
+  return s;
 }
 
 function tiempoRelativo(fecha) {
@@ -264,10 +374,196 @@ function VideoModalPlayerNative({ uri, style, playerRef, onAspectKnown, onEnded,
       style={style}
       nativeControls
       contentFit="contain"
-      {...Platform.OS === 'android' ? { surfaceType: 'textureView' } : {}} />);
+      {...Platform.OS === 'android' ? { surfaceType: 'textureView' } : {}}
+    />
+  );
+}
 
+function formatTiempoAudio(segundos) {
+  if (segundos == null || !Number.isFinite(segundos) || segundos < 0) return '0:00';
+  const m = Math.floor(segundos / 60);
+  const s = Math.floor(segundos % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Reproductor de audio en el modal (misma zona que imagen/vídeo; expo-audio en todas las plataformas). */
+function ModalAudioPlayer({ uri }) {
+  const url = String(uri || '').trim();
+  if (!url) return null;
+  const player = useAudioPlayer(url, { updateInterval: 400, downloadFirst: true });
+  const status = useAudioPlayerStatus(player);
+  const playing = Boolean(status?.playing);
+
+  return (
+    <View style={modalAudioEstilos.caja}>
+      <View style={modalAudioEstilos.fila}>
+        <TouchableOpacity
+          onPress={() => {
+            if (playing) player.pause();
+            else player.play();
+          }}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={playing ? 'Pausar' : 'Reproducir'}>
+          
+          <Ionicons name={playing ? 'pause-circle' : 'play-circle'} size={56} color="#00dc57" />
+        </TouchableOpacity>
+        <View style={modalAudioEstilos.meta}>
+          <Ionicons name="musical-notes" size={22} color="#888" style={{ marginBottom: 6 }} />
+          <Text style={modalAudioEstilos.tiempo}>
+            {formatTiempoAudio(status?.currentTime)} / {formatTiempoAudio(status?.duration)}
+          </Text>
+        </View>
+      </View>
+    </View>);
 
 }
+
+const modalAudioEstilos = StyleSheet.create({
+  caja: {
+    width: '100%',
+    flexGrow: 0,
+    flexShrink: 0,
+    minHeight: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12
+  },
+  fila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    width: '100%',
+    maxWidth: 420
+  },
+  meta: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  tiempo: { color: '#aaa', fontSize: 13, fontVariant: ['tabular-nums'] }
+});
+
+/** Tarjeta del feed: vídeo en silencio; altura según el vídeo (web: height auto). */
+function CardFeedVideoPreviewWeb({ uri }) {
+  return React.createElement('video', {
+    src: uri,
+    muted: true,
+    playsInline: true,
+    autoPlay: true,
+    loop: true,
+    controls: false,
+    disablePictureInPicture: true,
+    style: {
+      width: '100%',
+      height: 'auto',
+      display: 'block',
+      verticalAlign: 'top',
+      objectFit: 'contain',
+      backgroundColor: '#000',
+      pointerEvents: 'none',
+      borderRadius: 10
+    }
+  });
+}
+
+function CardFeedVideoPreviewNative({ uri }) {
+  const [ar, setAr] = useState(16 / 9);
+  const player = useVideoPlayer(uri, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+
+  useEventListener(player, 'sourceLoad', (payload) => {
+    const tracks = payload?.availableVideoTracks;
+    const t = Array.isArray(tracks) ? tracks[0] : null;
+    const w = t?.size?.width;
+    const h = t?.size?.height;
+    if (w && h && w > 0 && h > 0) setAr(w / h);
+  });
+
+  return (
+    <View style={{ width: '100%', aspectRatio: ar }}>
+      <VideoView
+        player={player}
+        style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+        nativeControls={false}
+        contentFit="cover"
+        {...Platform.OS === 'android' ? { surfaceType: 'textureView' } : {}}
+      />
+    </View>
+  );
+}
+
+/** Imagen del feed: ancho completo, alto intrínseco (sin caja fija 220). */
+function ContenidoFeedImgWeb({ uri }) {
+  return React.createElement('img', {
+    src: uri,
+    alt: '',
+    draggable: false,
+    style: {
+      width: '100%',
+      height: 'auto',
+      display: 'block',
+      verticalAlign: 'top',
+      borderRadius: 10
+    }
+  });
+}
+
+function ContenidoFeedImgNative({ uri }) {
+  const [ratio, setRatio] = useState(null);
+
+  useEffect(() => {
+    if (!uri) return undefined;
+    let cancel = false;
+    setRatio(null);
+    Image.getSize(
+      uri,
+      (w, h) => {
+        if (!cancel && w > 0 && h > 0) setRatio(w / h);
+      },
+      () => {}
+    );
+    return () => {
+      cancel = true;
+    };
+  }, [uri]);
+
+  return (
+    <View
+      style={
+      ratio != null ?
+      { width: '100%', aspectRatio: ratio } :
+      { width: '100%', minHeight: 140, aspectRatio: 16 / 9 }
+      }>
+      
+      <Image
+        source={{ uri }}
+        style={{ width: '100%', height: '100%' }}
+        resizeMode="contain" />
+      
+    </View>
+  );
+}
+
+/** Feed: audio siempre con icono de nota; no se usa imagen en `urlMedia` aunque sea JPG/PNG. */
+function CardFeedAudioPreviewTarjeta() {
+  return (
+    <View style={feedAudioPreviewEstilos.caja}>
+      <Ionicons name="musical-notes" size={52} color="#00dc57" />
+    </View>);
+
+}
+
+const feedAudioPreviewEstilos = StyleSheet.create({
+  /** Interior sin borde: el marco verde va en `cardPreviewImgCardAudioFeed` (mismo radio que el preview). */
+  caja: {
+    width: '100%',
+    minHeight: 200,
+    backgroundColor: 'transparent',
+    justifyContent: 'center',
+    alignItems: 'center'
+  }
+});
 
 export default function ContenidoGeneral({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -281,7 +577,7 @@ export default function ContenidoGeneral({ navigation }) {
     );
   })();
 
-  const esWebMovil = esWeb && (esNavegadorMovilWeb || ventanaAncho < 700);
+  const esWebMovil = esWeb && (esNavegadorMovilWeb || ventanaAncho < 820);
   const esWebDesktop = esWeb && !esWebMovil;
 
   const esModalWebApilado = esWeb && (esNavegadorMovilWeb || ventanaAncho < 980);
@@ -488,7 +784,7 @@ export default function ContenidoGeneral({ navigation }) {
   };
 
   const abrirContenido = async (item) => {
-    const mediaUrl = item.urlMediaCompleta || item.urlMedia;
+    const mediaUrl = itemMediaUrlPrincipal(item);
     if (!mediaUrl) {
       Alert.alert('Archivo', 'No hay enlace disponible.');
       return;
@@ -506,23 +802,35 @@ export default function ContenidoGeneral({ navigation }) {
   };
 
   const abrirMediaEnModal = async (item) => {
-    const previewUrl = item.urlMedia || item.imagenUrl || null;
-    const mediaUrl = item.urlMediaCompleta || item.urlMedia || item.imagenUrl || null;
-    if (!mediaUrl && !previewUrl) return;
-    const tipo = clasificarMedia(item, mediaUrl);
-    const urlCruda = elegirUrlReproducible(item, tipo);
-    const urlVisual = absolutizarRutaMedia(urlCruda);
-    if (!urlVisual) return;
-    const id = getId(item);
-    if (id) {
-      registrarVistaPorClickModal(id);
+    if (itemTieneUrlParaModal(item)) {
+      const mediaUrl = itemMediaUrlPrincipal(item);
+      const tipo = clasificarMedia(item, mediaUrl);
+      const urlCruda = elegirUrlReproducible(item, tipo);
+      const urlVisual = absolutizarRutaMedia(urlCruda);
+      if (!urlVisual) return;
+      const id = getId(item);
+      if (id) {
+        registrarVistaPorClickModal(id);
+      }
+      setMediaItem(
+        id ?
+        { ...(item || {}), numeroVistas: (item?.numeroVistas ?? 0) + 1 } :
+        item
+      );
+      setMediaUrlSeleccionada(urlVisual);
+      return;
+    }
+    if (!itemPuedeAbrirModalLecturaArticulo(item)) return;
+    const idSoloTexto = getId(item);
+    if (idSoloTexto) {
+      registrarVistaPorClickModal(idSoloTexto);
     }
     setMediaItem(
-      id ?
+      idSoloTexto ?
       { ...(item || {}), numeroVistas: (item?.numeroVistas ?? 0) + 1 } :
       item
     );
-    setMediaUrlSeleccionada(urlVisual);
+    setMediaUrlSeleccionada(null);
   };
 
   const cerrarMediaModal = () => {
@@ -615,6 +923,20 @@ export default function ContenidoGeneral({ navigation }) {
     }
   };
 
+  const likeVisualContenido = (item) => {
+    const id = String(getId(item) ?? '');
+    const yaLike = Boolean(id && likesHechos.has(id));
+    return {
+      yaLike,
+      icon: yaLike ? 'heart' : 'heart-outline',
+      color: yaLike ? '#00dc57' : '#888'
+    };
+  };
+
+  const likeMediaModal = mediaItem ?
+  likeVisualContenido(mediaItem) :
+  { yaLike: false, icon: 'heart-outline', color: '#888' };
+
   const abrirComentarios = (item) => {
     const id = getId(item);
     if (!id) return;
@@ -646,24 +968,33 @@ export default function ContenidoGeneral({ navigation }) {
       const res = await agregarComentarioContenido(comentarioItem.id, comentarioTexto.trim());
       const nuevaLista = Array.isArray(res?.comentarios) ? res.comentarios : [];
       const total = res?.numeroComentarios ?? nuevaLista.length;
+      const idCom = String(comentarioItem.id);
       setContenidoUnificado((prev) =>
-      prev.map((it) =>
-      it.id === comentarioItem.id ? { ...it, comentarios: nuevaLista, numeroComentarios: total } : it
-      )
+      prev.map((it) => {
+        const itId = String(getId(it) ?? '');
+        return itId === idCom ? { ...it, comentarios: nuevaLista, numeroComentarios: total } : it;
+      })
       );
-      setMediaItem((prev) =>
-      prev && prev.id === comentarioItem.id ?
-      { ...prev, comentarios: nuevaLista, numeroComentarios: total } :
-      prev
-      );
+      setMediaItem((prev) => {
+        if (!prev) return prev;
+        const prevId = String(getId(prev) ?? '');
+        return prevId === idCom ?
+        { ...prev, comentarios: nuevaLista, numeroComentarios: total } :
+        prev;
+      });
       const volverItem = regresarAMediaRef.current;
+      const baseItem = volverItem || comentarioItem;
+      const mergedForModal = {
+        ...baseItem,
+        id: idCom,
+        comentarios: nuevaLista,
+        numeroComentarios: total
+      };
       cerrarComentarioModal();
-      if (volverItem) {
-        regresarAMediaRef.current = null;
-        setTimeout(() => {
-          abrirMediaEnModal(volverItem);
-        }, 50);
-      }
+      regresarAMediaRef.current = null;
+      setTimeout(() => {
+        abrirMediaEnModal(mergedForModal);
+      }, 50);
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo enviar el comentario.');
     } finally {
@@ -789,6 +1120,31 @@ export default function ContenidoGeneral({ navigation }) {
   '';
   const usarVideoEnModal =
   tipoModalAbierto === 'video' && urlPareceArchivoVideo(mediaUrlSeleccionada);
+  const usarAudioEnModal = tipoModalAbierto === 'audio' && !!String(mediaUrlSeleccionada || '').trim();
+  const mostrarZonaMediaVisualEnModal =
+  !!mediaUrlSeleccionada &&
+  (tipoModalAbierto === 'imagen' ||
+  tipoModalAbierto === 'video' && urlPareceArchivoVideo(mediaUrlSeleccionada) ||
+  usarAudioEnModal);
+  /** Recuadro de media: el audio no necesita la misma altura que imagen/vídeo. */
+  const modalAudioAltoCajaApilado = Math.min(ventanaAlto * 0.15, 124);
+  const modalAudioAltoCajaFila =
+  esWebDesktop ? Math.min(ventanaAlto * 0.15, 148) : Math.min(ventanaAlto * 0.17, 132);
+  const modalAudioAltoCajaEscritorioDer = Math.min(ventanaAlto * 0.15, 136);
+  /** Aire entre la caja negra del reproductor y el panel gris (acciones / comentarios). */
+  const modalAudioMargenInferiorCaja = Platform.OS === 'web' ? 22 : 18;
+  const modalLayoutArticuloLectura =
+  !!mediaItem &&
+  tipoModalAbierto === 'articulo' &&
+  !mostrarZonaMediaVisualEnModal;
+  /** Escritorio web: imagen/vídeo en columna derecha (como artículo), no a pantalla completa a la izquierda. */
+  const modalEscritorioWebMediaEnColumnaDer =
+  esWeb && !esModalWebApilado && mostrarZonaMediaVisualEnModal;
+  const modalOcultarTituloDescCabecera =
+  modalLayoutArticuloLectura || modalEscritorioWebMediaEnColumnaDer;
+  const modalColDerAnchoPlenoCondicion =
+  !mostrarZonaMediaVisualEnModal &&
+  !(modalLayoutArticuloLectura && esWeb && !esModalWebApilado);
   const posterModalVideoAbs = esWeb && mediaItem && usarVideoEnModal && mediaItem.urlMedia ?
   absolutizarRutaMedia(mediaItem.urlMedia) :
   null;
@@ -799,7 +1155,12 @@ export default function ContenidoGeneral({ navigation }) {
 
   return (
     <View style={estilos.contenedor}>
-      <HeaderAppConMenu navigation={navigation} scrollRef={scrollRef} esVistaContenidoFeed />
+      <HeaderAppConMenu
+        navigation={navigation}
+        scrollRef={scrollRef}
+        esVistaContenidoFeed
+        tituloCentro="Contenido"
+      />
       <View style={estilos.areaContenido}>
         <View
           style={[
@@ -849,7 +1210,6 @@ export default function ContenidoGeneral({ navigation }) {
           </View>
               }
 
-            <Text style={estilos.seccion}>Contenido</Text>
             {cargando &&
               <View style={estilos.estadoCargaCaja}>
                 <ActivityIndicator color="#00dc57" />
@@ -881,22 +1241,53 @@ export default function ContenidoGeneral({ navigation }) {
                 item.bloqueado === true ||
                 item.nivelRequerido === 'thug' &&
                 !puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol);
-                const previewUrl = item.urlMedia || item.imagenUrl || null;
-                const mediaUrl = item.urlMediaCompleta || item.urlMedia || item.imagenUrl || null;
-                const urlCompleta = previewUrl ? absolutizarRutaMedia(previewUrl) : null;
+                const previewUrl = itemMediaUrlVistaPrevia(item);
+                const mediaUrl = itemMediaUrlPrincipal(item);
+                const urlPrimera = previewUrl || mediaUrl;
+                const urlCompleta = urlPrimera ? absolutizarRutaMedia(urlPrimera) : null;
                 const mostrarPreview = !!urlCompleta || bloqueado;
-                const previewSource = urlCompleta ? { uri: urlCompleta } : FONDO_THUGS;
                 const vistas = item.numeroVistas ?? 0;
                 const likes = item.numeroLikes ?? 0;
+                const likeV = likeVisualContenido(item);
                 const numComentarios = item.numeroComentarios ?? (Array.isArray(item.comentarios) ? item.comentarios.length : 0);
                 const tipo = clasificarMedia(item, mediaUrl);
                 const esVideo = tipo === 'video';
+                const videoPreviewAbs =
+                esVideo ?
+                (() => {
+                  if (previewUrl && urlPareceArchivoImagen(previewUrl)) return null;
+                  const candidates = [
+                  previewUrl,
+                  String(item.urlMediaCompleta || '').trim(),
+                  String(item.urlMedia || '').trim(),
+                  String(item.urlMediaPreview || '').trim(),
+                  String(item.imagenUrl || item.urlImagen || '').trim()].
+                  filter(Boolean);
+                  for (const c of candidates) {
+                    if (urlPareceArchivoVideo(c)) {
+                      const abs = absolutizarRutaMedia(c);
+                      if (abs) return abs;
+                    }
+                  }
+                  return null;
+                })() :
+                null;
                 const textoPrincipal = item.previewTexto || item.descripcion || '';
+                const textoPrincipalFeed = textoVistaPreviaFeed(textoPrincipal);
+                const previewUrlStr = String(previewUrl || '').trim();
+                const thumbImagenFeed =
+                tipo !== 'audio' &&
+                !!urlCompleta &&
+                urlPareceArchivoImagen(previewUrlStr);
+                const ocultarDescripcionFeedContenidoThug =
+                bloqueado && (tipo === 'articulo' || tipo === 'audio');
                 const complementario = item.complementario || '';
                 const etiquetasArr = Array.isArray(item.etiquetas) ? item.etiquetas : [];
                 const categoria = item.categoria || '';
                 const fechaPub = item.fechaPublicacion ? new Date(item.fechaPublicacion) : null;
                 const textoFecha = fechaPub ? tiempoRelativo(fechaPub) : '';
+                const abrirModalDesdeTexto =
+                !bloqueado && itemPuedeAbrirModalDesdeTituloODesc(item);
                 return (
                   <View
                     key={itemId}
@@ -940,39 +1331,43 @@ export default function ContenidoGeneral({ navigation }) {
                           }
                       </View>
                     </View>
-                    <Text style={estilos.cardTitulo}>{item.titulo || 'Sin título'}</Text>
+                    {abrirModalDesdeTexto ?
+                      <TouchableOpacity
+                        activeOpacity={0.75}
+                        onPress={() => abrirMediaEnModal(item)}
+                        style={estilos.cardTituloTouchable}>
+                        
+                        <Text style={estilos.cardTitulo}>{item.titulo || 'Sin título'}</Text>
+                      </TouchableOpacity> :
+                      <Text style={estilos.cardTitulo}>{item.titulo || 'Sin título'}</Text>}
                     <View style={estilos.cardCuerpo}>
-                      {textoPrincipal ? <Text style={estilos.cardTexto}>{String(textoPrincipal)}</Text> : null}
-
-                      {complementario ?
-                        normalizarLink(complementario) ?
-                        <Text
-                          style={[estilos.cardComplementario, estilos.cardEnlace]}
-                          onPress={() => Linking.openURL(normalizarLink(complementario))}>
+                      {!ocultarDescripcionFeedContenidoThug && textoPrincipalFeed ?
+                      abrirModalDesdeTexto ?
+                        <TouchableOpacity
+                          activeOpacity={0.75}
+                          onPress={() => abrirMediaEnModal(item)}
+                          style={estilos.cardTextoTouchable}>
                           
-                            {String(complementario)}
-                          </Text> :
-
-                        <Text style={estilos.cardComplementario}>{String(complementario)}</Text> :
-
-                        null}
+                          <Text style={estilos.cardTexto}>{String(textoPrincipalFeed)}</Text>
+                        </TouchableOpacity> :
+                        <Text style={estilos.cardTexto}>{String(textoPrincipalFeed)}</Text> :
+                      null}
 
                       {(() => {
-                          const raw = String(item.urlMediaCompleta || item.urlMedia || '').trim();
-                          if (!raw) return null;
-                          const esHttp = raw.startsWith('http://') || raw.startsWith('https://');
-                          const esDominio = !raw.includes(' ') && raw.includes('.') && !raw.startsWith('/');
-                          const link = esHttp ? raw : esDominio ? `https://${raw}` : null;
-                          if (!link) return null;
-                          return (
-                            <Text
-                              style={[estilos.cardComplementario, estilos.cardEnlace]}
-                              onPress={() => Linking.openURL(link)}>
-                              
-                            {raw}
-                          </Text>);
+                        if (ocultarDescripcionFeedContenidoThug) return null;
+                        const comp = String(complementario || '').trim();
+                        const compLink = comp ? normalizarLink(comp) : null;
 
-                        })()}
+                        if (!comp) return null;
+
+                        return compLink ?
+                        <Text
+                          style={estilos.cardComplementarioEnlace}
+                          onPress={() => Linking.openURL(compLink)}>
+                          {comp}
+                        </Text> :
+                        <Text style={estilos.cardComplementario}>{comp}</Text>;
+                      })()}
 
                       {categoria ?
                         <View style={estilos.cardMetaRow}>
@@ -982,23 +1377,37 @@ export default function ContenidoGeneral({ navigation }) {
 
                       {mostrarPreview ?
                         <TouchableOpacity
-                          style={estilos.cardPreviewImgCard}
+                          style={[
+                          estilos.cardPreviewImgCard,
+                          tipo === 'audio' && !bloqueado && estilos.cardPreviewImgCardAudioFeed]
+                          }
                           onPress={() => bloqueado ? null : abrirMediaEnModal(item)}
                           activeOpacity={bloqueado ? 1 : 0.9}
                           disabled={bloqueado}>
                           
+                          {videoPreviewAbs ?
+                          Platform.OS === 'web' ?
+                          <CardFeedVideoPreviewWeb uri={videoPreviewAbs} /> :
+                          <CardFeedVideoPreviewNative uri={videoPreviewAbs} /> :
+                          tipo === 'audio' && !bloqueado ?
+                          <CardFeedAudioPreviewTarjeta /> :
+                          thumbImagenFeed ?
+                          Platform.OS === 'web' ?
+                          <ContenidoFeedImgWeb uri={urlCompleta} /> :
+                          <ContenidoFeedImgNative uri={urlCompleta} /> :
+
                           <Image
-                            source={previewSource}
-                            style={[estilos.cardPreviewImgInner, bloqueado && estilos.cardPreviewImgBlurWeb]}
-                            resizeMode="cover"
-                            blurRadius={bloqueado ? 18 : 0} />
+                            source={FONDO_THUGS}
+                            style={estilos.cardPreviewPlaceholderFondo}
+                            resizeMode="cover" />
+                          }
                           
                           {bloqueado ?
                           <View pointerEvents="none" style={estilos.cardPreviewObfuscador}>
                               <View style={estilos.cardPreviewLeyendaCaja}>
                                 <Text style={estilos.cardPreviewLeyendaTitulo}>Para ver contenido Thug</Text>
                                 <Text style={estilos.cardPreviewLeyendaSub}>
-                                  Primero debes de subir de nivel
+                                  Primero debes subir de nivel
                                 </Text>
                               </View>
                             </View> :
@@ -1031,20 +1440,26 @@ export default function ContenidoGeneral({ navigation }) {
                             style={estilos.cardAccionItem}
                             onPress={() => onLike(item)}
                             activeOpacity={0.7}
-                            disabled={bloqueado || likesHechos.has(String(item?.id ?? item?._id?.toString?.() ?? item?._id))}>
+                            disabled={likeV.yaLike}>
                             
-                          <Ionicons name="heart-outline" size={20} color="#888" />
+                          <Ionicons name={likeV.icon} size={20} color={likeV.color} />
                           <Text style={estilos.cardAccionNumero}>{likes}</Text>
                         </TouchableOpacity>
+                        {bloqueado ?
+                        <View style={[estilos.cardAccionItem, estilos.cardAccionItemInactiva]}>
+                            <Ionicons name="chatbubble-outline" size={18} color="#555" />
+                            <Text style={estilos.cardAccionNumero}>{numComentarios}</Text>
+                          </View> :
+
                         <TouchableOpacity
                             style={estilos.cardAccionItem}
                             onPress={() => abrirComentarios(item)}
-                            activeOpacity={0.7}
-                            disabled={bloqueado}>
+                            activeOpacity={0.7}>
                             
                           <Ionicons name="chatbubble-outline" size={18} color="#888" />
                           <Text style={estilos.cardAccionNumero}>{numComentarios}</Text>
                         </TouchableOpacity>
+                        }
                       </View>
                     </View>
                   </View>
@@ -1067,7 +1482,11 @@ export default function ContenidoGeneral({ navigation }) {
           <View style={estilos.modalMediaCaja}>
             {mediaItem &&
             <>
-                <View style={estilos.modalMediaCabecera}>
+                <View
+                  style={[
+                  estilos.modalMediaCabecera,
+                  Platform.OS === 'web' && !esModalWebApilado && estilos.modalMediaCabeceraWebEscritorio,
+                  Platform.OS === 'web' && esModalWebApilado && estilos.modalMediaCabeceraWebApilado]}>
                   <View style={estilos.modalMediaHeader}>
                     <View style={estilos.cardTipoBadge}>
                       <Ionicons
@@ -1091,23 +1510,60 @@ export default function ContenidoGeneral({ navigation }) {
                       <Ionicons name="close" size={20} color="#fff" />
                     </TouchableOpacity>
                   </View>
-                  <Text style={estilos.modalMediaTituloTop}>{mediaItem.titulo || 'Sin título'}</Text>
-                  {mediaItem.previewTexto || mediaItem.descripcion ?
-                <Text style={estilos.modalMediaDescripcionTop} numberOfLines={esModalWebApilado ? 4 : 3}>
-                      {mediaItem.previewTexto || mediaItem.descripcion}
-                    </Text> :
-                null}
+                  {!modalOcultarTituloDescCabecera ?
+                  <>
+                      <Text style={estilos.modalMediaTituloTop}>{mediaItem.titulo || 'Sin título'}</Text>
+                      {mediaItem.previewTexto || mediaItem.descripcion ?
+                    <Text style={estilos.modalMediaDescripcionTop}>
+                          {mediaItem.previewTexto || mediaItem.descripcion}
+                        </Text> :
+                    null}
+                    </> :
+                  null}
                 </View>
+                <ScrollView
+                  style={estilos.modalMediaCuerpoScroll}
+                  contentContainerStyle={[
+                  estilos.modalMediaCuerpoScrollContenido,
+                  Platform.OS === 'web' && !esModalWebApilado && estilos.modalMediaCuerpoScrollContenidoWebEscritorio,
+                  Platform.OS === 'web' && esModalWebApilado && estilos.modalMediaCuerpoScrollContenidoWebApilado,
+                  Platform.OS !== 'web' && estilos.modalMediaCuerpoScrollContenidoNativoModal]}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator={false}
+                  ref={(r) => {
+                    if (Platform.OS !== 'web' || !r || typeof r.getScrollableNode !== 'function') return;
+                    try {
+                      const node = r.getScrollableNode();
+                      if (node && node.setAttribute) node.setAttribute('data-st-modal-media-scroll', '1');
+                    } catch (_) {
+
+                    }
+                  }}>
                 {esModalWebApilado ?
               <View style={estilos.modalMediaFlujoApilado}>
-                    <View style={estilos.modalMediaZonaVideoApilada}>
-                      {mediaUrlSeleccionada &&
+                    {modalLayoutArticuloLectura ?
+                  <View style={estilos.modalArticuloColTextoApilado}>
+                      <Text style={estilos.modalArticuloTituloEnCuerpo}>
+                          {mediaItem.titulo || 'Sin título'}
+                        </Text>
+                      {mediaItem.previewTexto || mediaItem.descripcion ?
+                    <Text style={estilos.modalArticuloDescripcionEnCuerpo}>
+                          {mediaItem.previewTexto || mediaItem.descripcion}
+                        </Text> :
+                    null}
+                    </View> :
+                  null}
+                    {mostrarZonaMediaVisualEnModal ?
+                  <View style={estilos.modalMediaZonaVideoApilada}>
                   <View
                     style={[
                     estilos.cardPreviewImgModal,
                     estilos.cardPreviewImgModalWebMovil,
                     {
-                      height: Math.min(ventanaAlto * 0.4, 340)
+                      height: usarAudioEnModal ?
+                      modalAudioAltoCajaApilado :
+                      Math.min(ventanaAlto * 0.4, 340),
+                      ...(usarAudioEnModal ? { marginBottom: modalAudioMargenInferiorCaja } : null)
                     }]
                     }>
                     
@@ -1149,7 +1605,8 @@ export default function ContenidoGeneral({ navigation }) {
                           `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
                         )
                         } /> :
-
+                      usarAudioEnModal ?
+                      <ModalAudioPlayer key={`${mediaUrlSeleccionada}-audio`} uri={mediaUrlSeleccionada} /> :
 
 
                       <Image
@@ -1219,9 +1676,13 @@ export default function ContenidoGeneral({ navigation }) {
                             </Pressable> :
                     null}
                         </View>
-                  }
-                    </View>
-                    <View style={[estilos.modalMediaColDerMobile, esWeb && estilos.modalMediaColDerMobileWebApilado]}>
+                  </View> :
+                  null}
+                    <View
+                      style={[
+                      estilos.modalMediaColDerMobile,
+                      esWeb && estilos.modalMediaColDerMobileWebApilado,
+                      modalColDerAnchoPlenoCondicion && estilos.modalMediaColDerAnchoPleno]}>
                       <View style={estilos.modalAccionesFilaMobile}>
                         <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
                           <View style={estilos.cardAccionItem}>
@@ -1234,9 +1695,9 @@ export default function ContenidoGeneral({ navigation }) {
                         style={estilos.cardAccionItem}
                         onPress={() => onLike(mediaItem)}
                         activeOpacity={0.7}
-                        disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}>
+                        disabled={likeMediaModal.yaLike}>
                         
-                            <Ionicons name="heart-outline" size={20} color="#888" />
+                            <Ionicons name={likeMediaModal.icon} size={20} color={likeMediaModal.color} />
                             <Text style={estilos.cardAccionNumero}>
                               {mediaItem.numeroLikes ?? 0}
                             </Text>
@@ -1252,7 +1713,7 @@ export default function ContenidoGeneral({ navigation }) {
                             </Text>
                           </TouchableOpacity>
                         </View>
-                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ?
+                        {itemMediaUrlPrincipal(mediaItem) ?
                     <TouchableOpacity
                       style={estilos.modalAbrirArchivo}
                       onPress={() => abrirContenido(mediaItem)}>
@@ -1262,16 +1723,13 @@ export default function ContenidoGeneral({ navigation }) {
                           </TouchableOpacity> :
                     null}
                       </View>
-                      <View style={estilos.modalComentariosMobile}>
+                      <View
+                        style={[
+                        estilos.modalComentariosMobile,
+                        mostrarZonaMediaVisualEnModal && estilos.modalComentariosTrasMedia]}>
                         <Text style={estilos.modalComentariosTitulo}>Comentarios</Text>
                         {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ?
-                    <ScrollView
-                      style={estilos.modalComentariosScrollMobile}
-                      contentContainerStyle={estilos.modalComentariosScrollContenido}
-                      showsVerticalScrollIndicator={false}
-                      nestedScrollEnabled
-                      keyboardShouldPersistTaps="handled">
-                      
+                    <View style={estilos.modalComentariosLista}>
                             {mediaItem.comentarios.map((c, idx) => {
                         const esObjeto = c && typeof c === 'object';
                         const texto = esObjeto ? c.texto || '' : String(c || '');
@@ -1293,7 +1751,7 @@ export default function ContenidoGeneral({ navigation }) {
                                 </View>);
 
                       })}
-                          </ScrollView> :
+                          </View> :
 
                     <View style={estilos.modalComentariosVacioMobile}>
                             <Text style={estilos.modalComentarioVacio}>Sé el primero en comentar.</Text>
@@ -1304,15 +1762,30 @@ export default function ContenidoGeneral({ navigation }) {
                   </View> :
 
               <View style={estilos.modalMediaCuerpoRow}>
+                  {modalLayoutArticuloLectura || modalEscritorioWebMediaEnColumnaDer ?
+                  <View style={estilos.modalArticuloColTexto}>
+                      <Text style={estilos.modalArticuloTituloEnCuerpo}>
+                          {mediaItem.titulo || 'Sin título'}
+                        </Text>
+                      {mediaItem.previewTexto || mediaItem.descripcion ?
+                    <Text style={estilos.modalArticuloDescripcionEnCuerpo}>
+                          {mediaItem.previewTexto || mediaItem.descripcion}
+                        </Text> :
+                    null}
+                    </View> :
+                  null}
+                  {mostrarZonaMediaVisualEnModal && !modalEscritorioWebMediaEnColumnaDer ?
                   <View style={estilos.modalMediaColMedia}>
-                    {mediaUrlSeleccionada &&
                   <View
                     style={[
                     estilos.cardPreviewImgModal,
                     {
-                      height: esWebDesktop ?
+                      height: usarAudioEnModal ?
+                      modalAudioAltoCajaFila :
+                      esWebDesktop ?
                       ventanaAlto * 0.78 :
-                      ventanaAlto * 0.45
+                      ventanaAlto * 0.45,
+                      ...(usarAudioEnModal ? { marginBottom: modalAudioMargenInferiorCaja } : null)
                     }]
                     }>
                     
@@ -1354,7 +1827,8 @@ export default function ContenidoGeneral({ navigation }) {
                           `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
                         )
                         } /> :
-
+                      usarAudioEnModal ?
+                      <ModalAudioPlayer key={`${mediaUrlSeleccionada}-audio`} uri={mediaUrlSeleccionada} /> :
 
 
                       <Image
@@ -1424,10 +1898,103 @@ export default function ContenidoGeneral({ navigation }) {
                           </Pressable> :
                     null}
                       </View>
-                  }
-                  </View>
+                  </View> :
+                  null}
                   {esWeb ?
-                <View style={estilos.modalMediaColDer}>
+                <View
+                  style={[
+                  estilos.modalMediaColDer,
+                  modalColDerAnchoPlenoCondicion && estilos.modalMediaColDerAnchoPleno]}>
+                      {modalEscritorioWebMediaEnColumnaDer ?
+                  <View style={estilos.modalDerMediaEscritorioEnv}>
+                    <View
+                        style={[
+                        estilos.cardPreviewImgModal,
+                        {
+                          marginVertical: 0,
+                          ...(usarAudioEnModal ?
+                          {
+                            height: modalAudioAltoCajaEscritorioDer,
+                            maxHeight: modalAudioAltoCajaEscritorioDer + 8,
+                            marginBottom: modalAudioMargenInferiorCaja
+                          } :
+                          {
+                            height: Math.min(ventanaAlto * 0.44, 420),
+                            maxHeight: Math.min(ventanaAlto * 0.48, 460)
+                          })
+                        }]
+                        }>
+                      
+                          <View style={estilos.mediaCenterBox}>
+                            {usarVideoEnModal ?
+                      <VideoModalPlayerWeb
+                        key={mediaUrlSeleccionada}
+                        src={mediaUrlSeleccionada}
+                        poster={posterModalVideoWeb}
+                        videoRef={webVideoRef}
+                        onAspectKnown={(ar) => setMediaAspectRatio(ar)}
+                        onEnded={() => setVideoTerminado(true)}
+                        onVideoError={(msg) =>
+                        Alert.alert(
+                          'Vídeo',
+                          `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
+                        )
+                        } /> :
+                      usarAudioEnModal ?
+                      <ModalAudioPlayer key={`${mediaUrlSeleccionada}-audio-webder`} uri={mediaUrlSeleccionada} /> :
+
+
+                      <Image
+                        source={{ uri: mediaUrlSeleccionada }}
+                        style={[
+                        estilos.cardPreviewImgInner,
+                        {
+                          display: 'block',
+                          alignSelf: 'center',
+                          width: '100%',
+                          height: '100%',
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain',
+                          objectPosition: 'center center'
+                        }]
+                        }
+                        resizeMode="contain"
+                        onLoad={(e) => {
+                          const w = e?.nativeEvent?.source?.width;
+                          const h = e?.nativeEvent?.source?.height;
+                          if (w && h) {
+                            setMediaAspectRatio(w / h);
+                          }
+                        }} />
+
+                      }
+                          </View>
+                          {videoTerminado && usarVideoEnModal ?
+                    <Pressable
+                      style={estilos.videoReplayOverlay}
+                      onPress={async () => {
+                        setVideoTerminado(false);
+                        const el = webVideoRef.current;
+                        if (el) {
+                          el.currentTime = 0;
+                          try {
+                            await el.play();
+                          } catch (_) {
+
+                          }
+                        }
+                      }}>
+                      
+                            <View style={estilos.videoReplayBoton}>
+                              <Ionicons name="refresh" size={22} color="#000" />
+                              <Text style={estilos.videoReplayTexto}>Reproducir</Text>
+                            </View>
+                          </Pressable> :
+                    null}
+                        </View>
+                  </View> :
+                  null}
                       <View style={estilos.modalAccionesFila}>
                         <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
                           <View style={estilos.cardAccionItem}>
@@ -1440,9 +2007,9 @@ export default function ContenidoGeneral({ navigation }) {
                         style={estilos.cardAccionItem}
                         onPress={() => onLike(mediaItem)}
                         activeOpacity={0.7}
-                        disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}>
+                        disabled={likeMediaModal.yaLike}>
                         
-                            <Ionicons name="heart-outline" size={20} color="#888" />
+                            <Ionicons name={likeMediaModal.icon} size={20} color={likeMediaModal.color} />
                             <Text style={estilos.cardAccionNumero}>
                               {mediaItem.numeroLikes ?? 0}
                             </Text>
@@ -1458,7 +2025,7 @@ export default function ContenidoGeneral({ navigation }) {
                             </Text>
                           </TouchableOpacity>
                         </View>
-                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ?
+                        {itemMediaUrlPrincipal(mediaItem) ?
                     <TouchableOpacity
                       style={estilos.modalAbrirArchivo}
                       onPress={() => abrirContenido(mediaItem)}>
@@ -1468,16 +2035,14 @@ export default function ContenidoGeneral({ navigation }) {
                           </TouchableOpacity> :
                     null}
                       </View>
-                      <View style={estilos.modalComentarios}>
+                      <View
+                        style={[
+                        estilos.modalComentarios,
+                        mostrarZonaMediaVisualEnModal && estilos.modalComentariosTrasMedia]}>
                         <Text style={estilos.modalComentariosTitulo}>Comentarios</Text>
-                        <ScrollView
-                      style={estilos.modalComentariosScroll}
-                      contentContainerStyle={estilos.modalComentariosScrollContenido}
-                      showsVerticalScrollIndicator={false}
-                      keyboardShouldPersistTaps="handled">
-                      
-                          {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ?
-                      mediaItem.comentarios.map((c, idx) => {
+                        {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ?
+                    <View style={estilos.modalComentariosLista}>
+                          {mediaItem.comentarios.map((c, idx) => {
                         const esObjeto = c && typeof c === 'object';
                         const texto = esObjeto ? c.texto || '' : String(c || '');
                         const usuario = esObjeto ? c.usuario || '' : '';
@@ -1497,15 +2062,19 @@ export default function ContenidoGeneral({ navigation }) {
                                   <Text style={estilos.modalComentarioItem}>{texto}</Text>
                                 </View>);
 
-                      }) :
+                      })}
+                        </View> :
 
                       <Text style={estilos.modalComentarioVacio}>Sé el primero en comentar.</Text>
                       }
-                        </ScrollView>
                       </View>
                     </View> :
 
-                <View style={[estilos.modalMediaColDerMobile, esWeb && estilos.modalMediaColDerMobileWeb]}>
+                <View
+                  style={[
+                  estilos.modalMediaColDerMobile,
+                  esWeb && estilos.modalMediaColDerMobileWeb,
+                  modalColDerAnchoPlenoCondicion && estilos.modalMediaColDerAnchoPleno]}>
                       <View style={estilos.modalAccionesFilaMobile}>
                         <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
                           <View style={estilos.cardAccionItem}>
@@ -1518,9 +2087,9 @@ export default function ContenidoGeneral({ navigation }) {
                         style={estilos.cardAccionItem}
                         onPress={() => onLike(mediaItem)}
                         activeOpacity={0.7}
-                        disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}>
+                        disabled={likeMediaModal.yaLike}>
                         
-                            <Ionicons name="heart-outline" size={20} color="#888" />
+                            <Ionicons name={likeMediaModal.icon} size={20} color={likeMediaModal.color} />
                             <Text style={estilos.cardAccionNumero}>
                               {mediaItem.numeroLikes ?? 0}
                             </Text>
@@ -1536,7 +2105,7 @@ export default function ContenidoGeneral({ navigation }) {
                             </Text>
                           </TouchableOpacity>
                         </View>
-                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ?
+                        {itemMediaUrlPrincipal(mediaItem) ?
                     <TouchableOpacity
                       style={estilos.modalAbrirArchivo}
                       onPress={() => abrirContenido(mediaItem)}>
@@ -1546,16 +2115,13 @@ export default function ContenidoGeneral({ navigation }) {
                           </TouchableOpacity> :
                     null}
                       </View>
-                      <View style={estilos.modalComentariosMobile}>
+                      <View
+                        style={[
+                        estilos.modalComentariosMobile,
+                        mostrarZonaMediaVisualEnModal && estilos.modalComentariosTrasMedia]}>
                         <Text style={estilos.modalComentariosTitulo}>Comentarios</Text>
                         {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ?
-                    <ScrollView
-                      style={estilos.modalComentariosScrollMobile}
-                      contentContainerStyle={estilos.modalComentariosScrollContenido}
-                      showsVerticalScrollIndicator={false}
-                      nestedScrollEnabled
-                      keyboardShouldPersistTaps="handled">
-                      
+                    <View style={estilos.modalComentariosLista}>
                             {mediaItem.comentarios.map((c, idx) => {
                         const esObjeto = c && typeof c === 'object';
                         const texto = esObjeto ? c.texto || '' : String(c || '');
@@ -1577,7 +2143,7 @@ export default function ContenidoGeneral({ navigation }) {
                                 </View>);
 
                       })}
-                          </ScrollView> :
+                          </View> :
 
                     <View style={estilos.modalComentariosVacioMobile}>
                             <Text style={estilos.modalComentarioVacio}>Sé el primero en comentar.</Text>
@@ -1588,6 +2154,7 @@ export default function ContenidoGeneral({ navigation }) {
                 }
                 </View>
               }
+                </ScrollView>
               </>
             }
           </View>
@@ -1673,20 +2240,13 @@ const estilos = StyleSheet.create({
   contenidoSobreFondo: { zIndex: 1, alignItems: 'center', width: '100%' },
   contenidoCentrado: {
     width: Platform.OS === 'web' ? '50%' : '100%',
-    maxWidth: Platform.OS === 'web' ? 600 : '100%',
+    maxWidth: Platform.OS === 'web' ? 700 : '100%',
     alignSelf: Platform.OS === 'web' ? 'center' : 'stretch'
   },
   contenidoCentradoWebMovil: {
     width: '100%',
     maxWidth: '100%',
     alignSelf: 'stretch'
-  },
-  seccion: {
-    fontSize: 18,
-    color: '#fff',
-    fontWeight: '600',
-    marginBottom: 12,
-    marginTop: 16
   },
   cardContenedor: { position: 'relative', marginBottom: 12 },
   card: {
@@ -1717,7 +2277,17 @@ const estilos = StyleSheet.create({
   cardDestacadoBadge: { color: '#ffc107', fontSize: 11, fontWeight: '600' },
   cardThugBadge: { color: '#00dc57', fontSize: 12, fontWeight: '600' },
   cardTexto: { color: '#bbb', fontSize: 14, marginBottom: 6, lineHeight: 20 },
+  /** Complementario en texto plano: solo cursiva, sin enlace. */
   cardComplementario: { color: '#888', fontSize: 12, marginBottom: 8, lineHeight: 18, fontStyle: 'italic' },
+  /** URL en complementario o enlace al archivo media: verde y subrayado, sin cursiva. */
+  cardComplementarioEnlace: {
+    color: '#00dc57',
+    fontSize: 12,
+    marginBottom: 8,
+    lineHeight: 18,
+    fontStyle: 'normal',
+    textDecorationLine: 'underline'
+  },
   cardEnlace: { color: '#00dc57', textDecorationLine: 'underline' },
   cardMetaRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
   cardCategoria: { color: '#00dc57', fontSize: 12 },
@@ -1766,6 +2336,12 @@ const estilos = StyleSheet.create({
     elevation: 20,
     backgroundColor: Platform.OS === 'web' ? '#121212' : 'rgba(18,18,18,0.99)'
   },
+  modalMediaCabeceraWebEscritorio: {
+    paddingHorizontal: 12
+  },
+  modalMediaCabeceraWebApilado: {
+    paddingHorizontal: 12
+  },
   modalMediaHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1794,11 +2370,10 @@ const estilos = StyleSheet.create({
     marginBottom: Platform.OS === 'web' ? 6 : 4
   },
   modalMediaCuerpoRow: {
-    flex: 1,
-    minHeight: Platform.OS === 'web' ? 0 : undefined,
+    width: '100%',
     flexDirection: Platform.OS === 'web' ? 'row' : 'column',
     gap: Platform.OS === 'web' ? 16 : 10,
-    alignItems: 'stretch'
+    alignItems: Platform.OS === 'web' ? 'flex-start' : 'stretch'
   },
   modalMediaCuerpoRowWebMovil: {
     flexDirection: 'column',
@@ -1806,9 +2381,37 @@ const estilos = StyleSheet.create({
     minHeight: 0
   },
 
-  modalMediaFlujoApilado: {
+  modalMediaCuerpoScroll: {
     flex: 1,
     minHeight: 0,
+    width: '100%',
+    ...(Platform.OS === 'web' ?
+    {
+      scrollbarWidth: 'none',
+      msOverflowStyle: 'none'
+    } :
+    {})
+  },
+  modalMediaCuerpoScrollContenido: {
+    paddingBottom: 24,
+    width: '100%'
+  },
+  /** Web escritorio (dos columnas): mismo respiro horizontal que el bloque de título en cabecera. */
+  modalMediaCuerpoScrollContenidoWebEscritorio: {
+    paddingHorizontal: 12,
+    paddingTop: 6
+  },
+  /** Web apilado (móvil / estrecho): título, vídeo/imagen/audio y panel inferior alineados. */
+  modalMediaCuerpoScrollContenidoWebApilado: {
+    paddingHorizontal: 12,
+    paddingTop: 12
+  },
+  /** Nativo: mismo margen lateral para media y texto del modal. */
+  modalMediaCuerpoScrollContenidoNativoModal: {
+    paddingHorizontal: 12,
+    paddingTop: 10
+  },
+  modalMediaFlujoApilado: {
     width: '100%',
     flexDirection: 'column',
     alignItems: 'stretch',
@@ -1823,12 +2426,10 @@ const estilos = StyleSheet.create({
     marginTop: 0
   },
   modalMediaColDerMobileWebApilado: {
-    flex: 1,
-    minHeight: 0,
-    overflow: 'hidden',
+    width: '100%',
+    marginTop: 14,
     position: 'relative',
-    zIndex: 1,
-    marginTop: 14
+    zIndex: 1
   },
 
   modalMediaBloqueTextoWebMovil: {
@@ -1867,33 +2468,73 @@ const estilos = StyleSheet.create({
     position: 'relative',
     zIndex: 1
   },
+  modalMediaColDerAnchoPleno: {
+    flex: 1,
+    flexGrow: 1,
+    minWidth: 0,
+    alignSelf: 'stretch',
+    ...(Platform.OS === 'web' ? { width: '100%', maxWidth: '100%' } : null)
+  },
+  modalArticuloColTexto: {
+    flex: Platform.OS === 'web' ? 3 : 0,
+    flexGrow: Platform.OS === 'web' ? 1 : 0,
+    alignSelf: 'stretch',
+    minWidth: 0,
+    width: '100%',
+    marginBottom: Platform.OS === 'web' ? 0 : 10
+  },
+  modalArticuloColTextoApilado: {
+    width: '100%',
+    flexShrink: 0,
+    marginBottom: 14,
+    paddingHorizontal: 0,
+    paddingTop: 4
+  },
+  modalArticuloTituloEnCuerpo: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 28,
+    marginBottom: 12
+  },
+  modalArticuloDescripcionEnCuerpo: {
+    color: '#ccc',
+    fontSize: 15,
+    lineHeight: 24
+  },
+  /** Contenedor del reproductor en columna derecha (escritorio web, vídeo/imagen). */
+  modalDerMediaEscritorioEnv: {
+    width: '100%',
+    alignSelf: 'stretch',
+    flexShrink: 0,
+    marginBottom: 6
+  },
   modalMediaColDer: {
     flex: Platform.OS === 'web' ? 2 : 5,
+    minWidth: Platform.OS === 'web' ? 0 : undefined,
     minHeight: Platform.OS === 'web' ? undefined : 260,
     ...(Platform.OS === 'web' ?
     {
       display: 'flex',
-      flexDirection: 'column',
-      minHeight: 0,
-      overflow: 'hidden'
+      flexDirection: 'column'
     } :
     null)
   },
   modalMediaColDerMobile: {
-    flex: 1,
-    minHeight: 0,
+    alignSelf: 'stretch',
     borderRadius: 14,
     backgroundColor: 'rgba(0,0,0,0.22)',
-    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
+    borderTopWidth: 0,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
     paddingHorizontal: 12,
     paddingTop: 8,
     paddingBottom: 12
   },
   modalMediaColDerMobileWeb: {
-    flex: 1,
-    minHeight: 120,
-    overflow: 'hidden',
+    width: '100%',
     position: 'relative',
     zIndex: 2,
     marginTop: 16
@@ -1912,14 +2553,16 @@ const estilos = StyleSheet.create({
   },
   modalComentarios: {
     marginTop: Platform.OS === 'web' ? 12 : 10,
-    flex: 1,
-    minHeight: 0
+    width: '100%'
   },
-  modalComentariosMobile: { marginTop: 10, flex: 1, minHeight: 0 },
+  /** Más aire entre acciones y comentarios cuando hay imagen/vídeo (columna derecha). */
+  modalComentariosTrasMedia: {
+    marginTop: Platform.OS === 'web' ? 28 : 24,
+    paddingTop: Platform.OS === 'web' ? 4 : 2
+  },
+  modalComentariosMobile: { marginTop: 10, width: '100%' },
   modalComentariosTitulo: { color: '#fff', fontSize: 14, fontWeight: '600', marginBottom: 4 },
-  modalComentariosScroll: { flex: 1, minHeight: 0 },
-  modalComentariosScrollMobile: { flex: 1, minHeight: 0 },
-  modalComentariosScrollContenido: { paddingBottom: 12 },
+  modalComentariosLista: { width: '100%', paddingBottom: 4 },
   modalComentariosVacioMobile: {
     height: 120,
     borderRadius: 12,
@@ -1959,18 +2602,14 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)'
+    paddingTop: 8
   },
   modalAccionesFilaMobile: {
     marginTop: 0,
     flexDirection: 'column',
     alignItems: 'stretch',
     gap: 10,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)'
+    paddingTop: 8
   },
   modalAbrirArchivo: {
     flexDirection: 'row',
@@ -2005,20 +2644,41 @@ const estilos = StyleSheet.create({
     borderTopWidth: 0
   },
   cardAccionItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cardAccionItemInactiva: { opacity: 0.55 },
   cardAccionNumero: { color: '#aaa', fontSize: 14 },
   cardCuerpo: { position: 'relative' },
   cardMetaThug: { color: '#00dc57' },
   cardTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 6 },
+  cardTituloTouchable: {
+    alignSelf: 'stretch',
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : null)
+  },
+  cardTextoTouchable: {
+    alignSelf: 'stretch',
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : null)
+  },
   cardFecha: { color: '#888', fontSize: 12, marginBottom: 4 },
   cardPreviewImgCard: {
     width: '100%',
-    height: Platform.OS === 'web' ? 220 : 240,
     borderRadius: 12,
     overflow: 'hidden',
     marginVertical: 12,
     backgroundColor: '#000',
     position: 'relative'
   },
+  /** Audio: un solo recuadro (fondo + borde) alineado al radio del preview, sin doble marco. */
+  cardPreviewImgCardAudioFeed: {
+    backgroundColor: '#2a2a2a',
+    borderWidth: 1,
+    borderColor: 'rgba(0,220,87,0.55)',
+    ...(Platform.OS === 'web' ?
+    {
+      outlineStyle: 'none',
+      boxSizing: 'border-box'
+    } :
+    {})
+  },
+  cardPreviewPlaceholderFondo: { width: '100%', height: 200, borderRadius: 10 },
   cardPreviewImgModal: {
     width: '100%',
     maxWidth: '100%',
@@ -2057,11 +2717,18 @@ const estilos = StyleSheet.create({
   },
   cardPreviewObfuscador: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.18)',
-    ...(Platform.OS === 'web' ? { backdropFilter: 'blur(12px)' } : null),
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 14
+    padding: 14,
+    ...(Platform.OS === 'web' ?
+    {
+      backgroundColor: 'rgba(0,0,0,0.24)',
+      backdropFilter: 'blur(14px)',
+      WebkitBackdropFilter: 'blur(14px)'
+    } :
+    {
+      backgroundColor: 'rgba(0,0,0,0.34)'
+    })
   },
   cardPreviewLeyendaCaja: {
     backgroundColor: 'rgba(0,0,0,0.45)',

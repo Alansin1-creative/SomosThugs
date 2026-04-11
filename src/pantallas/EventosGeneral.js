@@ -30,6 +30,99 @@ function normalizarUrlMedia(raw) {
   return getBaseUrl() + s;
 }
 
+/**
+ * Teaser Thug en web: ancho 100 %, alto intrínseco de la imagen (`height: auto`) + `filter: blur`.
+ */
+function EventoCardImagenWebTeaserVelado({ uri, onLoadError }) {
+  return React.createElement(
+    'div',
+    {
+      style: {
+        width: '100%',
+        overflow: 'hidden',
+        borderRadius: 10,
+        backgroundColor: '#0a0a0a',
+        lineHeight: 0
+      }
+    },
+    React.createElement('img', {
+      src: uri,
+      alt: '',
+      draggable: false,
+      onError: onLoadError,
+      style: {
+        width: '100%',
+        height: 'auto',
+        display: 'block',
+        verticalAlign: 'top',
+        filter: 'blur(12px)',
+        transform: 'scale(1.02)',
+        transformOrigin: 'center center'
+      }
+    })
+  );
+}
+
+/**
+ * Web y nativo: `previewVelado` difumina el propio media (no dependemos de backdrop-filter).
+ * Vista normal: RN `Image` + aspecto.
+ */
+function EventoCardImagen({ uri, onLoadError, previewVelado = false }) {
+  const [ratio, setRatio] = useState(null);
+  const resizeMode = 'contain';
+
+  useEffect(() => {
+    if (!uri || previewVelado && Platform.OS === 'web') return undefined;
+    let cancel = false;
+    setRatio(null);
+    Image.getSize(
+      uri,
+      (w, h) => {
+        if (!cancel && w > 0 && h > 0) setRatio(w / h);
+      },
+      () => {}
+    );
+    return () => {
+      cancel = true;
+    };
+  }, [uri, previewVelado]);
+
+  if (previewVelado && Platform.OS === 'web') {
+    return <EventoCardImagenWebTeaserVelado uri={uri} onLoadError={onLoadError} />;
+  }
+
+  const cajaRatio =
+  ratio != null ?
+  {
+    width: '100%',
+    aspectRatio: ratio,
+    ...previewVelado ? {} : { minHeight: 160 }
+  } :
+  {
+    width: '100%',
+    minHeight: previewVelado ? 140 : 160,
+    aspectRatio: 16 / 9
+  };
+
+  return (
+    <View style={cajaRatio}>
+      
+      <Image
+        source={{ uri }}
+        style={{ width: '100%', height: '100%' }}
+        resizeMode={resizeMode}
+        blurRadius={previewVelado ? 14 : 0}
+        onLoad={(e) => {
+          const w = e?.nativeEvent?.source?.width;
+          const h = e?.nativeEvent?.source?.height;
+          if (w > 0 && h > 0) setRatio((prev) => prev ?? w / h);
+        }}
+        onError={onLoadError} />
+      
+    </View>);
+
+}
+
 export default function EventosGeneral({ navigation }) {
   const insets = useSafeAreaInsets();
   const { perfil } = useAuth();
@@ -162,7 +255,7 @@ export default function EventosGeneral({ navigation }) {
           hitSlop={10}
           activeOpacity={0.8}>
           
-          <Ionicons name="arrow-back" size={20} color="#fff" />
+          <Ionicons name="arrow-back" size={22} color="#fff" style={estilos.headerFlechaAtras} />
           <Image source={LOGO_HEADER_BANNER} style={estilos.headerLogoAlLado} resizeMode="contain" />
         </TouchableOpacity>
         <Text style={estilos.headerTitulo} pointerEvents="none" numberOfLines={1} ellipsizeMode="tail">
@@ -243,6 +336,7 @@ export default function EventosGeneral({ navigation }) {
                 ev?.bloqueado === true ||
                 nivelEv === 'thug' &&
                 !puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol);
+                const descTrim = String(ev.descripcion || '').trim();
 
                 return (
                   <View key={ev.id || ev._id} style={estilos.cardContenedor}>
@@ -254,39 +348,76 @@ export default function EventosGeneral({ navigation }) {
                         null}
                       </View>
 
-                      <View style={estilos.cardImgWrap}>
-                        {img ?
-                        <Image
-                          source={{ uri: img }}
-                          style={[estilos.cardImg, bloqueado && estilos.cardImgBloqueada]}
-                          resizeMode="cover"
-                          blurRadius={bloqueado ? 12 : 0}
-                          onError={() => {
-                            if (!id) return;
-                            setImgIdxPorEvento((prev) => {
-                              const nextIdx = (prev[id] ?? 0) + 1;
-                              if (nextIdx >= candidatos.length) return { ...prev, [id]: Number.MAX_SAFE_INTEGER };
-                              return { ...prev, [id]: nextIdx };
-                            });
-                          }} /> :
-
-
-                        <View style={estilos.cardImgPlaceholder}>
-                            <Ionicons name="image-outline" size={20} color="#6b7280" />
-                            <Text style={estilos.cardImgPlaceholderTexto}>Sin imagen</Text>
-                          </View>
-                        }
-                        {bloqueado ?
-                        <View pointerEvents="none" style={estilos.cardBloqueadoOverlay}>
-                            <Text style={estilos.cardBloqueadoTitulo}>Evento Thug</Text>
-                            <Text style={estilos.cardBloqueadoSub}>Sube de nivel para verlo completo</Text>
-                          </View> :
+                      {bloqueado ?
+                      <View style={estilos.eventoBloqueadoStack}>
+                          {img ?
+                        <View style={[estilos.cardImgWrap, estilos.eventoBloqueadoImgWrap]}>
+                              <EventoCardImagen
+                            key={`${id}-${imgIdx}-${img}`}
+                            uri={img}
+                            previewVelado
+                            onLoadError={() => {
+                              if (!id) return;
+                              setImgIdxPorEvento((prev) => {
+                                const nextIdx = (prev[id] ?? 0) + 1;
+                                if (nextIdx >= candidatos.length) return { ...prev, [id]: Number.MAX_SAFE_INTEGER };
+                                return { ...prev, [id]: nextIdx };
+                              });
+                            }} />
+                            </View> :
                         null}
-                      </View>
+                          {!img && descTrim ?
+                        <View style={[estilos.eventoBloqueadoTextoCaja]}>
+                              <Text style={estilos.eventoBloqueadoTextoPreview}>{descTrim}</Text>
+                            </View> :
+                        null}
+                          {!img && !descTrim ?
+                        <View style={[estilos.cardImgWrap, estilos.cardImgWrapSinFoto, estilos.eventoBloqueadoImgWrap]}>
+                              <Image
+                            source={FONDO_THUGS}
+                            style={estilos.eventoBloqueadoFondoPlaceholder}
+                            resizeMode="cover" />
+                              
+                            </View> :
+                        null}
+                          <View
+                          pointerEvents="none"
+                          style={img ? estilos.eventoBloqueadoVeloSobreTeaserMedia : estilos.eventoBloqueadoVelo}>
+                            <View style={estilos.eventoBloqueadoLeyendaCaja}>
+                              <Text style={estilos.cardBloqueadoTitulo}>Para ver evento Thug</Text>
+                              <Text style={estilos.cardBloqueadoSub}>Sube de nivel para verlo completo</Text>
+                            </View>
+                          </View>
+                        </View> :
 
-                      {!bloqueado && ev.descripcion ?
-                      <Text style={estilos.cardTexto}>{ev.descripcion}</Text> :
-                      null}
+                      <>
+                          <View style={[estilos.cardImgWrap, !img && estilos.cardImgWrapSinFoto]}>
+                            {img ?
+                          <EventoCardImagen
+                            key={`${id}-${imgIdx}-${img}`}
+                            uri={img}
+                            onLoadError={() => {
+                              if (!id) return;
+                              setImgIdxPorEvento((prev) => {
+                                const nextIdx = (prev[id] ?? 0) + 1;
+                                if (nextIdx >= candidatos.length) return { ...prev, [id]: Number.MAX_SAFE_INTEGER };
+                                return { ...prev, [id]: nextIdx };
+                              });
+                            }} /> :
+
+
+                          <View style={estilos.cardImgPlaceholder}>
+                                <Ionicons name="image-outline" size={20} color="#6b7280" />
+                                <Text style={estilos.cardImgPlaceholderTexto}>Sin imagen</Text>
+                              </View>
+                            }
+                          </View>
+
+                          {ev.descripcion ?
+                          <Text style={estilos.cardTexto}>{ev.descripcion}</Text> :
+                          null}
+                        </>
+                      }
 
                       {!bloqueado ?
                       <View style={estilos.metaFila}>
@@ -343,28 +474,35 @@ export default function EventosGeneral({ navigation }) {
                                   </TouchableOpacity>
                                 </View> :
                           null}
-                              <View style={[estilos.bloqueMapa, esWebMovil && estilos.bloqueMapaWebMovil]}>
+                              <View
+                                style={[
+                                estilos.bloqueMapa,
+                                !esWebMovil && estilos.bloqueMapaEscritorio,
+                                esWebMovil && estilos.bloqueMapaWebMovil]
+                                }>
                                 <TouchableOpacity
-                              style={estilos.botonAccion}
+                              style={[estilos.botonAccion, estilos.botonAccionMapa]}
                               onPress={() => abrirMapa(lat, lng)}
                               activeOpacity={0.85}>
                               
                                   <Ionicons name="map-outline" size={16} color="#00dc57" />
                                   <Text style={estilos.botonAccionTexto}>Ver mapa</Text>
                                 </TouchableOpacity>
-                                {ubicacion ?
+                                <View style={estilos.bloqueMapaEta}>
+                                  {ubicacion ?
                             <Text style={estilos.etaTexto}>
-                                    {eta ? `≈ ${eta}` : 'Calculando…'}
-                                  </Text> :
+                                      {eta ? `≈ ${eta}` : 'Calculando…'}
+                                    </Text> :
 
                             <TouchableOpacity
                               onPress={() =>
-                              Alert.alert('Ubicación', 'Activa la ubicación para ver el tiempo aproximado de ruta.')
+                              Alert.alert('Ubicación', 'Activa la ubicación para ver el tiempo aproximado del trayecto.')
                               }>
                               
-                                    <Text style={estilos.etaTextoMuted}>Activa ubicación</Text>
-                                  </TouchableOpacity>
+                                      <Text style={estilos.etaTextoMuted}>Activa ubicación</Text>
+                                    </TouchableOpacity>
                             }
+                                </View>
                               </View>
                             </View> :
                         null}
@@ -420,20 +558,24 @@ const estilos = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.08)',
     backgroundColor: '#0d0d0d'
   },
+  headerFlechaAtras: { marginRight: -18 },
   headerBack: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 0,
     padding: 4,
-    flex: 1,
+    flexGrow: 0,
+    flexShrink: 1,
+    alignSelf: 'flex-start',
     minWidth: 0,
     zIndex: 1
   },
   headerLogoAlLado: {
-    height: 36,
-    width: 118,
+    height: 44,
+    width: 176,
     flexShrink: 1,
-    maxWidth: 140
+    maxWidth: 200,
+    marginLeft: -28
   },
   headerTitulo: {
     position: 'absolute',
@@ -517,23 +659,69 @@ const estilos = StyleSheet.create({
   cardImgWrap: {
     marginTop: 12,
     width: '100%',
-    height: 220,
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#000',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)'
   },
-  cardImg: { width: '100%', height: '100%' },
-  cardImgBloqueada: { opacity: Platform.OS === 'web' ? 0.78 : 0.82 },
-  cardBloqueadoOverlay: {
+  cardImgWrapSinFoto: { minHeight: 160 },
+  /** Contenedor Thug: imagen + descripción nítidas, velo con blur (web) encima. */
+  eventoBloqueadoStack: {
+    marginTop: 12,
+    position: 'relative',
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  eventoBloqueadoImgWrap: { marginTop: 0 },
+  eventoBloqueadoTextoCaja: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#0a0a0a',
+    minHeight: 72
+  },
+  eventoBloqueadoTextoPreview: { color: '#c4c4c4', fontSize: 14, lineHeight: 22 },
+  eventoBloqueadoFondoPlaceholder: { width: '100%', height: 180, minHeight: 160 },
+  /** Sobre imagen teaser: solo tinte (el blur va en la propia imagen / filtro CSS en web). */
+  eventoBloqueadoVeloSobreTeaserMedia: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    paddingHorizontal: 14
+    padding: 14,
+    backgroundColor: 'rgba(0,0,0,0.38)'
   },
-  cardBloqueadoTitulo: { color: '#00dc57', fontSize: 15, fontWeight: '800', marginBottom: 4 },
+  eventoBloqueadoVelo: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 14,
+    ...(Platform.OS === 'web' ?
+    {
+      backgroundColor: 'rgba(0,0,0,0.24)',
+      backdropFilter: 'blur(14px)',
+      WebkitBackdropFilter: 'blur(14px)'
+    } :
+    {
+      backgroundColor: 'rgba(0,0,0,0.52)'
+    })
+  },
+  eventoBloqueadoLeyendaCaja: {
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    maxWidth: 320,
+    width: '100%'
+  },
+  cardBloqueadoTitulo: { color: '#00dc57', fontSize: 15, fontWeight: '800', marginBottom: 4, textAlign: 'center' },
   cardBloqueadoSub: { color: '#d1d5db', fontSize: 12, fontWeight: '700', textAlign: 'center' },
   cardImgPlaceholder: {
     flex: 1,
@@ -560,8 +748,19 @@ const estilos = StyleSheet.create({
     justifyContent: 'flex-start'
   },
   bloqueWhatsapp: { alignItems: 'flex-start' },
-  bloqueMapa: { marginTop: -1, alignItems: 'flex-end' },
-  bloqueMapaWebMovil: { alignItems: 'flex-start', marginTop: 4 },
+  bloqueMapa: {
+    marginTop: -1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 10
+  },
+  /** El bloque ocupa el espacio a la derecha del WhatsApp (escritorio / nativo). */
+  bloqueMapaEscritorio: { flex: 1, minWidth: 0 },
+  bloqueMapaWebMovil: { width: '100%', marginTop: 4 },
+  /** Columna derecha: ETA alineada a la derecha, misma altura que el botón. */
+  bloqueMapaEta: { flex: 1, minWidth: 0, alignItems: 'flex-end', justifyContent: 'center' },
+  botonAccionMapa: { flexShrink: 0 },
   accionesFila: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
   botonAccion: {
     flexDirection: 'row',
@@ -575,6 +774,6 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.15)'
   },
   botonAccionTexto: { color: '#00dc57', fontSize: 13, fontWeight: '700' },
-  etaTexto: { marginTop: 6, color: '#c7c7c7', fontSize: 12, fontWeight: '700' },
-  etaTextoMuted: { marginTop: 6, color: '#6b7280', fontSize: 12, fontWeight: '700' }
+  etaTexto: { color: '#c7c7c7', fontSize: 12, fontWeight: '700', flexShrink: 0, textAlign: 'right' },
+  etaTextoMuted: { color: '#6b7280', fontSize: 12, fontWeight: '700', flexShrink: 0, textAlign: 'right' }
 });

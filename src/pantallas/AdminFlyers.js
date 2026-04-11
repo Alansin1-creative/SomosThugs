@@ -10,7 +10,10 @@ import { getBaseUrl } from '../config/api';
 const isWeb = Platform.OS === 'web';
 
 function absolutizar(url) {
-  const s = String(url || '').trim();
+  let s = String(url || '').trim();
+  if (s.includes('/uploads/flyer_') && !s.includes('/uploads/flyers/')) {
+    s = s.replace('/uploads/flyer_', '/uploads/flyers/flyer_');
+  }
   if (!s) return '';
   if (s.startsWith('http://') || s.startsWith('https://') || s.startsWith('data:')) return s;
   const base = getBaseUrl();

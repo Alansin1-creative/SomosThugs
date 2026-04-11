@@ -13,15 +13,15 @@ import {
   Platform,
   Modal,
   KeyboardAvoidingView,
-  useWindowDimensions,
-} from 'react-native';
+  useWindowDimensions } from
+'react-native';
 import { useAuth } from '../contexto/AuthContext';
 import { listarUsuarios, actualizarUsuario, eliminarUsuario } from '../servicios/api';
 
 function getId(u) {
   const raw = u?.id ?? u?._id;
   if (raw == null) return '';
-  return typeof raw === 'string' ? raw : (raw?.toString?.() ?? String(raw));
+  return typeof raw === 'string' ? raw : raw?.toString?.() ?? String(raw);
 }
 
 const isWeb = Platform.OS === 'web';
@@ -40,7 +40,7 @@ function BotonWeb({ label, disabled, onAction, danger }) {
       role="button"
       tabIndex={disabled ? -1 : 0}
       onClick={handleClick}
-      onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !disabled) { e.preventDefault(); onAction?.(); } }}
+      onKeyDown={(e) => {if ((e.key === 'Enter' || e.key === ' ') && !disabled) {e.preventDefault();onAction?.();}}}
       style={{
         padding: '6px 12px',
         borderRadius: 6,
@@ -55,12 +55,12 @@ function BotonWeb({ label, disabled, onAction, danger }) {
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
         marginRight: 8,
-        display: 'inline-flex',
-      }}
-    >
+        display: 'inline-flex'
+      }}>
+      
       {label}
-    </div>
-  );
+    </div>);
+
 }
 
 export default function AdminUsuarios({ navigation }) {
@@ -100,8 +100,8 @@ export default function AdminUsuarios({ navigation }) {
     const q = busqueda.trim().toLowerCase();
     return usuarios.filter(
       (u) =>
-        (u.email && u.email.toLowerCase().includes(q)) ||
-        (u.nombreCompleto && u.nombreCompleto.toLowerCase().includes(q))
+      u.email && u.email.toLowerCase().includes(q) ||
+      u.nombreCompleto && u.nombreCompleto.toLowerCase().includes(q)
     );
   }, [usuarios, busqueda]);
 
@@ -112,7 +112,7 @@ export default function AdminUsuarios({ navigation }) {
     return { yo: y, otros: rest };
   }, [filtrados, perfilId]);
 
-  const ordenados = useMemo(() => (yo ? [yo, ...otros] : otros), [yo, otros]);
+  const ordenados = useMemo(() => yo ? [yo, ...otros] : otros, [yo, otros]);
 
   const togglePremium = async (user) => {
     const id = getId(user);
@@ -121,12 +121,12 @@ export default function AdminUsuarios({ navigation }) {
     setAccionandoId(id);
     try {
       await actualizarUsuario(id, {
-        nivelAcceso: esThug ? 'fan' : 'thug',
+        nivelAcceso: esThug ? 'fan' : 'thug'
       });
       setUsuarios((prev) =>
-        prev.map((u) =>
-          getId(u) === id ? { ...u, nivelAcceso: esThug ? 'fan' : 'thug' } : u
-        )
+      prev.map((u) =>
+      getId(u) === id ? { ...u, nivelAcceso: esThug ? 'fan' : 'thug' } : u
+      )
       );
     } catch (e) {
       Alert.alert('Error', e?.message || 'No se pudo actualizar');
@@ -140,14 +140,14 @@ export default function AdminUsuarios({ navigation }) {
     try {
       await actualizarUsuario(id, { rol: 'admin' });
       setUsuarios((prev) =>
-        prev.map((u) => (getId(u) === id ? { ...u, rol: 'admin' } : u))
+      prev.map((u) => getId(u) === id ? { ...u, rol: 'admin' } : u)
       );
-      if (isWeb) window.alert('Ahora es administrador.');
-      else Alert.alert('Listo', 'Ahora es administrador.');
+      if (isWeb) window.alert('Ahora es administrador.');else
+      Alert.alert('Listo', 'Ahora es administrador.');
     } catch (e) {
       const msg = e?.message || 'No se pudo actualizar';
-      if (isWeb) window.alert('Error: ' + msg);
-      else Alert.alert('Error', msg);
+      if (isWeb) window.alert('Error: ' + msg);else
+      Alert.alert('Error', msg);
     } finally {
       setAccionandoId(null);
     }
@@ -163,9 +163,42 @@ export default function AdminUsuarios({ navigation }) {
       return;
     }
     Alert.alert('Hacer admin', mensaje, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sí', onPress: () => ejecutarHacerAdmin(id) },
-    ]);
+    { text: 'Cancelar', style: 'cancel' },
+    { text: 'Sí', onPress: () => ejecutarHacerAdmin(id) }]
+    );
+  };
+
+  const ejecutarRevocarAdmin = async (id) => {
+    setAccionandoId(id);
+    try {
+      await actualizarUsuario(id, { rol: 'fan' });
+      setUsuarios((prev) =>
+      prev.map((u) => getId(u) === id ? { ...u, rol: 'fan' } : u)
+      );
+      if (isWeb) window.alert('Rol admin revocado.');else
+      Alert.alert('Listo', 'Rol admin revocado.');
+    } catch (e) {
+      const msg = e?.message || 'No se pudo actualizar';
+      if (isWeb) window.alert('Error: ' + msg);else
+      Alert.alert('Error', msg);
+    } finally {
+      setAccionandoId(null);
+    }
+  };
+
+  const revocarAdmin = (user) => {
+    if (user.rol !== 'admin') return;
+    const id = getId(user);
+    if (!id || id === perfilId) return;
+    const mensaje = `¿Quitar rol admin a ${user.email || user.nombreCompleto || 'este usuario'}? Pasará a usuario fan.`;
+    if (isWeb) {
+      if (window.confirm(mensaje)) ejecutarRevocarAdmin(id);
+      return;
+    }
+    Alert.alert('Revocar admin', mensaje, [
+    { text: 'Cancelar', style: 'cancel' },
+    { text: 'Revocar', style: 'destructive', onPress: () => ejecutarRevocarAdmin(id) }]
+    );
   };
 
   const ejecutarBorrado = async (id) => {
@@ -173,12 +206,12 @@ export default function AdminUsuarios({ navigation }) {
     try {
       await eliminarUsuario(id);
       setUsuarios((prev) => prev.filter((u) => getId(u) !== id));
-      if (isWeb) window.alert('Usuario eliminado.');
-      else Alert.alert('Listo', 'Usuario eliminado.');
+      if (isWeb) window.alert('Usuario eliminado.');else
+      Alert.alert('Listo', 'Usuario eliminado.');
     } catch (e) {
       const msg = e?.message || 'No se pudo eliminar';
-      if (isWeb) window.alert('Error: ' + msg);
-      else Alert.alert('Error', msg);
+      if (isWeb) window.alert('Error: ' + msg);else
+      Alert.alert('Error', msg);
     } finally {
       setAccionandoId(null);
     }
@@ -193,9 +226,9 @@ export default function AdminUsuarios({ navigation }) {
       return;
     }
     Alert.alert('Eliminar usuario', mensaje, [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => ejecutarBorrado(id) },
-    ]);
+    { text: 'Cancelar', style: 'cancel' },
+    { text: 'Eliminar', style: 'destructive', onPress: () => ejecutarBorrado(id) }]
+    );
   };
 
   const editar = (user) => {
@@ -204,7 +237,7 @@ export default function AdminUsuarios({ navigation }) {
       nombreCompleto: user.nombreCompleto ?? '',
       username: user.username ?? '',
       email: user.email ?? '',
-      telefono: user.telefono ?? '',
+      telefono: user.telefono ?? ''
     });
   };
 
@@ -223,20 +256,20 @@ export default function AdminUsuarios({ navigation }) {
         nombreCompleto: formEdit.nombreCompleto?.trim() || undefined,
         username: formEdit.username?.trim() || undefined,
         email: formEdit.email?.trim() || undefined,
-        telefono: formEdit.telefono?.trim() || undefined,
+        telefono: formEdit.telefono?.trim() || undefined
       });
       setUsuarios((prev) =>
-        prev.map((u) =>
-          getId(u) === id ? { ...u, ...formEdit, nombreCompleto: formEdit.nombreCompleto?.trim(), username: formEdit.username?.trim(), email: formEdit.email?.trim(), telefono: formEdit.telefono?.trim() } : u
-        )
+      prev.map((u) =>
+      getId(u) === id ? { ...u, ...formEdit, nombreCompleto: formEdit.nombreCompleto?.trim(), username: formEdit.username?.trim(), email: formEdit.email?.trim(), telefono: formEdit.telefono?.trim() } : u
+      )
       );
-      if (isWeb) window.alert('Cambios guardados.');
-      else Alert.alert('Listo', 'Cambios guardados.');
+      if (isWeb) window.alert('Cambios guardados.');else
+      Alert.alert('Listo', 'Cambios guardados.');
       cerrarModalEdit();
     } catch (e) {
       const msg = e?.message || 'No se pudo guardar';
-      if (isWeb) window.alert('Error: ' + msg);
-      else Alert.alert('Error', msg);
+      if (isWeb) window.alert('Error: ' + msg);else
+      Alert.alert('Error', msg);
     } finally {
       setGuardandoEdit(false);
     }
@@ -257,16 +290,16 @@ export default function AdminUsuarios({ navigation }) {
           placeholder="Buscar por email o nombre..."
           placeholderTextColor="#666"
           value={busqueda}
-          onChangeText={setBusqueda}
-        />
+          onChangeText={setBusqueda} />
+        
       </View>
 
-      {cargando ? (
-        <View style={estilos.centrado}>
+      {cargando ?
+      <View style={estilos.centrado}>
           <ActivityIndicator size="large" color="#00dc57" />
-        </View>
-      ) : error ? (
-        <View style={estilos.centrado}>
+        </View> :
+      error ?
+      <View style={estilos.centrado}>
           <Text style={estilos.errorTexto}>{error}</Text>
           <Text style={estilos.errorHint}>
             ¿Entraste con un usuario admin? El servidor debe tener la ruta GET /usuarios.
@@ -274,38 +307,38 @@ export default function AdminUsuarios({ navigation }) {
           <TouchableOpacity style={estilos.botonReintentar} onPress={cargar}>
             <Text style={estilos.botonReintentarTexto}>Reintentar</Text>
           </TouchableOpacity>
-        </View>
-      ) : (
-        <ScrollView
-          style={estilos.scroll}
-          contentContainerStyle={estilos.scrollContenido}
-          keyboardShouldPersistTaps="always"
-          keyboardDismissMode="on-drag"
-        >
-          {ordenados.length === 0 && (
-            <Text style={estilos.vacio}>
+        </View> :
+
+      <ScrollView
+        style={estilos.scroll}
+        contentContainerStyle={estilos.scrollContenido}
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="on-drag">
+        
+          {ordenados.length === 0 &&
+        <Text style={estilos.vacio}>
               {busqueda.trim() ? 'No hay coincidencias.' : 'No hay usuarios.'}
             </Text>
-          )}
+        }
           {ordenados.map((u) => {
-            const uid = getId(u);
-            const estaAccionando = accionandoId === uid;
-            const soyYo = uid && perfilId === uid;
-            const esYo = !!yo && uid === getId(yo);
-            const card = (
-              <View key={uid || u.email} style={[estilos.card, { width: cardMinWidth, maxWidth: cardMinWidth, flexGrow: 0, flexShrink: 0 }]}>
+          const uid = getId(u);
+          const estaAccionando = accionandoId === uid;
+          const soyYo = uid && perfilId === uid;
+          const esYo = !!yo && uid === getId(yo);
+          const card =
+          <View key={uid || u.email} style={[estilos.card, { width: cardMinWidth, maxWidth: cardMinWidth, flexGrow: 0, flexShrink: 0 }]}>
                 <View style={estilos.cardHeader}>
                   <Text style={estilos.cardEmail}>{u.email || '(sin email)'}</Text>
-                  {(u.rol === 'admin' || u.nivelAcceso === 'thug') && (
-                    <View style={estilos.badges}>
-                      {u.rol === 'admin' && (
-                        <Text style={estilos.badgeAdmin}>Admin</Text>
-                      )}
-                      {u.nivelAcceso === 'thug' && (
-                        <Text style={estilos.badgePremium}>Premium (Thug)</Text>
-                      )}
+                  {(u.rol === 'admin' || u.nivelAcceso === 'thug') &&
+              <View style={estilos.badges}>
+                      {u.rol === 'admin' &&
+                <Text style={estilos.badgeAdmin}>Admin</Text>
+                }
+                      {u.nivelAcceso === 'thug' &&
+                <Text style={estilos.badgePremium}>Premium (Thug)</Text>
+                }
                     </View>
-                  )}
+              }
                 </View>
                 <Text style={estilos.cardNombre}>
                   {u.nombreCompleto || '(sin nombre)'}{u.username ? ` · ${u.username}` : ''}
@@ -318,81 +351,112 @@ export default function AdminUsuarios({ navigation }) {
                   <View style={estilos.filaPremium}>
                     <Text style={estilos.labelPremium}>Premium (Thug)</Text>
                     <Switch
-                      value={u.nivelAcceso === 'thug'}
-                      onValueChange={() => togglePremium(u)}
-                      trackColor={{ false: '#333', true: '#00dc57' }}
-                      thumbColor="#fff"
-                      disabled={estaAccionando}
-                    />
+                  value={u.nivelAcceso === 'thug'}
+                  onValueChange={() => togglePremium(u)}
+                  trackColor={{ false: '#333', true: '#00dc57' }}
+                  thumbColor="#fff"
+                  disabled={estaAccionando} />
+                
                   </View>
-                  {isWeb ? (
-                    <>
+                  {isWeb ?
+              <>
                       <BotonWeb
-                        label="Editar"
-                        disabled={estaAccionando}
-                        onAction={() => editar(u)}
-                        danger={false}
-                      />
+                  label="Editar"
+                  disabled={estaAccionando}
+                  onAction={() => editar(u)}
+                  danger={false} />
+                
+                      {u.rol === 'admin' ?
+                <BotonWeb
+                  label={soyYo ? 'Admin (tú)' : 'Revocar admin'}
+                  disabled={soyYo || estaAccionando}
+                  onAction={() => revocarAdmin(u)}
+                  danger={!soyYo} /> :
+
+
+                <BotonWeb
+                  label="Hacer admin"
+                  disabled={estaAccionando}
+                  onAction={() => hacerAdmin(u)}
+                  danger={false} />
+
+                }
                       <BotonWeb
-                        label={u.rol === 'admin' ? 'Admin' : 'Hacer admin'}
-                        disabled={u.rol === 'admin' || estaAccionando}
-                        onAction={() => hacerAdmin(u)}
-                        danger={false}
-                      />
-                      <BotonWeb
-                        label={soyYo ? 'Tú' : 'Borrar'}
-                        disabled={soyYo || estaAccionando}
-                        onAction={() => borrar(u)}
-                        danger
-                      />
-                    </>
-                  ) : (
-                    <>
+                  label={soyYo ? 'Tú' : 'Borrar'}
+                  disabled={soyYo || estaAccionando}
+                  onAction={() => borrar(u)}
+                  danger />
+                
+                    </> :
+
+              <>
                       <Pressable
-                        style={({ pressed }) => [estilos.botonAccion, estaAccionando && estilos.botonDeshabilitado, pressed && estilos.botonAccionPressed]}
-                        onPress={() => { if (!estaAccionando) editar(u); }}
-                        disabled={estaAccionando}
-                        hitSlop={10}
-                      >
+                  style={({ pressed }) => [estilos.botonAccion, estaAccionando && estilos.botonDeshabilitado, pressed && estilos.botonAccionPressed]}
+                  onPress={() => {if (!estaAccionando) editar(u);}}
+                  disabled={estaAccionando}
+                  hitSlop={10}>
+                  
                         <Text style={estilos.botonAccionTexto}>Editar</Text>
                       </Pressable>
+                      {u.rol === 'admin' ?
+                <Pressable
+                  style={({ pressed }) => [
+                  estilos.botonAccion,
+                  !soyYo && estilos.botonRevocarAdmin,
+                  (soyYo || estaAccionando) && estilos.botonDeshabilitado,
+                  pressed && estilos.botonAccionPressed]
+                  }
+                  onPress={() => {
+                    if (!soyYo && !estaAccionando) revocarAdmin(u);
+                  }}
+                  disabled={soyYo || estaAccionando}
+                  hitSlop={10}>
+                  
+                          <Text style={[estilos.botonAccionTexto, !soyYo && estilos.botonRevocarAdminTexto]}>
+                            {soyYo ? 'Admin (tú)' : 'Revocar admin'}
+                          </Text>
+                        </Pressable> :
+
+                <Pressable
+                  style={({ pressed }) => [estilos.botonAccion, estaAccionando && estilos.botonDeshabilitado, pressed && estilos.botonAccionPressed]}
+                  onPress={() => {
+                    if (!estaAccionando) hacerAdmin(u);
+                  }}
+                  disabled={estaAccionando}
+                  hitSlop={10}>
+                  
+                          <Text style={estilos.botonAccionTexto}>Hacer admin</Text>
+                        </Pressable>
+                }
                       <Pressable
-                        style={({ pressed }) => [estilos.botonAccion, u.rol === 'admin' && estilos.botonDeshabilitado, estaAccionando && estilos.botonDeshabilitado, pressed && estilos.botonAccionPressed]}
-                        onPress={() => { if (u.rol !== 'admin' && !estaAccionando) hacerAdmin(u); }}
-                        disabled={u.rol === 'admin' || estaAccionando}
-                        hitSlop={10}
-                      >
-                        <Text style={estilos.botonAccionTexto}>{u.rol === 'admin' ? 'Admin' : 'Hacer admin'}</Text>
-                      </Pressable>
-                      <Pressable
-                        style={({ pressed }) => [estilos.botonAccion, estilos.botonEliminar, soyYo && estilos.botonDeshabilitado, estaAccionando && estilos.botonDeshabilitado, pressed && estilos.botonAccionPressed]}
-                        onPress={() => { if (!soyYo && !estaAccionando) borrar(u); }}
-                        disabled={soyYo || estaAccionando}
-                        hitSlop={10}
-                      >
+                  style={({ pressed }) => [estilos.botonAccion, estilos.botonEliminar, soyYo && estilos.botonDeshabilitado, estaAccionando && estilos.botonDeshabilitado, pressed && estilos.botonAccionPressed]}
+                  onPress={() => {if (!soyYo && !estaAccionando) borrar(u);}}
+                  disabled={soyYo || estaAccionando}
+                  hitSlop={10}>
+                  
                         <Text style={estilos.botonEliminarTexto}>{soyYo ? 'Tú' : 'Borrar'}</Text>
                       </Pressable>
                     </>
-                  )}
+              }
                 </View>
-              </View>
-            );
-            return esYo ? <View key={`fila-${uid}`} style={estilos.filaYo}>{card}</View> : card;
-          })}
+              </View>;
+
+          return esYo ? <View key={`fila-${uid}`} style={estilos.filaYo}>{card}</View> : card;
+        })}
         </ScrollView>
-      )}
+      }
 
       <Modal
         visible={!!usuarioEditando}
         transparent
         animationType="fade"
-        onRequestClose={cerrarModalEdit}
-      >
+        onRequestClose={cerrarModalEdit}>
+        
         <Pressable style={estilos.modalOverlay} onPress={cerrarModalEdit}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={estilos.modalCentrado}
-          >
+            style={estilos.modalCentrado}>
+            
             <Pressable style={estilos.modalCaja} onPress={(e) => e?.stopPropagation?.()}>
               <View style={estilos.modalHeader}>
                 <Text style={estilos.modalTitulo}>Editar usuario</Text>
@@ -407,8 +471,8 @@ export default function AdminUsuarios({ navigation }) {
                   value={formEdit.nombreCompleto ?? ''}
                   onChangeText={(t) => setFormEdit((f) => ({ ...f, nombreCompleto: t }))}
                   placeholder="Nombre completo"
-                  placeholderTextColor="#666"
-                />
+                  placeholderTextColor="#666" />
+                
                 <Text style={estilos.modalLabel}>Usuario</Text>
                 <TextInput
                   style={estilos.modalInput}
@@ -416,8 +480,8 @@ export default function AdminUsuarios({ navigation }) {
                   onChangeText={(t) => setFormEdit((f) => ({ ...f, username: t }))}
                   placeholder="Usuario"
                   placeholderTextColor="#666"
-                  autoCapitalize="none"
-                />
+                  autoCapitalize="none" />
+                
                 <Text style={estilos.modalLabel}>Correo</Text>
                 <TextInput
                   style={estilos.modalInput}
@@ -426,8 +490,8 @@ export default function AdminUsuarios({ navigation }) {
                   placeholder="Correo"
                   placeholderTextColor="#666"
                   keyboardType="email-address"
-                  autoCapitalize="none"
-                />
+                  autoCapitalize="none" />
+                
                 <Text style={estilos.modalLabel}>Teléfono</Text>
                 <TextInput
                   style={estilos.modalInput}
@@ -435,8 +499,8 @@ export default function AdminUsuarios({ navigation }) {
                   onChangeText={(t) => setFormEdit((f) => ({ ...f, telefono: t }))}
                   placeholder="Teléfono (opcional)"
                   placeholderTextColor="#666"
-                  keyboardType="phone-pad"
-                />
+                  keyboardType="phone-pad" />
+                
               </View>
               <View style={estilos.modalBotones}>
                 <TouchableOpacity style={estilos.modalBotonCancelar} onPress={cerrarModalEdit}>
@@ -445,21 +509,21 @@ export default function AdminUsuarios({ navigation }) {
                 <TouchableOpacity
                   style={[estilos.modalBotonGuardar, guardandoEdit && estilos.botonDeshabilitado]}
                   onPress={guardarEdicion}
-                  disabled={guardandoEdit}
-                >
-                  {guardandoEdit ? (
-                    <ActivityIndicator size="small" color="#000" />
-                  ) : (
-                    <Text style={estilos.modalBotonGuardarTexto}>Guardar</Text>
-                  )}
+                  disabled={guardandoEdit}>
+                  
+                  {guardandoEdit ?
+                  <ActivityIndicator size="small" color="#000" /> :
+
+                  <Text style={estilos.modalBotonGuardarTexto}>Guardar</Text>
+                  }
                 </TouchableOpacity>
               </View>
             </Pressable>
           </KeyboardAvoidingView>
         </Pressable>
       </Modal>
-    </View>
-  );
+    </View>);
+
 }
 
 const estilos = StyleSheet.create({
@@ -471,7 +535,7 @@ const estilos = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
+    borderBottomColor: '#2a2a2a'
   },
   botonAtras: { padding: 8, marginRight: 8 },
   botonAtrasTexto: { color: '#00dc57', fontSize: 14 },
@@ -484,7 +548,7 @@ const estilos = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#333'
   },
   centrado: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { flex: 1 },
@@ -493,12 +557,12 @@ const estilos = StyleSheet.create({
     paddingBottom: 40,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 12
   },
   filaYo: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 4
   },
   vacio: { color: '#666', fontSize: 14, textAlign: 'center', marginTop: 24, width: '100%' },
   errorTexto: { color: '#ef4444', fontSize: 16, textAlign: 'center', marginBottom: 8 },
@@ -507,7 +571,7 @@ const estilos = StyleSheet.create({
     backgroundColor: '#00dc57',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: 10
   },
   botonReintentarTexto: { color: '#000', fontWeight: '600' },
   card: {
@@ -515,7 +579,7 @@ const estilos = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
+    borderColor: '#2a2a2a'
   },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap' },
   cardEmail: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1 },
@@ -537,11 +601,13 @@ const estilos = StyleSheet.create({
     minHeight: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    ...(Platform.OS === 'web' && { cursor: 'pointer' }),
+    ...(Platform.OS === 'web' && { cursor: 'pointer' })
   },
   botonDeshabilitado: { opacity: 0.5, ...(Platform.OS === 'web' && { cursor: 'not-allowed' }) },
   botonAccionPressed: { opacity: 0.8 },
   botonAccionTexto: { color: '#00dc57', fontSize: 13, fontWeight: '600' },
+  botonRevocarAdmin: { borderColor: '#b45309', backgroundColor: 'rgba(180,83,9,0.12)' },
+  botonRevocarAdminTexto: { color: '#fb923c' },
   botonEliminar: { borderColor: '#b91c1c', backgroundColor: 'transparent' },
   botonEliminarTexto: { color: '#ef4444', fontSize: 13, fontWeight: '600' },
   modalOverlay: {
@@ -549,7 +615,7 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 20
   },
   modalCentrado: { width: '100%', maxWidth: 400 },
   modalCaja: {
@@ -557,7 +623,7 @@ const estilos = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#333',
-    padding: 16,
+    padding: 16
   },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   modalTitulo: { fontSize: 17, fontWeight: '700', color: '#fff' },
@@ -572,7 +638,7 @@ const estilos = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#333'
   },
   modalBotones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 14 },
   modalBotonCancelar: { paddingVertical: 8, paddingHorizontal: 14 },
@@ -581,7 +647,7 @@ const estilos = StyleSheet.create({
     backgroundColor: '#00dc57',
     paddingVertical: 8,
     paddingHorizontal: 18,
-    borderRadius: 8,
+    borderRadius: 8
   },
-  modalBotonGuardarTexto: { color: '#000', fontWeight: '600', fontSize: 14 },
+  modalBotonGuardarTexto: { color: '#000', fontWeight: '600', fontSize: 14 }
 });

@@ -17,15 +17,15 @@ const usuarioSchema = new mongoose.Schema(
     aceptaNotificaciones: { type: Boolean, default: true },
     notificacionesPushActivas: Boolean,
     expoPushTokens: [String],
-    // Auth (no exponer en perfil público)
+
     passwordHash: String,
     uid: String,
-    // Acceso a contenido (thug = premium)
+
     nivelAcceso: { type: String, default: 'fan' },
-    // Stripe (no exponer al cliente en toPerfil)
+
     stripeCustomerId: String,
     stripeSubscriptionId: String,
-    stripeSubscriptionStatus: String,
+    stripeSubscriptionStatus: String
   },
   { timestamps: true }
 );

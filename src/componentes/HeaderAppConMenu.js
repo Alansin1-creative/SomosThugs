@@ -8,8 +8,8 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Platform,
-} from 'react-native';
+  Platform } from
+'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../contexto/AuthContext';
@@ -19,17 +19,22 @@ import {
   contarNotificacionesNoLeidas,
   listarNotificaciones,
   marcarNotificacionLeida,
-  marcarTodasNotificacionesLeidas,
-} from '../servicios/api';
+  marcarTodasNotificacionesLeidas } from
+'../servicios/api';
 
-const LOGO_THUGS = require('../../assets/logothugs.png');
-const LOGO_TEXTO = 'Somos Thugs';
+const LOGO_CENTRO_HEADER = require('../../assets/logo-somos-thugs-banner.png');
 
-/**
- * Header con logo (vuelve al home / scroll arriba) y botón avatar → menú.
- * Usar en ContenidoGeneral como home autenticado.
- */
-export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }) {
+
+
+
+
+
+export default function HeaderAppConMenu({
+  navigation,
+  tituloCentro,
+  scrollRef,
+  esVistaContenidoFeed = false
+}) {
   const insets = useSafeAreaInsets();
   const { perfil, cerrarSesion } = useAuth();
   const [menuVisible, setMenuVisible] = useState(false);
@@ -55,17 +60,19 @@ export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }
     };
   }, []);
 
-  if (!perfil) return null;
-
-  const avatarUri = perfil.fotoUrl
-    ? (perfil.fotoUrl.startsWith('http') ? perfil.fotoUrl : getBaseUrl() + perfil.fotoUrl)
-    : null;
+  const avatarUri = perfil?.fotoUrl ?
+  perfil.fotoUrl.startsWith('http') ? perfil.fotoUrl : getBaseUrl() + perfil.fotoUrl :
+  null;
   const isGoogleAvatar = !!(avatarUri && avatarUri.includes('googleusercontent.com'));
-  const avatarUriDisplay = isGoogleAvatar
-    ? (Platform.OS === 'web' && !avatarDirectFailed
-        ? avatarUri
-        : `${getBaseUrl()}/avatar-proxy?url=${encodeURIComponent(avatarUri)}`)
-    : avatarUri;
+  const avatarUriDisplay = isGoogleAvatar ?
+  Platform.OS === 'web' && !avatarDirectFailed ?
+  avatarUri :
+  `${getBaseUrl()}/avatar-proxy?url=${encodeURIComponent(avatarUri)}` :
+  avatarUri;
+  const etiquetaAcceso =
+  perfil?.rol === 'admin' ?
+  'Admin' :
+  perfil?.nivelAcceso === 'thug' ? 'Thug' : '';
 
   const irHomeContenido = () => {
     const home = esAdmin(perfil) ? 'ContenidoGeneral' : nombreRutaHomeApp(perfil);
@@ -78,9 +85,21 @@ export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }
         return;
       }
     } catch (_) {
-      /* noop */
+
     }
     navigation.navigate(home);
+  };
+
+  const irAtrasOCasa = () => {
+    try {
+      if (navigation.canGoBack?.()) {
+        navigation.goBack();
+        return;
+      }
+    } catch (_) {
+
+    }
+    irHomeContenido();
   };
 
   const reproducirSonidoNotificacion = () => {
@@ -105,11 +124,11 @@ export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }
         try {
           ctx.close();
         } catch (_) {
-          /* noop */
+
         }
       }, 260);
     } catch (_) {
-      /* noop */
+
     }
   };
 
@@ -146,9 +165,9 @@ export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }
       try {
         await marcarNotificacionLeida(id);
       } catch (_) {
-        // noop
+
       }
-      setNotificaciones((prev) => prev.map((n) => (n.id === id ? { ...n, leida: true } : n)));
+      setNotificaciones((prev) => prev.map((n) => n.id === id ? { ...n, leida: true } : n));
       setNotificacionesNoLeidas((prev) => Math.max(0, Number(prev || 0) - 1));
     }
   };
@@ -159,7 +178,7 @@ export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }
       setNotificaciones((prev) => prev.map((n) => ({ ...n, leida: true })));
       setNotificacionesNoLeidas(0);
     } catch (_) {
-      // noop
+
     }
   };
 
@@ -176,15 +195,15 @@ export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }
         if (previo != null && total > previo) {
           const nuevas = total - previo;
           mostrarToast(
-            nuevas === 1
-              ? 'Tienes 1 notificacion nueva'
-              : `Tienes ${nuevas} notificaciones nuevas`
+            nuevas === 1 ?
+            'Tienes 1 notificacion nueva' :
+            `Tienes ${nuevas} notificaciones nuevas`
           );
           reproducirSonidoNotificacion();
         }
         previoNoLeidasRef.current = total;
       } catch (_) {
-        // noop
+
       }
     };
     revisar();
@@ -195,67 +214,87 @@ export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }
     };
   }, [perfil?.id]);
 
+  if (!perfil) return null;
+
   return (
     <View style={[styles.header, Platform.OS !== 'web' && { paddingTop: insets.top + 8 }]}>
+      {esVistaContenidoFeed ?
       <TouchableOpacity onPress={irHomeContenido} style={styles.headerIzq} activeOpacity={0.8}>
-        <Image source={LOGO_THUGS} style={styles.headerLogoImg} resizeMode="contain" />
-        <Text style={styles.logoTexto}>{LOGO_TEXTO}</Text>
-      </TouchableOpacity>
-      {tituloCentro ? (
-        <Text style={styles.headerTituloCentro} pointerEvents="none">
+          <Image source={LOGO_CENTRO_HEADER} style={styles.headerLogoBannerFeed} resizeMode="contain" />
+        </TouchableOpacity> :
+
+      <TouchableOpacity onPress={irAtrasOCasa} style={[styles.headerIzq, styles.headerIzqNav]} activeOpacity={0.8} hitSlop={10}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+          <Image source={LOGO_CENTRO_HEADER} style={styles.headerLogoAlLado} resizeMode="contain" />
+        </TouchableOpacity>
+      }
+      {tituloCentro ?
+      <Text
+        style={styles.headerTituloCentro}
+        pointerEvents="none"
+        numberOfLines={1}
+        ellipsizeMode="tail">
+        
           {tituloCentro}
-        </Text>
-      ) : null}
+        </Text> :
+      null}
       <View style={styles.headerDerecha}>
         <TouchableOpacity style={styles.notifWrap} activeOpacity={0.8} onPress={abrirNotificaciones}>
           <Ionicons name="notifications-outline" size={20} color="#fff" />
-          {notificacionesNoLeidas > 0 ? (
-            <View style={styles.notifBadge}>
+          {notificacionesNoLeidas > 0 ?
+          <View style={styles.notifBadge}>
               <Text style={styles.notifBadgeTexto}>
                 {notificacionesNoLeidas > 99 ? '99+' : String(notificacionesNoLeidas)}
               </Text>
-            </View>
-          ) : null}
+            </View> :
+          null}
         </TouchableOpacity>
-        <Text style={styles.headerUsuario} numberOfLines={1}>
-          {perfil?.username ||
+        <View style={styles.headerUsuarioWrap}>
+          <Text style={styles.headerUsuario} numberOfLines={1}>
+            {perfil?.username ||
             (perfil?.nombreCompleto || '').trim().split(/\s+/)[0] ||
             'Usuario'}
-        </Text>
+          </Text>
+          {etiquetaAcceso ?
+          <Text style={styles.headerNivelAcceso} numberOfLines={1}>
+              {etiquetaAcceso}
+            </Text> :
+          null}
+        </View>
         <View style={styles.headerAvatarWrap}>
           <TouchableOpacity
             style={styles.headerAvatarTouchable}
             onPress={() => setMenuVisible(true)}
-            activeOpacity={0.8}
-          >
-            {avatarUriDisplay && !avatarError ? (
-              <Image
-                source={{ uri: avatarUriDisplay }}
-                style={styles.headerAvatarImg}
-                onError={() => {
-                  if (Platform.OS === 'web' && isGoogleAvatar && !avatarDirectFailed) {
-                    setAvatarDirectFailed(true);
-                    setAvatarError(false);
-                  } else {
-                    setAvatarError(true);
-                  }
-                }}
-                {...(Platform.OS === 'web' &&
-                  isGoogleAvatar &&
-                  !avatarDirectFailed && { referrerPolicy: 'no-referrer' })}
-              />
-            ) : (
-              <View style={styles.headerAvatarPlaceholder}>
+            activeOpacity={0.8}>
+            
+            {avatarUriDisplay && !avatarError ?
+            <Image
+              source={{ uri: avatarUriDisplay }}
+              style={styles.headerAvatarImg}
+              onError={() => {
+                if (Platform.OS === 'web' && isGoogleAvatar && !avatarDirectFailed) {
+                  setAvatarDirectFailed(true);
+                  setAvatarError(false);
+                } else {
+                  setAvatarError(true);
+                }
+              }}
+              {...Platform.OS === 'web' &&
+              isGoogleAvatar &&
+              !avatarDirectFailed && { referrerPolicy: 'no-referrer' }} /> :
+
+
+            <View style={styles.headerAvatarPlaceholder}>
                 <Ionicons name="person-circle" size={40} color="#00dc57" />
               </View>
-            )}
+            }
           </TouchableOpacity>
           <Modal
             visible={menuVisible}
             transparent
             animationType="fade"
-            onRequestClose={() => setMenuVisible(false)}
-          >
+            onRequestClose={() => setMenuVisible(false)}>
+            
             <View style={styles.menuOverlay}>
               <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuVisible(false)} />
               <View style={styles.menuCaja}>
@@ -265,28 +304,28 @@ export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }
                     onPress={() => {
                       setMenuVisible(false);
                       navigation.navigate('Perfil');
-                    }}
-                  >
+                    }}>
+                    
                     <Text style={styles.menuItemTexto}>Perfil</Text>
                   </TouchableOpacity>
-                  {esAdmin(perfil) && (
-                    <TouchableOpacity
-                      style={styles.menuItem}
-                      onPress={() => {
-                        setMenuVisible(false);
-                        navigation.navigate('ModoAdmin');
-                      }}
-                    >
+                  {esAdmin(perfil) &&
+                  <TouchableOpacity
+                    style={styles.menuItem}
+                    onPress={() => {
+                      setMenuVisible(false);
+                      navigation.navigate('ModoAdmin');
+                    }}>
+                    
                       <Text style={styles.menuItemTexto}>Panel de Admin</Text>
                     </TouchableOpacity>
-                  )}
+                  }
                   <TouchableOpacity
                     style={styles.menuItem}
                     onPress={() => {
                       setMenuVisible(false);
                       navigation.navigate('EventosGeneral');
-                    }}
-                  >
+                    }}>
+                    
                     <Text style={styles.menuItemTexto}>Eventos</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -294,17 +333,17 @@ export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }
                     onPress={() => {
                       setMenuVisible(false);
                       navigation.navigate('Inicio');
-                    }}
-                  >
-                    <Text style={styles.menuItemTexto}>Presskit</Text>
+                    }}>
+                    
+                    <Text style={styles.menuItemTexto}>Somos Thugs</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.menuItem, styles.menuItemCerrar]}
                     onPress={() => {
                       setMenuVisible(false);
                       cerrarSesion().then(() => navigation.replace('Inicio'));
-                    }}
-                  >
+                    }}>
+                    
                     <Text style={styles.menuItemTexto}>Cerrar sesión</Text>
                   </TouchableOpacity>
                 </View>
@@ -317,8 +356,8 @@ export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }
         visible={notifVisible}
         transparent
         animationType="fade"
-        onRequestClose={() => setNotifVisible(false)}
-      >
+        onRequestClose={() => setNotifVisible(false)}>
+        
         <View style={styles.menuOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setNotifVisible(false)} />
           <View style={styles.notifCaja}>
@@ -328,42 +367,42 @@ export default function HeaderAppConMenu({ navigation, tituloCentro, scrollRef }
                 <Text style={styles.notifAccion}>Marcar todas</Text>
               </TouchableOpacity>
             </View>
-            {notifCargando ? (
-              <Text style={styles.notifVacio}>Cargando...</Text>
-            ) : (
-              <ScrollView style={styles.notifScroll} nestedScrollEnabled>
-                {notificaciones.length === 0 ? (
-                  <Text style={styles.notifVacio}>Sin notificaciones.</Text>
-                ) : (
-                  notificaciones.map((n) => (
-                    <TouchableOpacity
-                      key={n.id}
-                      style={[styles.notifItem, !n.leida && styles.notifItemNoLeida]}
-                      onPress={() => onAbrirNotificacion(n)}
-                      activeOpacity={0.8}
-                    >
+            {notifCargando ?
+            <Text style={styles.notifVacio}>Cargando...</Text> :
+
+            <ScrollView style={styles.notifScroll} nestedScrollEnabled>
+                {notificaciones.length === 0 ?
+              <Text style={styles.notifVacio}>Sin notificaciones.</Text> :
+
+              notificaciones.map((n) =>
+              <TouchableOpacity
+                key={n.id}
+                style={[styles.notifItem, !n.leida && styles.notifItemNoLeida]}
+                onPress={() => onAbrirNotificacion(n)}
+                activeOpacity={0.8}>
+                
                       <Text style={styles.notifItemTitulo}>{n.titulo || 'Notificacion'}</Text>
                       <Text style={styles.notifItemMsg} numberOfLines={2}>
                         {n.mensaje || ''}
                       </Text>
                     </TouchableOpacity>
-                  ))
-                )}
+              )
+              }
               </ScrollView>
-            )}
+            }
           </View>
         </View>
       </Modal>
-      {toastVisible ? (
-        <View style={styles.toastInApp} pointerEvents="none">
+      {toastVisible ?
+      <View style={styles.toastInApp} pointerEvents="none">
           <Ionicons name="notifications" size={16} color="#00dc57" />
           <Text style={styles.toastInAppTexto} numberOfLines={1}>
             {toastMensaje}
           </Text>
-        </View>
-      ) : null}
-    </View>
-  );
+        </View> :
+      null}
+    </View>);
+
 }
 
 const styles = StyleSheet.create({
@@ -376,21 +415,35 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'web' ? 10 : 8,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
-    backgroundColor: '#0d0d0d',
+    backgroundColor: '#0d0d0d'
   },
-  headerIzq: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, minWidth: 0, zIndex: 1 },
-  headerLogoImg: { width: 36, height: 36 },
-  logoTexto: { fontSize: 18, fontWeight: 'bold', color: '#fff', flexShrink: 1 },
+  headerIzq: { flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0, zIndex: 1, paddingVertical: 4 },
+  headerIzqNav: { gap: 6 },
+
+  headerLogoBannerFeed: {
+    height: 40,
+    width: 150,
+    flexShrink: 1,
+    maxWidth: '72%'
+  },
+
+  headerLogoAlLado: {
+    height: 36,
+    width: 118,
+    flexShrink: 1,
+    maxWidth: 140
+  },
   headerTituloCentro: {
     position: 'absolute',
     left: 0,
     right: 0,
     textAlign: 'center',
     color: '#fff',
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
     zIndex: 0,
     pointerEvents: 'none',
+    paddingHorizontal: 128
   },
   headerDerecha: {
     flexDirection: 'row',
@@ -399,7 +452,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
     minWidth: 0,
-    zIndex: 1,
+    zIndex: 1
   },
   notifWrap: {
     width: 28,
@@ -407,7 +460,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    marginRight: 2,
+    marginRight: 2
   },
   notifBadge: {
     position: 'absolute',
@@ -419,14 +472,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#00dc57',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 4
   },
   notifBadgeTexto: { color: '#000', fontSize: 10, fontWeight: '700' },
   headerUsuario: {
     color: '#fff',
     fontSize: 15,
     fontWeight: '600',
-    maxWidth: 100,
+    maxWidth: 110
+  },
+  headerUsuarioWrap: {
+    alignItems: 'flex-end',
+    maxWidth: 120
+  },
+  headerNivelAcceso: {
+    color: '#9ea3a9',
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 1,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4
   },
   headerAvatarWrap: { position: 'relative' },
   headerAvatarTouchable: {
@@ -434,7 +499,7 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1a1a1a'
   },
   headerAvatarImg: { width: '100%', height: '100%', borderRadius: 12 },
   headerAvatarPlaceholder: {
@@ -445,16 +510,16 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#00dc57',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   menuOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.4)'
   },
   menuCaja: {
     position: 'absolute',
     top: 56,
-    right: 14,
+    right: 14
   },
   menuLista: {
     backgroundColor: '#1a1a1a',
@@ -463,7 +528,7 @@ const styles = StyleSheet.create({
     borderColor: '#333',
     minWidth: 180,
     paddingVertical: 8,
-    ...(Platform.OS === 'web' && { boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }),
+    ...(Platform.OS === 'web' && { boxShadow: '0 8px 24px rgba(0,0,0,0.5)' })
   },
   notifCaja: {
     position: 'absolute',
@@ -476,7 +541,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#333',
     overflow: 'hidden',
-    ...(Platform.OS === 'web' && { boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }),
+    ...(Platform.OS === 'web' && { boxShadow: '0 8px 24px rgba(0,0,0,0.5)' })
   },
   notifHeader: {
     flexDirection: 'row',
@@ -485,7 +550,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#2e2e2e',
+    borderBottomColor: '#2e2e2e'
   },
   notifTitulo: { color: '#fff', fontSize: 14, fontWeight: '700' },
   notifAccion: { color: '#00dc57', fontSize: 12, fontWeight: '600' },
@@ -495,16 +560,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#262626',
+    borderBottomColor: '#262626'
   },
   notifItemNoLeida: {
-    backgroundColor: 'rgba(0,220,87,0.08)',
+    backgroundColor: 'rgba(0,220,87,0.08)'
   },
   notifItemTitulo: { color: '#fff', fontSize: 13, fontWeight: '600' },
   notifItemMsg: { color: '#bbb', fontSize: 12, marginTop: 2 },
   menuItem: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 16
   },
   menuItemTexto: { color: '#fff', fontSize: 15, fontWeight: '500' },
   menuItemCerrar: { borderTopWidth: 1, borderTopColor: '#333' },
@@ -523,7 +588,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    ...(Platform.OS === 'web' && { boxShadow: '0 8px 18px rgba(0,0,0,0.45)' }),
+    ...(Platform.OS === 'web' && { boxShadow: '0 8px 18px rgba(0,0,0,0.45)' })
   },
-  toastInAppTexto: { color: '#fff', fontSize: 13, fontWeight: '500', flex: 1 },
+  toastInAppTexto: { color: '#fff', fontSize: 13, fontWeight: '500', flex: 1 }
 });

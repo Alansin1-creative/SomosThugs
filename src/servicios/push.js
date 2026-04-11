@@ -10,8 +10,8 @@ Notifications.setNotificationHandler({
     shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+    shouldShowList: true
+  })
 });
 
 function obtenerProjectIdExpo() {
@@ -19,8 +19,8 @@ function obtenerProjectIdExpo() {
     process.env.EXPO_PUBLIC_EAS_PROJECT_ID ||
     Constants?.expoConfig?.extra?.eas?.projectId ||
     Constants?.easConfig?.projectId ||
-    undefined
-  );
+    undefined);
+
 }
 
 export async function registrarPushUsuario() {
@@ -45,4 +45,3 @@ export async function registrarPushUsuario() {
     return null;
   }
 }
-

@@ -10,8 +10,8 @@ import {
   Alert,
   RefreshControl,
   KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+  Platform } from
+'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
 import { listarEventos, crearEvento, actualizarEvento, eliminarEvento, placesAutocomplete, placeDetails } from '../servicios/api';
@@ -19,10 +19,10 @@ import { useAuth } from '../contexto/AuthContext';
 import { esAdmin } from '../constantes/nivelesAcceso';
 
 const NIVELES_EVENTO = [
-  { id: 'libre', label: 'Libre' },
-  { id: 'fan', label: 'Fan' },
-  { id: 'thug', label: 'Thug' },
-];
+{ id: 'libre', label: 'Libre' },
+{ id: 'fan', label: 'Fan' },
+{ id: 'thug', label: 'Thug' }];
+
 
 function parseNumeroFlexible(v) {
   const s = String(v ?? '').trim().replace(',', '.');
@@ -39,25 +39,25 @@ export default function AdminEventos({ navigation }) {
   const [mostrarForm, setMostrarForm] = useState(false);
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [lugar, setLugar] = useState(''); // texto libre (dirección / venue)
-  const [fecha, setFecha] = useState(''); // YYYY-MM-DD
-  const [hora, setHora] = useState(''); // HH:MM
-  const [fechaDate, setFechaDate] = useState(null); // Date | null
-  const [horaDate, setHoraDate] = useState(null); // Date | null
+  const [lugar, setLugar] = useState('');
+  const [fecha, setFecha] = useState('');
+  const [hora, setHora] = useState('');
+  const [fechaDate, setFechaDate] = useState(null);
+  const [horaDate, setHoraDate] = useState(null);
   const [mostrarPickerFecha, setMostrarPickerFecha] = useState(false);
   const [mostrarPickerHora, setMostrarPickerHora] = useState(false);
   const [latitud, setLatitud] = useState('');
   const [longitud, setLongitud] = useState('');
   const [buscandoLugar, setBuscandoLugar] = useState(false);
   const [sugerenciasLugar, setSugerenciasLugar] = useState([]);
-  const [lugarSeleccionado, setLugarSeleccionado] = useState(null); // { placeId, description }
+  const [lugarSeleccionado, setLugarSeleccionado] = useState(null);
   const debounceRef = useRef(null);
   const [nivelRequerido, setNivelRequerido] = useState('libre');
-  const [precio, setPrecio] = useState(''); // string para input; se convierte a number
-  const [cupoMaximo, setCupoMaximo] = useState(''); // string -> number
+  const [precio, setPrecio] = useState('');
+  const [cupoMaximo, setCupoMaximo] = useState('');
   const [telefonoContacto, setTelefonoContacto] = useState('');
   const [visible, setVisible] = useState(true);
-  const [imagenBase64, setImagenBase64] = useState(''); // data-uri
+  const [imagenBase64, setImagenBase64] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [eventoEditandoId, setEventoEditandoId] = useState(null);
 
@@ -84,7 +84,7 @@ export default function AdminEventos({ navigation }) {
     if (!esWeb) return;
     if (typeof document === 'undefined') return;
     const input = document.createElement('input');
-    input.type = tipo; // 'date' | 'time'
+    input.type = tipo;
     input.style.position = 'fixed';
     input.style.left = '-1000px';
     input.style.top = '-1000px';
@@ -107,7 +107,7 @@ export default function AdminEventos({ navigation }) {
 
     input.addEventListener('change', onChange);
     document.body.appendChild(input);
-    // Preferir showPicker (Chrome) y fallback a click
+
     try {
       if (typeof input.showPicker === 'function') {
         input.showPicker();
@@ -117,7 +117,7 @@ export default function AdminEventos({ navigation }) {
     } catch (_) {
       input.click();
     }
-    // fallback cleanup por si cancelan
+
     setTimeout(cleanup, 15000);
   };
 
@@ -204,18 +204,18 @@ export default function AdminEventos({ navigation }) {
     setFechaDate(fechaEv instanceof Date && !Number.isNaN(fechaEv.getTime()) ? fechaEv : null);
     setHoraDate(fechaEv instanceof Date && !Number.isNaN(fechaEv.getTime()) ? fechaEv : null);
     setLatitud(
-      ev?.latitud != null
-        ? String(ev.latitud)
-        : ev?.coordenadas?.lat != null
-          ? String(ev.coordenadas.lat)
-          : ''
+      ev?.latitud != null ?
+      String(ev.latitud) :
+      ev?.coordenadas?.lat != null ?
+      String(ev.coordenadas.lat) :
+      ''
     );
     setLongitud(
-      ev?.longitud != null
-        ? String(ev.longitud)
-        : ev?.coordenadas?.lng != null
-          ? String(ev.coordenadas.lng)
-          : ''
+      ev?.longitud != null ?
+      String(ev.longitud) :
+      ev?.coordenadas?.lng != null ?
+      String(ev.coordenadas.lng) :
+      ''
     );
     setNivelRequerido(ev?.nivelRequerido || 'libre');
     setPrecio(ev?.precio != null ? String(ev.precio) : '');
@@ -253,13 +253,13 @@ export default function AdminEventos({ navigation }) {
       'Eliminar evento',
       `¿Seguro que quieres eliminar "${nombre}"?`,
       [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: ejecutarEliminacion,
-        },
-      ]
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: ejecutarEliminacion
+      }]
+
     );
   };
 
@@ -269,7 +269,7 @@ export default function AdminEventos({ navigation }) {
       return;
     }
 
-    // Construir fechaInicio desde fecha+hora (si vienen); si no, usar now.
+
     let fechaInicioISO = new Date().toISOString();
     const f = String(fecha || '').trim();
     const h = String(hora || '').trim();
@@ -316,7 +316,7 @@ export default function AdminEventos({ navigation }) {
         descripcion: descripcion.trim(),
         lugar: lugar.trim(),
         fechaInicio: fechaInicioISO,
-        // Campos extra (backend puede ignorar los que no use aún)
+
         nivelRequerido,
         latitud: lat,
         longitud: lng,
@@ -328,7 +328,7 @@ export default function AdminEventos({ navigation }) {
         visible,
         imagenBase64: imagenBase64 || undefined,
         esPublico: true,
-        creadoPor: perfil?.id || perfil?._id || '',
+        creadoPor: perfil?.id || perfil?._id || ''
       };
 
       if (eventoEditandoId) {
@@ -348,7 +348,7 @@ export default function AdminEventos({ navigation }) {
 
   useEffect(() => {
     if (!mostrarForm) return;
-    // reset sugerencias cuando se abre
+
     setSugerenciasLugar([]);
     setLugarSeleccionado(null);
   }, [mostrarForm]);
@@ -367,7 +367,7 @@ export default function AdminEventos({ navigation }) {
     debounceRef.current = setTimeout(async () => {
       try {
         setBuscandoLugar(true);
-        // Web: usar Google Maps JS Places (sin CORS) si está disponible
+
         if (esWeb && googleKeyWeb && googlePlacesReady && typeof window !== 'undefined' && window.google?.maps?.places) {
           const service = new window.google.maps.places.AutocompleteService();
           service.getPlacePredictions(
@@ -379,7 +379,7 @@ export default function AdminEventos({ navigation }) {
                 setSugerenciasLugar(
                   preds.slice(0, 6).map((p) => ({
                     placeId: p.place_id,
-                    description: p.description,
+                    description: p.description
                   }))
                 );
               }
@@ -389,7 +389,7 @@ export default function AdminEventos({ navigation }) {
           return;
         }
 
-        // Fallback: proxy backend
+
         const res = await placesAutocomplete(lugar);
         const preds = Array.isArray(res?.predictions) ? res.predictions : [];
         setSugerenciasLugar(preds.slice(0, 6));
@@ -397,7 +397,7 @@ export default function AdminEventos({ navigation }) {
         setSugerenciasLugar([]);
         setBuscandoLugar(false);
       } finally {
-        // noop (en web googlePlaces se controla en callback)
+
       }
     }, 250);
     return () => {
@@ -411,7 +411,7 @@ export default function AdminEventos({ navigation }) {
       setLugarSeleccionado(sug);
       setSugerenciasLugar([]);
       setBuscandoLugar(true);
-      // Web: usar PlacesService.getDetails
+
       if (esWeb && googleKeyWeb && googlePlacesReady && typeof window !== 'undefined' && window.google?.maps?.places) {
         const div = document.createElement('div');
         const svc = new window.google.maps.places.PlacesService(div);
@@ -420,7 +420,7 @@ export default function AdminEventos({ navigation }) {
             {
               placeId: sug.placeId,
               fields: ['formatted_address', 'geometry', 'name', 'place_id'],
-              language: 'es',
+              language: 'es'
             },
             (place, status) => {
               if (status !== window.google.maps.places.PlacesServiceStatus.OK || !place) {
@@ -438,7 +438,7 @@ export default function AdminEventos({ navigation }) {
         if (typeof lat === 'number') setLatitud(String(lat));
         if (typeof lng === 'number') setLongitud(String(lng));
       } else {
-        // Fallback: proxy backend
+
         const det = await placeDetails(sug.placeId);
         const direccion = det?.direccion || sug.description || '';
         const lat = det?.latitud;
@@ -456,7 +456,7 @@ export default function AdminEventos({ navigation }) {
 
   const elegirImagen = async () => {
     try {
-      // Web: usar input nativo de archivos (más confiable que expo-image-picker en web)
+
       if (Platform.OS === 'web') {
         if (typeof document === 'undefined') return;
         const input = document.createElement('input');
@@ -510,14 +510,14 @@ export default function AdminEventos({ navigation }) {
         mediaTypes: ImagePicker.MediaType.Images,
         allowsEditing: true,
         quality: 0.8,
-        base64: true,
+        base64: true
       });
       if (res.canceled) return;
       const asset = res.assets && res.assets[0];
       const mime = asset?.mimeType || 'image/jpeg';
       let b64 = asset?.base64;
 
-      // En web a veces no viene base64; convertir desde uri vía FileReader.
+
       if (!b64 && Platform.OS === 'web' && asset?.uri) {
         try {
           const resp = await fetch(asset.uri);
@@ -527,14 +527,14 @@ export default function AdminEventos({ navigation }) {
             reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
             reader.onload = () => {
               const out = String(reader.result || '');
-              // reader.result viene como data:mime;base64,XXXX
+
               const m = out.match(/^data:[^;]+;base64,(.+)$/);
               resolve(m ? m[1] : '');
             };
             reader.readAsDataURL(blob);
           });
         } catch (_) {
-          // ignore
+
         }
       }
 
@@ -563,71 +563,71 @@ export default function AdminEventos({ navigation }) {
         onPress={() => {
           if (mostrarForm) resetForm();
           setMostrarForm(!mostrarForm);
-        }}
-      >
+        }}>
+        
         <Text style={estilos.botonAgregarTexto}>
           {mostrarForm ? 'Cancelar' : '+ Agregar evento'}
         </Text>
       </TouchableOpacity>
 
-      {mostrarForm && (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={estilos.formContenedor}
-        >
+      {mostrarForm &&
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={estilos.formContenedor}>
+        
           <ScrollView
-            style={estilos.formScroll}
-            contentContainerStyle={estilos.formScrollContenido}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
+          style={estilos.formScroll}
+          contentContainerStyle={estilos.formScrollContenido}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled">
+          
             <Text style={estilos.formLabel}>Datos básicos</Text>
             <TextInput
-              style={estilos.input}
-              placeholder="Título del evento"
-              placeholderTextColor="#666"
-              value={titulo}
-              onChangeText={setTitulo}
-            />
+            style={estilos.input}
+            placeholder="Título del evento"
+            placeholderTextColor="#666"
+            value={titulo}
+            onChangeText={setTitulo} />
+          
             <TextInput
-              style={[estilos.input, estilos.inputArea]}
-              placeholder="Descripción"
-              placeholderTextColor="#666"
-              value={descripcion}
-              onChangeText={setDescripcion}
-              multiline
-            />
+            style={[estilos.input, estilos.inputArea]}
+            placeholder="Descripción"
+            placeholderTextColor="#666"
+            value={descripcion}
+            onChangeText={setDescripcion}
+            multiline />
+          
             <TextInput
-              style={estilos.input}
-              placeholder="Lugar / Dirección"
-              placeholderTextColor="#666"
-              value={lugar}
-              onChangeText={(t) => {
-                setLugar(t);
-                setLugarSeleccionado(null);
-              }}
-            />
-            {(buscandoLugar || (Array.isArray(sugerenciasLugar) && sugerenciasLugar.length > 0)) ? (
-              <View style={estilos.sugerenciasWrap}>
-                {buscandoLugar ? (
-                  <Text style={estilos.sugerenciaLoading}>Buscando…</Text>
-                ) : null}
-                {Array.isArray(sugerenciasLugar) && sugerenciasLugar.map((s) => (
-                  <TouchableOpacity
-                    key={s.placeId || s.description}
-                    style={estilos.sugerenciaItem}
-                    onPress={() => seleccionarLugar(s)}
-                    activeOpacity={0.85}
-                  >
+            style={estilos.input}
+            placeholder="Lugar / Dirección"
+            placeholderTextColor="#666"
+            value={lugar}
+            onChangeText={(t) => {
+              setLugar(t);
+              setLugarSeleccionado(null);
+            }} />
+          
+            {buscandoLugar || Array.isArray(sugerenciasLugar) && sugerenciasLugar.length > 0 ?
+          <View style={estilos.sugerenciasWrap}>
+                {buscandoLugar ?
+            <Text style={estilos.sugerenciaLoading}>Buscando…</Text> :
+            null}
+                {Array.isArray(sugerenciasLugar) && sugerenciasLugar.map((s) =>
+            <TouchableOpacity
+              key={s.placeId || s.description}
+              style={estilos.sugerenciaItem}
+              onPress={() => seleccionarLugar(s)}
+              activeOpacity={0.85}>
+              
                     <Text style={estilos.sugerenciaTexto}>{s.description}</Text>
                   </TouchableOpacity>
-                ))}
-              </View>
-            ) : null}
+            )}
+              </View> :
+          null}
 
             <Text style={estilos.formLabel}>Imagen promocional (opcional)</Text>
-            {imagenBase64 ? (
-              <View style={estilos.imagenRow}>
+            {imagenBase64 ?
+          <View style={estilos.imagenRow}>
                 <Image source={{ uri: imagenBase64 }} style={estilos.imagenPreview} />
                 <View style={estilos.imagenBtns}>
                   <TouchableOpacity style={estilos.imagenBtn} onPress={elegirImagen}>
@@ -637,202 +637,202 @@ export default function AdminEventos({ navigation }) {
                     <Text style={[estilos.imagenBtnTexto, estilos.imagenBtnTextoPeligro]}>Quitar</Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-            ) : (
-              <TouchableOpacity style={estilos.botonSubirImagen} onPress={elegirImagen} activeOpacity={0.85}>
+              </View> :
+
+          <TouchableOpacity style={estilos.botonSubirImagen} onPress={elegirImagen} activeOpacity={0.85}>
                 <Text style={estilos.botonSubirImagenTexto}>+ Subir imagen</Text>
               </TouchableOpacity>
-            )}
+          }
 
             <Text style={estilos.formLabel}>Fecha y hora</Text>
             <View style={estilos.fila2}>
-              {esWeb ? (
-                <>
+              {esWeb ?
+            <>
                   <TouchableOpacity
-                    style={[estilos.input, estilos.inputMitad, estilos.inputPicker]}
-                    onPress={() => abrirPickerWeb('date')}
-                    activeOpacity={0.85}
-                  >
+                style={[estilos.input, estilos.inputMitad, estilos.inputPicker]}
+                onPress={() => abrirPickerWeb('date')}
+                activeOpacity={0.85}>
+                
                     <Text style={estilos.inputPickerTexto}>
                       {fecha || 'Fecha (toca para elegir)'}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[estilos.input, estilos.inputMitad, estilos.inputPicker]}
-                    onPress={() => abrirPickerWeb('time')}
-                    activeOpacity={0.85}
-                  >
+                style={[estilos.input, estilos.inputMitad, estilos.inputPicker]}
+                onPress={() => abrirPickerWeb('time')}
+                activeOpacity={0.85}>
+                
                     <Text style={estilos.inputPickerTexto}>
                       {hora || 'Hora (toca para elegir)'}
                     </Text>
                   </TouchableOpacity>
-                </>
-              ) : (
-                <>
+                </> :
+
+            <>
                   <TouchableOpacity
-                    style={[estilos.input, estilos.inputMitad, estilos.inputPicker]}
-                    onPress={() => setMostrarPickerFecha(true)}
-                    activeOpacity={0.85}
-                  >
+                style={[estilos.input, estilos.inputMitad, estilos.inputPicker]}
+                onPress={() => setMostrarPickerFecha(true)}
+                activeOpacity={0.85}>
+                
                     <Text style={estilos.inputPickerTexto}>
                       {fecha || (fechaDate ? fmtFecha(fechaDate) : 'Fecha (toca para elegir)')}
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[estilos.input, estilos.inputMitad, estilos.inputPicker]}
-                    onPress={() => setMostrarPickerHora(true)}
-                    activeOpacity={0.85}
-                  >
+                style={[estilos.input, estilos.inputMitad, estilos.inputPicker]}
+                onPress={() => setMostrarPickerHora(true)}
+                activeOpacity={0.85}>
+                
                     <Text style={estilos.inputPickerTexto}>
                       {hora || (horaDate ? fmtHora(horaDate) : 'Hora (toca para elegir)')}
                     </Text>
                   </TouchableOpacity>
                 </>
-              )}
+            }
             </View>
 
-            {!esWeb && mostrarPickerFecha ? (
-              <DateTimePicker
-                value={fechaDate || new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  if (Platform.OS !== 'ios') setMostrarPickerFecha(false);
-                  if (event?.type === 'dismissed') return;
-                  const d = selectedDate || fechaDate || new Date();
-                  setFechaDate(d);
-                  setFecha(fmtFecha(d));
-                }}
-              />
-            ) : null}
-            {!esWeb && mostrarPickerHora ? (
-              <DateTimePicker
-                value={horaDate || new Date()}
-                mode="time"
-                is24Hour
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  if (Platform.OS !== 'ios') setMostrarPickerHora(false);
-                  if (event?.type === 'dismissed') return;
-                  const d = selectedDate || horaDate || new Date();
-                  setHoraDate(d);
-                  setHora(fmtHora(d));
-                }}
-              />
-            ) : null}
-            {Platform.OS === 'ios' && (mostrarPickerFecha || mostrarPickerHora) ? (
-              <TouchableOpacity
-                style={estilos.botonPickerListo}
-                onPress={() => { setMostrarPickerFecha(false); setMostrarPickerHora(false); }}
-              >
+            {!esWeb && mostrarPickerFecha ?
+          <DateTimePicker
+            value={fechaDate || new Date()}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(event, selectedDate) => {
+              if (Platform.OS !== 'ios') setMostrarPickerFecha(false);
+              if (event?.type === 'dismissed') return;
+              const d = selectedDate || fechaDate || new Date();
+              setFechaDate(d);
+              setFecha(fmtFecha(d));
+            }} /> :
+
+          null}
+            {!esWeb && mostrarPickerHora ?
+          <DateTimePicker
+            value={horaDate || new Date()}
+            mode="time"
+            is24Hour
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(event, selectedDate) => {
+              if (Platform.OS !== 'ios') setMostrarPickerHora(false);
+              if (event?.type === 'dismissed') return;
+              const d = selectedDate || horaDate || new Date();
+              setHoraDate(d);
+              setHora(fmtHora(d));
+            }} /> :
+
+          null}
+            {Platform.OS === 'ios' && (mostrarPickerFecha || mostrarPickerHora) ?
+          <TouchableOpacity
+            style={estilos.botonPickerListo}
+            onPress={() => {setMostrarPickerFecha(false);setMostrarPickerHora(false);}}>
+            
                 <Text style={estilos.botonPickerListoTexto}>Listo</Text>
-              </TouchableOpacity>
-            ) : null}
+              </TouchableOpacity> :
+          null}
 
             <Text style={estilos.formLabel}>Ubicación (opcional)</Text>
             <View style={estilos.fila2}>
               <TextInput
-                style={[estilos.input, estilos.inputMitad]}
-                placeholder="Latitud"
-                placeholderTextColor="#666"
-                value={latitud}
-                onChangeText={setLatitud}
-                keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'}
-              />
+              style={[estilos.input, estilos.inputMitad]}
+              placeholder="Latitud"
+              placeholderTextColor="#666"
+              value={latitud}
+              onChangeText={setLatitud}
+              keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'} />
+            
               <TextInput
-                style={[estilos.input, estilos.inputMitad]}
-                placeholder="Longitud"
-                placeholderTextColor="#666"
-                value={longitud}
-                onChangeText={setLongitud}
-                keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'}
-              />
+              style={[estilos.input, estilos.inputMitad]}
+              placeholder="Longitud"
+              placeholderTextColor="#666"
+              value={longitud}
+              onChangeText={setLongitud}
+              keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'} />
+            
             </View>
 
             <Text style={estilos.formLabel}>Acceso</Text>
             <View style={estilos.segmented}>
               {NIVELES_EVENTO.map((n) => {
-                const activo = nivelRequerido === n.id;
-                return (
-                  <TouchableOpacity
-                    key={n.id}
-                    style={[estilos.segmentedItem, activo && estilos.segmentedItemActivo]}
-                    onPress={() => setNivelRequerido(n.id)}
-                    activeOpacity={0.85}
-                  >
+              const activo = nivelRequerido === n.id;
+              return (
+                <TouchableOpacity
+                  key={n.id}
+                  style={[estilos.segmentedItem, activo && estilos.segmentedItemActivo]}
+                  onPress={() => setNivelRequerido(n.id)}
+                  activeOpacity={0.85}>
+                  
                     <Text style={[estilos.segmentedTexto, activo && estilos.segmentedTextoActivo]}>
                       {n.label}
                     </Text>
-                  </TouchableOpacity>
-                );
-              })}
+                  </TouchableOpacity>);
+
+            })}
             </View>
 
             <Text style={estilos.formLabel}>Detalles</Text>
             <View style={estilos.fila2}>
               <TextInput
-                style={[estilos.input, estilos.inputMitad]}
-                placeholder="Precio (ej. 150)"
-                placeholderTextColor="#666"
-                value={precio}
-                onChangeText={setPrecio}
-                keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'}
-              />
+              style={[estilos.input, estilos.inputMitad]}
+              placeholder="Precio (ej. 150)"
+              placeholderTextColor="#666"
+              value={precio}
+              onChangeText={setPrecio}
+              keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'numeric'} />
+            
               <TextInput
-                style={[estilos.input, estilos.inputMitad]}
-                placeholder="Cupo máximo (ej. 200)"
-                placeholderTextColor="#666"
-                value={cupoMaximo}
-                onChangeText={setCupoMaximo}
-                keyboardType={Platform.OS === 'ios' ? 'number-pad' : 'numeric'}
-              />
+              style={[estilos.input, estilos.inputMitad]}
+              placeholder="Cupo máximo (ej. 200)"
+              placeholderTextColor="#666"
+              value={cupoMaximo}
+              onChangeText={setCupoMaximo}
+              keyboardType={Platform.OS === 'ios' ? 'number-pad' : 'numeric'} />
+            
             </View>
             <TextInput
-              style={estilos.input}
-              placeholder="Teléfono de contacto (opcional)"
-              placeholderTextColor="#666"
-              value={telefonoContacto}
-              onChangeText={setTelefonoContacto}
-              keyboardType={Platform.OS === 'ios' ? 'phone-pad' : 'tel'}
-            />
+            style={estilos.input}
+            placeholder="Teléfono de contacto (opcional)"
+            placeholderTextColor="#666"
+            value={telefonoContacto}
+            onChangeText={setTelefonoContacto}
+            keyboardType={Platform.OS === 'ios' ? 'phone-pad' : 'tel'} />
+          
 
             <TouchableOpacity
-              style={[estilos.toggleFila, !visible && estilos.toggleFilaOff]}
-              onPress={() => setVisible((v) => !v)}
-              activeOpacity={0.85}
-            >
+            style={[estilos.toggleFila, !visible && estilos.toggleFilaOff]}
+            onPress={() => setVisible((v) => !v)}
+            activeOpacity={0.85}>
+            
               <Text style={estilos.toggleLabel}>Visible</Text>
               <Text style={estilos.toggleValor}>{visible ? 'Sí' : 'No'}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[estilos.botonGuardar, guardando && estilos.botonDeshabilitado]}
-              onPress={guardarEvento}
-              disabled={guardando}
-            >
+            style={[estilos.botonGuardar, guardando && estilos.botonDeshabilitado]}
+            onPress={guardarEvento}
+            disabled={guardando}>
+            
               <Text style={estilos.botonGuardarTexto}>
                 {guardando ? 'Guardando…' : eventoEditandoId ? 'Actualizar evento' : 'Guardar evento'}
               </Text>
             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
-      )}
+      }
 
-      {cargando ? (
-        <Text style={estilos.vacio}>Cargando…</Text>
-      ) : (
-        <ScrollView
-          style={estilos.scroll}
-          contentContainerStyle={estilos.scrollContenido}
-          refreshControl={
-            <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
-          }
-        >
-          {eventos.length === 0 && !mostrarForm && (
-            <Text style={estilos.vacio}>No hay eventos. Agrega uno con el botón de arriba.</Text>
-          )}
-          {eventos.map((ev) => (
-            <View key={ev.id} style={estilos.card}>
+      {cargando ?
+      <Text style={estilos.vacio}>Cargando…</Text> :
+
+      <ScrollView
+        style={estilos.scroll}
+        contentContainerStyle={estilos.scrollContenido}
+        refreshControl={
+        <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
+        }>
+        
+          {eventos.length === 0 && !mostrarForm &&
+        <Text style={estilos.vacio}>No hay eventos. Agrega uno con el botón de arriba.</Text>
+        }
+          {eventos.map((ev) =>
+        <View key={ev.id} style={estilos.card}>
               <Text style={estilos.cardTitulo}>{ev.titulo || '(sin título)'}</Text>
               <Text style={estilos.cardTexto}>{ev.descripcion || ''}</Text>
               <Text style={estilos.cardMeta}>
@@ -840,26 +840,26 @@ export default function AdminEventos({ navigation }) {
               </Text>
               <View style={estilos.cardAcciones}>
                 <TouchableOpacity
-                  style={estilos.cardBotonEliminar}
-                  onPress={() => eliminarEventoCard(ev)}
-                  activeOpacity={0.85}
-                >
+              style={estilos.cardBotonEliminar}
+              onPress={() => eliminarEventoCard(ev)}
+              activeOpacity={0.85}>
+              
                   <Text style={estilos.cardBotonEliminarTexto}>Eliminar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={estilos.cardBotonEditar}
-                  onPress={() => editarEvento(ev)}
-                  activeOpacity={0.85}
-                >
+              style={estilos.cardBotonEditar}
+              onPress={() => editarEvento(ev)}
+              activeOpacity={0.85}>
+              
                   <Text style={estilos.cardBotonEditarTexto}>Editar</Text>
                 </TouchableOpacity>
               </View>
             </View>
-          ))}
+        )}
         </ScrollView>
-      )}
-    </View>
-  );
+      }
+    </View>);
+
 }
 
 const estilos = StyleSheet.create({
@@ -871,7 +871,7 @@ const estilos = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
+    borderBottomColor: '#2a2a2a'
   },
   botonAtras: { padding: 8, marginRight: 8 },
   botonAtrasTexto: { color: '#00dc57', fontSize: 14 },
@@ -882,7 +882,7 @@ const estilos = StyleSheet.create({
     marginTop: 16,
     padding: 14,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   botonAgregarTexto: { color: '#000', fontWeight: '600', fontSize: 16 },
   formContenedor: { padding: 16, paddingTop: 12 },
@@ -897,7 +897,7 @@ const estilos = StyleSheet.create({
     fontSize: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#333'
   },
   inputArea: { minHeight: 60, textAlignVertical: 'top' },
   fila2: { flexDirection: 'row', gap: 10 },
@@ -910,7 +910,7 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 14,
     borderRadius: 10,
     backgroundColor: '#00dc57',
-    marginBottom: 8,
+    marginBottom: 8
   },
   botonPickerListoTexto: { color: '#000', fontWeight: '800' },
   segmented: {
@@ -919,7 +919,7 @@ const estilos = StyleSheet.create({
     borderColor: '#333',
     borderRadius: 12,
     overflow: 'hidden',
-    marginBottom: 10,
+    marginBottom: 10
   },
   segmentedItem: { flex: 1, paddingVertical: 10, alignItems: 'center', backgroundColor: '#141414' },
   segmentedItemActivo: { backgroundColor: '#00dc57' },
@@ -935,7 +935,7 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#333',
     backgroundColor: 'rgba(0,220,87,0.10)',
-    marginBottom: 8,
+    marginBottom: 8
   },
   toggleFilaOff: { backgroundColor: 'rgba(255,255,255,0.03)' },
   toggleLabel: { color: '#fff', fontSize: 15, fontWeight: '700' },
@@ -947,14 +947,14 @@ const estilos = StyleSheet.create({
     borderColor: '#333',
     borderRadius: 12,
     backgroundColor: '#121212',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   sugerenciaLoading: { color: '#888', fontSize: 13, paddingHorizontal: 12, paddingVertical: 10 },
   sugerenciaItem: {
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: 'rgba(255,255,255,0.06)'
   },
   sugerenciaTexto: { color: '#fff', fontSize: 14 },
   botonSubirImagen: {
@@ -965,14 +965,14 @@ const estilos = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 10
   },
   botonSubirImagenTexto: { color: '#00dc57', fontWeight: '800' },
   imagenRow: {
     flexDirection: 'row',
     gap: 12,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 10
   },
   imagenPreview: {
     width: 84,
@@ -980,7 +980,7 @@ const estilos = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#000',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: 'rgba(255,255,255,0.10)'
   },
   imagenBtns: { flex: 1, gap: 10 },
   imagenBtn: {
@@ -990,7 +990,7 @@ const estilos = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   imagenBtnPeligro: { backgroundColor: 'rgba(255,0,0,0.08)', borderColor: 'rgba(255,0,0,0.25)' },
   imagenBtnTexto: { color: '#fff', fontWeight: '800' },
@@ -1000,7 +1000,7 @@ const estilos = StyleSheet.create({
     padding: 14,
     borderRadius: 10,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 8
   },
   botonDeshabilitado: { opacity: 0.7 },
   botonGuardarTexto: { color: '#fff', fontWeight: '600' },
@@ -1011,7 +1011,7 @@ const estilos = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     borderRadius: 8,
     padding: 14,
-    marginBottom: 12,
+    marginBottom: 12
   },
   cardTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', marginBottom: 4 },
   cardTexto: { color: '#aaa', fontSize: 14, marginBottom: 4 },
@@ -1023,7 +1023,7 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(239,68,68,0.14)',
     borderRadius: 10,
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 12
   },
   cardBotonEliminarTexto: { color: '#fca5a5', fontWeight: '700', fontSize: 13 },
   cardBotonEditar: {
@@ -1032,7 +1032,7 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(0,220,87,0.10)',
     borderRadius: 10,
     paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: 12
   },
-  cardBotonEditarTexto: { color: '#00dc57', fontWeight: '700', fontSize: 13 },
+  cardBotonEditarTexto: { color: '#00dc57', fontWeight: '700', fontSize: 13 }
 });

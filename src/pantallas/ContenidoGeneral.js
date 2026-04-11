@@ -15,8 +15,8 @@ import {
   Modal,
   TextInput,
   Pressable,
-  useWindowDimensions,
-} from 'react-native';
+  useWindowDimensions } from
+'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEventListener } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -30,8 +30,8 @@ import {
   listarContenidoExclusivoFeed,
   registrarVistaContenido,
   darLikeContenido,
-  agregarComentarioContenido,
-} from '../servicios/api';
+  agregarComentarioContenido } from
+'../servicios/api';
 import { puedeVerContenidoExclusivo } from '../constantes/nivelesAcceso';
 import { useAuth } from '../contexto/AuthContext';
 import { getBaseUrl } from '../config/api';
@@ -39,7 +39,7 @@ import HeaderAppConMenu from '../componentes/HeaderAppConMenu';
 
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
 
-/** URL final para <video> / Image: mismo host que la API actual (corrige BD con localhost u otro dominio en uploads). */
+
 function absolutizarRutaMedia(raw) {
   const s = String(raw || '').trim();
   if (!s) return null;
@@ -51,7 +51,7 @@ function absolutizarRutaMedia(raw) {
     try {
       const u = new URL(s);
       const path = `${u.pathname || ''}${u.search || ''}${u.hash || ''}`;
-      // Contenido servido por esta API desde /uploads/…
+
       if (path.startsWith('/uploads')) {
         return `${base}${path}`;
       }
@@ -101,7 +101,7 @@ function clasificarMedia(item, urlAValidar) {
   const src = String(
     urlAValidar || item?.urlMediaCompleta || item?.urlMedia || item?.imagenUrl || ''
   ).toLowerCase();
-  // Si en BD dice "video" pero la URL es claramente imagen, el <video> queda negro en 0:00 — mostrar como imagen.
+
   if (tipo === 'video' && /\.(jpg|jpeg|png|webp|gif|bmp|svg)(\?|#|$)/.test(src)) {
     return 'imagen';
   }
@@ -129,16 +129,35 @@ function tiempoRelativo(fecha) {
   return y === 1 ? 'Hace 1 año' : `Hace ${y} años`;
 }
 
-/**
- * Web: <video> nativo, object-fit contain.
- * autoplay+muted: los navegadores permiten autoplay silenciado y muestran fotograma; el usuario puede subir volumen en los controles.
- */
+function etiquetaNivelComentario(comentario) {
+  if (!comentario || typeof comentario !== 'object') return '';
+  const rol = String(
+    comentario.rol ??
+    comentario.rolUsuario ??
+    comentario.tipoUsuario ??
+    ''
+  ).toLowerCase().trim();
+  const nivel = String(
+    comentario.nivelAcceso ??
+    comentario.nivel ??
+    comentario.accessLevel ??
+    ''
+  ).toLowerCase().trim();
+  if (rol === 'admin') return 'Admin';
+  if (nivel === 'thug' || rol === 'thug') return 'Thug';
+  return '';
+}
+
+
+
+
+
 function VideoModalPlayerWeb({ src, poster, videoRef, onAspectKnown, onEnded, onVideoError }) {
   const setRef = (el) => {
     if (videoRef && typeof videoRef === 'object' && 'current' in videoRef) {
       videoRef.current = el;
     }
-    // RN-Web a veces no aplica objectFit al nodo <video>; forzar en el DOM.
+
     if (el && typeof el.style !== 'undefined') {
       el.style.display = 'block';
       el.style.flex = '1 1 auto';
@@ -175,7 +194,7 @@ function VideoModalPlayerWeb({ src, poster, videoRef, onAspectKnown, onEnded, on
       maxHeight: '100%',
       objectFit: 'contain',
       objectPosition: 'center center',
-      backgroundColor: '#000',
+      backgroundColor: '#000'
     },
     onLoadedMetadata: (e) => {
       const v = e?.currentTarget;
@@ -187,21 +206,21 @@ function VideoModalPlayerWeb({ src, poster, videoRef, onAspectKnown, onEnded, on
       const err = e?.currentTarget?.error;
       const code = err?.code;
       const msg =
-        code === 1 ? 'Carga interrumpida'
-        : code === 2 ? 'Error de red'
-        : code === 3 ? 'No se pudo decodificar el vídeo'
-        : code === 4 ? 'Formato no soportado o URL inválida'
-        : 'No se pudo cargar el vídeo';
+      code === 1 ? 'Carga interrumpida' :
+      code === 2 ? 'Error de red' :
+      code === 3 ? 'No se pudo decodificar el vídeo' :
+      code === 4 ? 'Formato no soportado o URL inválida' :
+      'No se pudo cargar el vídeo';
       if (typeof __DEV__ !== 'undefined' && __DEV__) {
         console.warn('[VideoModal]', msg, src, err);
       }
       onVideoError?.(msg);
     },
-    onEnded: onEnded,
+    onEnded: onEnded
   });
 }
 
-/** Nativo (iOS/Android): expo-video reemplaza expo-av (deprecado en SDK 54). */
+
 function VideoModalPlayerNative({ uri, style, playerRef, onAspectKnown, onEnded, onVideoError }) {
   const player = useVideoPlayer(uri, (p) => {
     p.play();
@@ -245,9 +264,9 @@ function VideoModalPlayerNative({ uri, style, playerRef, onAspectKnown, onEnded,
       style={style}
       nativeControls
       contentFit="contain"
-      {...(Platform.OS === 'android' ? { surfaceType: 'textureView' } : {})}
-    />
-  );
+      {...Platform.OS === 'android' ? { surfaceType: 'textureView' } : {}} />);
+
+
 }
 
 export default function ContenidoGeneral({ navigation }) {
@@ -261,10 +280,10 @@ export default function ContenidoGeneral({ navigation }) {
       String(navigator.userAgent || '')
     );
   })();
-  // Evitar que escritorio con ventana mediana caiga en layout móvil.
+
   const esWebMovil = esWeb && (esNavegadorMovilWeb || ventanaAncho < 700);
   const esWebDesktop = esWeb && !esWebMovil;
-  // Para el modal conviene apilar en más casos para evitar solapes entre media y acciones.
+
   const esModalWebApilado = esWeb && (esNavegadorMovilWeb || ventanaAncho < 980);
   const scrollRef = useRef(null);
   const [eventos, setEventos] = useState([]);
@@ -283,13 +302,13 @@ export default function ContenidoGeneral({ navigation }) {
   const [mediaAspectRatio, setMediaAspectRatio] = useState(null);
   const [videoTerminado, setVideoTerminado] = useState(false);
   const videoRef = useRef(null);
-  const webVideoRef = useRef(/** @type {HTMLVideoElement | null} */ (null));
+  const webVideoRef = useRef(null);
   const [likesHechos, setLikesHechos] = useState(() => new Set());
-  const cardLayoutsRef = useRef(new Map()); // id -> { y, height }
-  const vistasHechasRef = useRef(new Set()); // ids ya contados (persistido por usuario)
-  const vistasGuardandoRef = useRef(new Set()); // ids en proceso
+  const cardLayoutsRef = useRef(new Map());
+  const vistasHechasRef = useRef(new Set());
+  const vistasGuardandoRef = useRef(new Set());
   const rafScrollRef = useRef(null);
-  const regresarAMediaRef = useRef(null); // item a reabrir tras comentar (solo si venía de la modal)
+  const regresarAMediaRef = useRef(null);
 
   const getId = (obj) => obj?.id ?? obj?._id?.toString?.() ?? obj?._id;
   const getUsuarioKey = () => String(getId(perfil) ?? perfil?.email ?? perfil?.nombreUsuario ?? 'anon');
@@ -299,11 +318,11 @@ export default function ContenidoGeneral({ navigation }) {
   const normalizarLink = (raw) => {
     const s = String(raw || '').trim();
     if (!s) return null;
-    // ya viene con esquema
+
     if (s.startsWith('http://') || s.startsWith('https://')) return s;
-    // rutas locales o data-uri: no tratarlas como enlace externo
+
     if (s.startsWith('/') || s.startsWith('data:')) return null;
-    // dominio simple sin espacios (ej: www.google.com, google.com)
+
     if (!s.includes(' ') && s.includes('.')) return `https://${s}`;
     return null;
   };
@@ -328,7 +347,7 @@ export default function ContenidoGeneral({ navigation }) {
         if (!cancel) setLikesHechos(new Set());
       }
     })();
-    return () => { cancel = true; };
+    return () => {cancel = true;};
   }, [perfil]);
 
   useEffect(() => {
@@ -347,16 +366,16 @@ export default function ContenidoGeneral({ navigation }) {
         if (!cancel) vistasHechasRef.current = new Set();
       }
     })();
-    return () => { cancel = true; };
+    return () => {cancel = true;};
   }, [perfil]);
 
   const withTimeout = (promise, ms = 12000) =>
-    Promise.race([
-      promise,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Tiempo de espera agotado.')), ms)
-      ),
-    ]);
+  Promise.race([
+  promise,
+  new Promise((_, reject) =>
+  setTimeout(() => reject(new Error('Tiempo de espera agotado.')), ms)
+  )]
+  );
 
   const cargarDatos = async () => {
     setErrorCarga('');
@@ -364,41 +383,41 @@ export default function ContenidoGeneral({ navigation }) {
     setCargando(true);
     try {
       const [resEventos, resPublicaciones, resFeed, resFeedFan] = await Promise.allSettled([
-        withTimeout(listarEventosPublicos()),
-        withTimeout(listarPublicaciones()),
-        withTimeout(listarFeedUnificado()),
-        withTimeout(listarContenidoExclusivoFeed()),
-      ]);
+      withTimeout(listarEventosPublicos()),
+      withTimeout(listarPublicaciones()),
+      withTimeout(listarFeedUnificado()),
+      withTimeout(listarContenidoExclusivoFeed())]
+      );
       setEventos(
         resEventos.status === 'fulfilled' && Array.isArray(resEventos.value) ? resEventos.value : []
       );
       setPublicaciones(
-        resPublicaciones.status === 'fulfilled' && Array.isArray(resPublicaciones.value)
-          ? resPublicaciones.value
-          : []
+        resPublicaciones.status === 'fulfilled' && Array.isArray(resPublicaciones.value) ?
+        resPublicaciones.value :
+        []
       );
       const feedUnificado =
-        resFeed.status === 'fulfilled' && Array.isArray(resFeed.value) ? resFeed.value : [];
+      resFeed.status === 'fulfilled' && Array.isArray(resFeed.value) ? resFeed.value : [];
       const feedFan =
-        resFeedFan.status === 'fulfilled' && Array.isArray(resFeedFan.value) ? resFeedFan.value : [];
+      resFeedFan.status === 'fulfilled' && Array.isArray(resFeedFan.value) ? resFeedFan.value : [];
       const fallbackPublicaciones =
-        resPublicaciones.status === 'fulfilled' && Array.isArray(resPublicaciones.value)
-          ? resPublicaciones.value
-          : [];
+      resPublicaciones.status === 'fulfilled' && Array.isArray(resPublicaciones.value) ?
+      resPublicaciones.value :
+      [];
       const fallbackEventos =
-        resEventos.status === 'fulfilled' && Array.isArray(resEventos.value) ? resEventos.value : [];
+      resEventos.status === 'fulfilled' && Array.isArray(resEventos.value) ? resEventos.value : [];
       const contenidoFinal =
-        feedUnificado.length > 0
-          ? feedUnificado
-          : feedFan.length > 0
-            ? feedFan
-            : [...fallbackPublicaciones, ...fallbackEventos];
-      const listaNormalizada = Array.isArray(contenidoFinal)
-        ? contenidoFinal.filter((x) => x && typeof x === 'object')
-        : [];
+      feedUnificado.length > 0 ?
+      feedUnificado :
+      feedFan.length > 0 ?
+      feedFan :
+      [...fallbackPublicaciones, ...fallbackEventos];
+      const listaNormalizada = Array.isArray(contenidoFinal) ?
+      contenidoFinal.filter((x) => x && typeof x === 'object') :
+      [];
       setContenidoUnificado((prev) => {
         if (listaNormalizada.length > 0) return listaNormalizada;
-        // Evita parpadeo: si una recarga transitoria regresa vacío, mantenemos lo último visible.
+
         return Array.isArray(prev) ? prev : [];
       });
       if (resFeed.status === 'rejected') {
@@ -408,13 +427,13 @@ export default function ContenidoGeneral({ navigation }) {
         const partes = [];
         partes.push(
           `items feed-unificado: ${
-            resFeed.status === 'fulfilled' && Array.isArray(resFeed.value) ? resFeed.value.length : 0
-          }`
+          resFeed.status === 'fulfilled' && Array.isArray(resFeed.value) ? resFeed.value.length : 0}`
+
         );
         partes.push(
           `items feed-fan: ${
-            resFeedFan.status === 'fulfilled' && Array.isArray(resFeedFan.value) ? resFeedFan.value.length : 0
-          }`
+          resFeedFan.status === 'fulfilled' && Array.isArray(resFeedFan.value) ? resFeedFan.value.length : 0}`
+
         );
         if (resEventos.status === 'rejected') partes.push(`eventos: ${resEventos.reason?.message || 'error'}`);
         if (resPublicaciones.status === 'rejected') partes.push(`publicaciones: ${resPublicaciones.reason?.message || 'error'}`);
@@ -423,10 +442,10 @@ export default function ContenidoGeneral({ navigation }) {
         setDetalleErrorDev(partes.join(' | '));
       }
       const todasFallaron =
-        resEventos.status === 'rejected' &&
-        resPublicaciones.status === 'rejected' &&
-        resFeed.status === 'rejected' &&
-        resFeedFan.status === 'rejected';
+      resEventos.status === 'rejected' &&
+      resPublicaciones.status === 'rejected' &&
+      resFeed.status === 'rejected' &&
+      resFeedFan.status === 'rejected';
       if (todasFallaron) {
         setErrorCarga('No se pudo cargar el contenido. Revisa servidor/API y vuelve a intentar.');
       }
@@ -499,9 +518,9 @@ export default function ContenidoGeneral({ navigation }) {
       registrarVistaPorClickModal(id);
     }
     setMediaItem(
-      id
-        ? { ...(item || {}), numeroVistas: (item?.numeroVistas ?? 0) + 1 }
-        : item
+      id ?
+      { ...(item || {}), numeroVistas: (item?.numeroVistas ?? 0) + 1 } :
+      item
     );
     setMediaUrlSeleccionada(urlVisual);
   };
@@ -511,14 +530,14 @@ export default function ContenidoGeneral({ navigation }) {
       try {
         webVideoRef.current.pause();
       } catch (_) {
-        /* noop */
+
       }
     }
     if (Platform.OS !== 'web' && videoRef.current) {
       try {
         videoRef.current.pause();
       } catch (_) {
-        /* noop */
+
       }
     }
     setMediaItem(null);
@@ -543,37 +562,37 @@ export default function ContenidoGeneral({ navigation }) {
       return next;
     });
     setContenidoUnificado((prev) =>
-      prev.map((it) => {
-        const itId = getId(it);
-        return itId === id ? { ...it, numeroLikes: valorNuevo } : it;
-      })
+    prev.map((it) => {
+      const itId = getId(it);
+      return itId === id ? { ...it, numeroLikes: valorNuevo } : it;
+    })
     );
     setMediaItem((prev) =>
-      prev && (prev.id === id || prev._id === id)
-        ? { ...prev, numeroLikes: valorNuevo }
-        : prev
+    prev && (prev.id === id || prev._id === id) ?
+    { ...prev, numeroLikes: valorNuevo } :
+    prev
     );
     try {
       const res = await darLikeContenido(id);
       const totalServidor = res?.numeroLikes;
       if (typeof totalServidor === 'number' && totalServidor >= valorNuevo) {
         setContenidoUnificado((prev) =>
-          prev.map((it) => {
-            const itId = getId(it);
-            return itId === id ? { ...it, numeroLikes: totalServidor } : it;
-          })
+        prev.map((it) => {
+          const itId = getId(it);
+          return itId === id ? { ...it, numeroLikes: totalServidor } : it;
+        })
         );
         setMediaItem((prev) =>
-          prev && (prev.id === id || prev._id === id)
-            ? { ...prev, numeroLikes: totalServidor }
-            : prev
+        prev && (prev.id === id || prev._id === id) ?
+        { ...prev, numeroLikes: totalServidor } :
+        prev
         );
       }
       try {
         const key = getLikesStorageKey();
         await AsyncStorage.setItem(key, JSON.stringify(Array.from(new Set([...likesHechos, String(id)]))));
       } catch (_) {
-        // noop
+
       }
     } catch (e) {
       console.warn('Like:', e);
@@ -583,15 +602,15 @@ export default function ContenidoGeneral({ navigation }) {
         return next;
       });
       setContenidoUnificado((prev) =>
-        prev.map((it) => {
-          const itId = getId(it);
-          return itId === id ? { ...it, numeroLikes: valorAnterior } : it;
-        })
+      prev.map((it) => {
+        const itId = getId(it);
+        return itId === id ? { ...it, numeroLikes: valorAnterior } : it;
+      })
       );
       setMediaItem((prev) =>
-        prev && (prev.id === id || prev._id === id)
-          ? { ...prev, numeroLikes: valorAnterior }
-          : prev
+      prev && (prev.id === id || prev._id === id) ?
+      { ...prev, numeroLikes: valorAnterior } :
+      prev
       );
     }
   };
@@ -599,8 +618,8 @@ export default function ContenidoGeneral({ navigation }) {
   const abrirComentarios = (item) => {
     const id = getId(item);
     if (!id) return;
-    // En algunas plataformas (especialmente web) dos Modals transparentes no se apilan bien.
-    // Si la modal de media está abierta, cerrarla antes de abrir la de comentario.
+
+
     const payload = { ...(item || {}), id: String(id) };
     setComentarioTexto('');
     if (mediaItem) {
@@ -628,14 +647,14 @@ export default function ContenidoGeneral({ navigation }) {
       const nuevaLista = Array.isArray(res?.comentarios) ? res.comentarios : [];
       const total = res?.numeroComentarios ?? nuevaLista.length;
       setContenidoUnificado((prev) =>
-        prev.map((it) =>
-          it.id === comentarioItem.id ? { ...it, comentarios: nuevaLista, numeroComentarios: total } : it
-        )
+      prev.map((it) =>
+      it.id === comentarioItem.id ? { ...it, comentarios: nuevaLista, numeroComentarios: total } : it
+      )
       );
       setMediaItem((prev) =>
-        prev && prev.id === comentarioItem.id
-          ? { ...prev, comentarios: nuevaLista, numeroComentarios: total }
-          : prev
+      prev && prev.id === comentarioItem.id ?
+      { ...prev, comentarios: nuevaLista, numeroComentarios: total } :
+      prev
       );
       const volverItem = regresarAMediaRef.current;
       cerrarComentarioModal();
@@ -656,13 +675,13 @@ export default function ContenidoGeneral({ navigation }) {
     if (!itemId) return;
     const idStr = String(itemId);
     setContenidoUnificado((prev) =>
-      prev.map((it) => {
-        const itId = String(getId(it) ?? '');
-        if (itId !== idStr) return it;
-        const actual = it.numeroVistas ?? 0;
-        const nuevo = typeof totalServidor === 'number' ? totalServidor : sumar ? actual + 1 : actual;
-        return nuevo === actual ? it : { ...it, numeroVistas: nuevo };
-      })
+    prev.map((it) => {
+      const itId = String(getId(it) ?? '');
+      if (itId !== idStr) return it;
+      const actual = it.numeroVistas ?? 0;
+      const nuevo = typeof totalServidor === 'number' ? totalServidor : sumar ? actual + 1 : actual;
+      return nuevo === actual ? it : { ...it, numeroVistas: nuevo };
+    })
     );
     setMediaItem((prev) => {
       if (!prev) return prev;
@@ -697,7 +716,7 @@ export default function ContenidoGeneral({ navigation }) {
         next.add(idStr);
         await AsyncStorage.setItem(key, JSON.stringify(Array.from(next)));
       } catch (_) {
-        // noop
+
       }
     } catch (e) {
       console.warn('Vista no registrada:', e);
@@ -707,7 +726,7 @@ export default function ContenidoGeneral({ navigation }) {
     }
   };
 
-  // Cada clic para abrir modal suma una vista adicional, sin limitar por usuario.
+
   const registrarVistaPorClickModal = async (itemId) => {
     if (!itemId) return;
     const idStr = String(itemId);
@@ -726,12 +745,12 @@ export default function ContenidoGeneral({ navigation }) {
         return actual > 0 ? { ...prev, numeroVistas: actual - 1 } : prev;
       });
       setContenidoUnificado((prev) =>
-        prev.map((it) => {
-          const itId = String(getId(it) ?? '');
-          if (itId !== idStr) return it;
-          const v = it.numeroVistas ?? 0;
-          return v > 0 ? { ...it, numeroVistas: v - 1 } : it;
-        })
+      prev.map((it) => {
+        const itId = String(getId(it) ?? '');
+        if (itId !== idStr) return it;
+        const v = it.numeroVistas ?? 0;
+        return v > 0 ? { ...it, numeroVistas: v - 1 } : it;
+      })
       );
     }
   };
@@ -761,247 +780,247 @@ export default function ContenidoGeneral({ navigation }) {
   };
 
   const alturaFondoNativo =
-    !esWeb
-      ? Dimensions.get('window').height - (insets.top + 8 + 48) + insets.bottom
-      : null;
+  !esWeb ?
+  Dimensions.get('window').height - (insets.top + 8 + 48) + insets.bottom :
+  null;
 
-  const tipoModalAbierto = mediaItem
-    ? clasificarMedia(mediaItem, mediaUrlSeleccionada)
-    : '';
+  const tipoModalAbierto = mediaItem ?
+  clasificarMedia(mediaItem, mediaUrlSeleccionada) :
+  '';
   const usarVideoEnModal =
-    tipoModalAbierto === 'video' && urlPareceArchivoVideo(mediaUrlSeleccionada);
-  const posterModalVideoAbs = esWeb && mediaItem && usarVideoEnModal && mediaItem.urlMedia
-    ? absolutizarRutaMedia(mediaItem.urlMedia)
-    : null;
+  tipoModalAbierto === 'video' && urlPareceArchivoVideo(mediaUrlSeleccionada);
+  const posterModalVideoAbs = esWeb && mediaItem && usarVideoEnModal && mediaItem.urlMedia ?
+  absolutizarRutaMedia(mediaItem.urlMedia) :
+  null;
   const posterModalVideoWeb =
-    posterModalVideoAbs && mediaUrlSeleccionada && posterModalVideoAbs !== mediaUrlSeleccionada
-      ? posterModalVideoAbs
-      : undefined;
+  posterModalVideoAbs && mediaUrlSeleccionada && posterModalVideoAbs !== mediaUrlSeleccionada ?
+  posterModalVideoAbs :
+  undefined;
 
   return (
     <View style={estilos.contenedor}>
-      <HeaderAppConMenu navigation={navigation} scrollRef={scrollRef} />
+      <HeaderAppConMenu navigation={navigation} scrollRef={scrollRef} esVistaContenidoFeed />
       <View style={estilos.areaContenido}>
         <View
           style={[
-            estilos.fondoAbsoluto,
-            alturaFondoNativo != null && {
-              top: 0,
-              bottom: undefined,
-              height: alturaFondoNativo,
-            },
-          ]}
-          pointerEvents="none"
-        >
+          estilos.fondoAbsoluto,
+          alturaFondoNativo != null && {
+            top: 0,
+            bottom: undefined,
+            height: alturaFondoNativo
+          }]
+          }
+          pointerEvents="none">
+          
           <Image
             source={FONDO_THUGS}
             style={[
-              estilos.fondoImagen,
-              alturaFondoNativo != null && {
-                bottom: undefined,
-                height: alturaFondoNativo,
-              },
-            ]}
-            resizeMode={Platform.OS === 'web' ? 'cover' : 'repeat'}
-          />
+            estilos.fondoImagen,
+            alturaFondoNativo != null && {
+              bottom: undefined,
+              height: alturaFondoNativo
+            }]
+            }
+            resizeMode={Platform.OS === 'web' ? 'cover' : 'repeat'} />
+          
       </View>
       <ScrollView
-        ref={scrollRef}
-        style={estilos.scroll}
-        contentContainerStyle={[
+          ref={scrollRef}
+          style={estilos.scroll}
+          contentContainerStyle={[
           estilos.scrollContenido,
-          esWebMovil && estilos.scrollContenidoWebMovil,
-        ]}
-        refreshControl={
+          esWebMovil && estilos.scrollContenidoWebMovil]
+          }
+          refreshControl={
           <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
-        }
-        onScroll={onScroll}
-        scrollEventThrottle={16}
-          showsVerticalScrollIndicator={false}
-      >
+          }
+          onScroll={onScroll}
+          scrollEventThrottle={16}
+          showsVerticalScrollIndicator={false}>
+          
           <View style={estilos.contenidoSobreFondo}>
             <View style={[estilos.contenidoCentrado, esWebMovil && estilos.contenidoCentradoWebMovil]}>
-        {ubicacion && (
-          <View style={estilos.card}>
+        {ubicacion &&
+              <View style={estilos.card}>
             <Text style={estilos.cardTitulo}>Tu ubicación</Text>
             <Text style={estilos.cardTexto}>
               Lat: {ubicacion.latitude.toFixed(4)}, Lng: {ubicacion.longitude.toFixed(4)}
             </Text>
           </View>
-        )}
+              }
 
             <Text style={estilos.seccion}>Contenido</Text>
-            {cargando && (
+            {cargando &&
               <View style={estilos.estadoCargaCaja}>
                 <ActivityIndicator color="#00dc57" />
                 <Text style={estilos.estadoCargaTexto}>Cargando contenido...</Text>
               </View>
-            )}
-            {!cargando && !!errorCarga && (
+              }
+            {!cargando && !!errorCarga &&
               <View style={estilos.estadoErrorCaja}>
                 <Text style={estilos.estadoErrorTexto}>{errorCarga}</Text>
-                {typeof __DEV__ !== 'undefined' && __DEV__ && !!detalleErrorDev ? (
-                  <Text style={estilos.estadoErrorDetalleDev}>{detalleErrorDev}</Text>
-                ) : null}
+                {typeof __DEV__ !== 'undefined' && __DEV__ && !!detalleErrorDev ?
+                <Text style={estilos.estadoErrorDetalleDev}>{detalleErrorDev}</Text> :
+                null}
                 <TouchableOpacity style={estilos.estadoErrorBoton} onPress={cargarDatos}>
                   <Text style={estilos.estadoErrorBotonTexto}>Reintentar</Text>
                 </TouchableOpacity>
               </View>
-            )}
-            {contenidoUnificado.length === 0 && !cargando && (
+              }
+            {contenidoUnificado.length === 0 && !cargando &&
               <View style={estilos.vacioCaja}>
                 <Text style={estilos.vacio}>Sin contenido aún.</Text>
                 <Text style={estilos.vacioHint}>
                   Desliza hacia abajo para actualizar.
                 </Text>
               </View>
-            )}
+              }
             {contenidoUnificado.map((item, idx) => {
-              const itemId = getId(item) || `${item?.titulo || 'item'}-${idx}`;
-              const bloqueado =
+                const itemId = getId(item) || `${item?.titulo || 'item'}-${idx}`;
+                const bloqueado =
                 item.bloqueado === true ||
-                (item.nivelRequerido === 'thug' &&
-                  !puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol));
-              const previewUrl = item.urlMedia || item.imagenUrl || null;
-              const mediaUrl = item.urlMediaCompleta || item.urlMedia || item.imagenUrl || null;
-              const urlCompleta = previewUrl ? absolutizarRutaMedia(previewUrl) : null;
-              const mostrarPreview = !!urlCompleta || bloqueado;
-              const previewSource = urlCompleta ? { uri: urlCompleta } : FONDO_THUGS;
-              const vistas = item.numeroVistas ?? 0;
-              const likes = item.numeroLikes ?? 0;
-              const numComentarios = item.numeroComentarios ?? (Array.isArray(item.comentarios) ? item.comentarios.length : 0);
-              const tipo = clasificarMedia(item, mediaUrl);
-              const esVideo = tipo === 'video';
-              const textoPrincipal = item.previewTexto || item.descripcion || '';
-              const complementario = item.complementario || '';
-              const etiquetasArr = Array.isArray(item.etiquetas) ? item.etiquetas : [];
-              const categoria = item.categoria || '';
-              const fechaPub = item.fechaPublicacion ? new Date(item.fechaPublicacion) : null;
-              const textoFecha = fechaPub ? tiempoRelativo(fechaPub) : '';
-              return (
-                <View
-                  key={itemId}
-                  style={estilos.cardContenedor}
-                  onLayout={(ev) => {
-                    const id = getId(item);
-                    if (!id) return;
-                    const { y, height } = ev?.nativeEvent?.layout ?? {};
-                    if (typeof y !== 'number' || typeof height !== 'number') return;
-                    cardLayoutsRef.current.set(String(id), { y, height });
-                    // Registrar vista si ya entró visible al pintar (por ejemplo al cargar arriba)
-                    if (height > 0 && y >= 0) {
-                      // el cálculo exacto lo hará el onScroll; aquí evitamos peticiones extra
-                    }
-                  }}
-                >
+                item.nivelRequerido === 'thug' &&
+                !puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol);
+                const previewUrl = item.urlMedia || item.imagenUrl || null;
+                const mediaUrl = item.urlMediaCompleta || item.urlMedia || item.imagenUrl || null;
+                const urlCompleta = previewUrl ? absolutizarRutaMedia(previewUrl) : null;
+                const mostrarPreview = !!urlCompleta || bloqueado;
+                const previewSource = urlCompleta ? { uri: urlCompleta } : FONDO_THUGS;
+                const vistas = item.numeroVistas ?? 0;
+                const likes = item.numeroLikes ?? 0;
+                const numComentarios = item.numeroComentarios ?? (Array.isArray(item.comentarios) ? item.comentarios.length : 0);
+                const tipo = clasificarMedia(item, mediaUrl);
+                const esVideo = tipo === 'video';
+                const textoPrincipal = item.previewTexto || item.descripcion || '';
+                const complementario = item.complementario || '';
+                const etiquetasArr = Array.isArray(item.etiquetas) ? item.etiquetas : [];
+                const categoria = item.categoria || '';
+                const fechaPub = item.fechaPublicacion ? new Date(item.fechaPublicacion) : null;
+                const textoFecha = fechaPub ? tiempoRelativo(fechaPub) : '';
+                return (
+                  <View
+                    key={itemId}
+                    style={estilos.cardContenedor}
+                    onLayout={(ev) => {
+                      const id = getId(item);
+                      if (!id) return;
+                      const { y, height } = ev?.nativeEvent?.layout ?? {};
+                      if (typeof y !== 'number' || typeof height !== 'number') return;
+                      cardLayoutsRef.current.set(String(id), { y, height });
+
+                      if (height > 0 && y >= 0) {
+
+                      }
+                    }}>
+                    
                   <View style={estilos.card}>
-                    {/* web móvil debe verse como nativo */}
+                    {}
                     <View style={estilos.cardHeader}>
                       <View style={estilos.cardTipoBadge}>
                         <Ionicons
-                          name={
-                            esVideo ? 'videocam'
-                              : tipo === 'audio' ? 'musical-notes'
-                              : tipo === 'imagen' ? 'image'
-                              : 'document-text'
-                          }
-                          size={14}
-                          color="#00dc57"
-                        />
+                            name={
+                            esVideo ? 'videocam' :
+                            tipo === 'audio' ? 'musical-notes' :
+                            tipo === 'imagen' ? 'image' :
+                            'document-text'
+                            }
+                            size={14}
+                            color="#00dc57" />
+                          
                         <Text style={estilos.cardTipoTexto}>
                           {tipo}
                         </Text>
                       </View>
                       <View style={estilos.cardHeaderRight}>
-                        {item.destacado && (
+                        {item.destacado &&
                           <Text style={estilos.cardDestacadoBadge}>Destacado</Text>
-                        )}
-                        {item.nivelRequerido === 'thug' && (
+                          }
+                        {item.nivelRequerido === 'thug' &&
                           <Text style={estilos.cardThugBadge}>Zona Thug</Text>
-                        )}
+                          }
                       </View>
                     </View>
                     <Text style={estilos.cardTitulo}>{item.titulo || 'Sin título'}</Text>
                     <View style={estilos.cardCuerpo}>
                       {textoPrincipal ? <Text style={estilos.cardTexto}>{String(textoPrincipal)}</Text> : null}
 
-                      {complementario ? (
-                        normalizarLink(complementario) ? (
-                          <Text
-                            style={[estilos.cardComplementario, estilos.cardEnlace]}
-                            onPress={() => Linking.openURL(normalizarLink(complementario))}
-                          >
+                      {complementario ?
+                        normalizarLink(complementario) ?
+                        <Text
+                          style={[estilos.cardComplementario, estilos.cardEnlace]}
+                          onPress={() => Linking.openURL(normalizarLink(complementario))}>
+                          
                             {String(complementario)}
-                          </Text>
-                        ) : (
-                          <Text style={estilos.cardComplementario}>{String(complementario)}</Text>
-                        )
-                      ) : null}
+                          </Text> :
+
+                        <Text style={estilos.cardComplementario}>{String(complementario)}</Text> :
+
+                        null}
 
                       {(() => {
-                        const raw = String(item.urlMediaCompleta || item.urlMedia || '').trim();
-                        if (!raw) return null;
-                        const esHttp = raw.startsWith('http://') || raw.startsWith('https://');
-                        const esDominio = !raw.includes(' ') && raw.includes('.') && !raw.startsWith('/');
-                        const link = esHttp ? raw : esDominio ? `https://${raw}` : null;
-                        if (!link) return null;
-                        return (
-                          <Text
-                            style={[estilos.cardComplementario, estilos.cardEnlace]}
-                            onPress={() => Linking.openURL(link)}
-                          >
+                          const raw = String(item.urlMediaCompleta || item.urlMedia || '').trim();
+                          if (!raw) return null;
+                          const esHttp = raw.startsWith('http://') || raw.startsWith('https://');
+                          const esDominio = !raw.includes(' ') && raw.includes('.') && !raw.startsWith('/');
+                          const link = esHttp ? raw : esDominio ? `https://${raw}` : null;
+                          if (!link) return null;
+                          return (
+                            <Text
+                              style={[estilos.cardComplementario, estilos.cardEnlace]}
+                              onPress={() => Linking.openURL(link)}>
+                              
                             {raw}
-                          </Text>
-                        );
-                      })()}
+                          </Text>);
 
-                      {categoria ? (
+                        })()}
+
+                      {categoria ?
                         <View style={estilos.cardMetaRow}>
                           <Text style={estilos.cardCategoria}>Categoría: {String(categoria)}</Text>
-                        </View>
-                      ) : null}
+                        </View> :
+                        null}
 
-                      {mostrarPreview ? (
+                      {mostrarPreview ?
                         <TouchableOpacity
                           style={estilos.cardPreviewImgCard}
-                          onPress={() => (bloqueado ? null : abrirMediaEnModal(item))}
+                          onPress={() => bloqueado ? null : abrirMediaEnModal(item)}
                           activeOpacity={bloqueado ? 1 : 0.9}
-                          disabled={bloqueado}
-                        >
+                          disabled={bloqueado}>
+                          
                           <Image
                             source={previewSource}
                             style={[estilos.cardPreviewImgInner, bloqueado && estilos.cardPreviewImgBlurWeb]}
                             resizeMode="cover"
-                            blurRadius={bloqueado ? 18 : 0}
-                          />
-                          {bloqueado ? (
-                            <View pointerEvents="none" style={estilos.cardPreviewObfuscador}>
+                            blurRadius={bloqueado ? 18 : 0} />
+                          
+                          {bloqueado ?
+                          <View pointerEvents="none" style={estilos.cardPreviewObfuscador}>
                               <View style={estilos.cardPreviewLeyendaCaja}>
                                 <Text style={estilos.cardPreviewLeyendaTitulo}>Para ver contenido Thug</Text>
                                 <Text style={estilos.cardPreviewLeyendaSub}>
                                   Primero debes de subir de nivel
                                 </Text>
                               </View>
-                            </View>
-                          ) : null}
-                          {esVideo && !bloqueado ? (
-                            <View style={estilos.cardPlayOverlay}>
+                            </View> :
+                          null}
+                          {esVideo && !bloqueado ?
+                          <View style={estilos.cardPlayOverlay}>
                               <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.9)" />
-                            </View>
-                          ) : null}
-                        </TouchableOpacity>
-                      ) : null}
+                            </View> :
+                          null}
+                        </TouchableOpacity> :
+                        null}
 
-                      {(textoFecha || etiquetasArr.length > 0) ? (
+                      {textoFecha || etiquetasArr.length > 0 ?
                         <View style={estilos.cardFechaEtiquetas}>
                           {textoFecha ? <Text style={estilos.cardMeta}>{String(textoFecha)}</Text> : null}
-                          {etiquetasArr.length > 0 ? (
-                            <Text style={estilos.cardEtiquetasLinea}>
+                          {etiquetasArr.length > 0 ?
+                          <Text style={estilos.cardEtiquetasLinea}>
                               Etiquetas: {etiquetasArr.join(', ')}
-                            </Text>
-                          ) : null}
-                        </View>
-                      ) : null}
+                            </Text> :
+                          null}
+                        </View> :
+                        null}
 
                       <View style={estilos.cardAcciones}>
                         <View style={estilos.cardAccionItem}>
@@ -1009,29 +1028,29 @@ export default function ContenidoGeneral({ navigation }) {
                           <Text style={estilos.cardAccionNumero}>{vistas}</Text>
                         </View>
                         <TouchableOpacity
-                          style={estilos.cardAccionItem}
-                          onPress={() => onLike(item)}
-                          activeOpacity={0.7}
-                          disabled={bloqueado || likesHechos.has(String(item?.id ?? item?._id?.toString?.() ?? item?._id))}
-                        >
+                            style={estilos.cardAccionItem}
+                            onPress={() => onLike(item)}
+                            activeOpacity={0.7}
+                            disabled={bloqueado || likesHechos.has(String(item?.id ?? item?._id?.toString?.() ?? item?._id))}>
+                            
                           <Ionicons name="heart-outline" size={20} color="#888" />
                           <Text style={estilos.cardAccionNumero}>{likes}</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                          style={estilos.cardAccionItem}
-                          onPress={() => abrirComentarios(item)}
-                          activeOpacity={0.7}
-                          disabled={bloqueado}
-                        >
+                            style={estilos.cardAccionItem}
+                            onPress={() => abrirComentarios(item)}
+                            activeOpacity={0.7}
+                            disabled={bloqueado}>
+                            
                           <Ionicons name="chatbubble-outline" size={18} color="#888" />
                           <Text style={estilos.cardAccionNumero}>{numComentarios}</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
                   </View>
-                </View>
-              );
-            })}
+                </View>);
+
+              })}
             </View>
           </View>
         </ScrollView>
@@ -1041,29 +1060,29 @@ export default function ContenidoGeneral({ navigation }) {
         visible={!!mediaItem}
         transparent
         animationType="fade"
-        onRequestClose={cerrarMediaModal}
-      >
+        onRequestClose={cerrarMediaModal}>
+        
         <View style={estilos.modalMediaFondo}>
           <Pressable style={estilos.modalBackdrop} onPress={cerrarMediaModal} />
           <View style={estilos.modalMediaCaja}>
-            {mediaItem && (
-              <>
+            {mediaItem &&
+            <>
                 <View style={estilos.modalMediaCabecera}>
                   <View style={estilos.modalMediaHeader}>
                     <View style={estilos.cardTipoBadge}>
                       <Ionicons
-                        name={
-                          usarVideoEnModal
-                            ? 'videocam'
-                            : tipoModalAbierto === 'audio'
-                              ? 'musical-notes'
-                              : tipoModalAbierto === 'imagen'
-                                ? 'image'
-                                : 'document-text'
-                        }
-                        size={14}
-                        color="#00dc57"
-                      />
+                      name={
+                      usarVideoEnModal ?
+                      'videocam' :
+                      tipoModalAbierto === 'audio' ?
+                      'musical-notes' :
+                      tipoModalAbierto === 'imagen' ?
+                      'image' :
+                      'document-text'
+                      }
+                      size={14}
+                      color="#00dc57" />
+                    
                       <Text style={estilos.cardTipoTexto}>
                         {mediaItem.tipoContenido || mediaItem.tipo || 'articulo'}
                       </Text>
@@ -1073,134 +1092,134 @@ export default function ContenidoGeneral({ navigation }) {
                     </TouchableOpacity>
                   </View>
                   <Text style={estilos.modalMediaTituloTop}>{mediaItem.titulo || 'Sin título'}</Text>
-                  {mediaItem.previewTexto || mediaItem.descripcion ? (
-                    <Text style={estilos.modalMediaDescripcionTop} numberOfLines={esModalWebApilado ? 4 : 3}>
+                  {mediaItem.previewTexto || mediaItem.descripcion ?
+                <Text style={estilos.modalMediaDescripcionTop} numberOfLines={esModalWebApilado ? 4 : 3}>
                       {mediaItem.previewTexto || mediaItem.descripcion}
-                    </Text>
-                  ) : null}
+                    </Text> :
+                null}
                 </View>
-                {esModalWebApilado ? (
-                  <View style={estilos.modalMediaFlujoApilado}>
+                {esModalWebApilado ?
+              <View style={estilos.modalMediaFlujoApilado}>
                     <View style={estilos.modalMediaZonaVideoApilada}>
-                      {mediaUrlSeleccionada && (
-                        <View
-                          style={[
-                            estilos.cardPreviewImgModal,
-                            estilos.cardPreviewImgModalWebMovil,
-                            {
-                              height: Math.min(ventanaAlto * 0.4, 340),
-                            },
-                          ]}
-                        >
+                      {mediaUrlSeleccionada &&
+                  <View
+                    style={[
+                    estilos.cardPreviewImgModal,
+                    estilos.cardPreviewImgModalWebMovil,
+                    {
+                      height: Math.min(ventanaAlto * 0.4, 340)
+                    }]
+                    }>
+                    
                           <View style={estilos.mediaCenterBox}>
-                            {usarVideoEnModal ? (
-                              Platform.OS === 'web' ? (
-                                <VideoModalPlayerWeb
-                                  key={mediaUrlSeleccionada}
-                                  src={mediaUrlSeleccionada}
-                                  poster={posterModalVideoWeb}
-                                  videoRef={webVideoRef}
-                                  onAspectKnown={(ar) => setMediaAspectRatio(ar)}
-                                  onEnded={() => setVideoTerminado(true)}
-                                  onVideoError={(msg) =>
-                                    Alert.alert(
-                                      'Vídeo',
-                                      `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
-                                    )
-                                  }
-                                />
-                              ) : (
-                                <VideoModalPlayerNative
-                                  key={mediaUrlSeleccionada}
-                                  uri={mediaUrlSeleccionada}
-                                  playerRef={videoRef}
-                                  style={[
-                                    estilos.cardPreviewVideo,
-                                    {
-                                      maxHeight: '100%',
-                                      maxWidth: '100%',
-                                      aspectRatio: mediaAspectRatio || 16 / 9,
-                                    },
-                                  ]}
-                                  onAspectKnown={(ar) => setMediaAspectRatio(ar)}
-                                  onEnded={() => setVideoTerminado(true)}
-                                  onVideoError={(msg) =>
-                                    Alert.alert(
-                                      'Vídeo',
-                                      `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
-                                    )
-                                  }
-                                />
-                              )
-                            ) : (
-                              <Image
-                                source={{ uri: mediaUrlSeleccionada }}
-                                style={[
-                                  estilos.cardPreviewImgInner,
-                                  Platform.OS === 'web'
-                                    ? {
-                                        display: 'block',
-                                        alignSelf: 'center',
-                                        width: '100%',
-                                        height: '100%',
-                                        maxWidth: '100%',
-                                        maxHeight: '100%',
-                                        objectFit: 'contain',
-                                        objectPosition: 'center center',
-                                      }
-                                    : {
-                                        maxHeight: '100%',
-                                        maxWidth: '100%',
-                                        aspectRatio: mediaAspectRatio || 16 / 9,
-                                      },
-                                ]}
-                                resizeMode="contain"
-                                onLoad={(e) => {
-                                  const w = e?.nativeEvent?.source?.width;
-                                  const h = e?.nativeEvent?.source?.height;
-                                  if (w && h) {
-                                    setMediaAspectRatio(w / h);
-                                  }
-                                }}
-                              />
-                            )}
+                            {usarVideoEnModal ?
+                      Platform.OS === 'web' ?
+                      <VideoModalPlayerWeb
+                        key={mediaUrlSeleccionada}
+                        src={mediaUrlSeleccionada}
+                        poster={posterModalVideoWeb}
+                        videoRef={webVideoRef}
+                        onAspectKnown={(ar) => setMediaAspectRatio(ar)}
+                        onEnded={() => setVideoTerminado(true)}
+                        onVideoError={(msg) =>
+                        Alert.alert(
+                          'Vídeo',
+                          `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
+                        )
+                        } /> :
+
+
+                      <VideoModalPlayerNative
+                        key={mediaUrlSeleccionada}
+                        uri={mediaUrlSeleccionada}
+                        playerRef={videoRef}
+                        style={[
+                        estilos.cardPreviewVideo,
+                        {
+                          maxHeight: '100%',
+                          maxWidth: '100%',
+                          aspectRatio: mediaAspectRatio || 16 / 9
+                        }]
+                        }
+                        onAspectKnown={(ar) => setMediaAspectRatio(ar)}
+                        onEnded={() => setVideoTerminado(true)}
+                        onVideoError={(msg) =>
+                        Alert.alert(
+                          'Vídeo',
+                          `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
+                        )
+                        } /> :
+
+
+
+                      <Image
+                        source={{ uri: mediaUrlSeleccionada }}
+                        style={[
+                        estilos.cardPreviewImgInner,
+                        Platform.OS === 'web' ?
+                        {
+                          display: 'block',
+                          alignSelf: 'center',
+                          width: '100%',
+                          height: '100%',
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain',
+                          objectPosition: 'center center'
+                        } :
+                        {
+                          maxHeight: '100%',
+                          maxWidth: '100%',
+                          aspectRatio: mediaAspectRatio || 16 / 9
+                        }]
+                        }
+                        resizeMode="contain"
+                        onLoad={(e) => {
+                          const w = e?.nativeEvent?.source?.width;
+                          const h = e?.nativeEvent?.source?.height;
+                          if (w && h) {
+                            setMediaAspectRatio(w / h);
+                          }
+                        }} />
+
+                      }
                           </View>
-                          {videoTerminado && usarVideoEnModal ? (
-                            <Pressable
-                              style={estilos.videoReplayOverlay}
-                              onPress={async () => {
-                                setVideoTerminado(false);
-                                if (Platform.OS === 'web') {
-                                  const el = webVideoRef.current;
-                                  if (el) {
-                                    el.currentTime = 0;
-                                    try {
-                                      await el.play();
-                                    } catch (_) {
-                                      /* noop */
-                                    }
-                                  }
-                                  return;
-                                }
-                                try {
-                                  const p = videoRef.current;
-                                  if (p) {
-                                    p.replay();
-                                    p.play();
-                                  }
-                                } catch (_) {
-                                  /* noop */
-                                }
-                              }}
-                            >
+                          {videoTerminado && usarVideoEnModal ?
+                    <Pressable
+                      style={estilos.videoReplayOverlay}
+                      onPress={async () => {
+                        setVideoTerminado(false);
+                        if (Platform.OS === 'web') {
+                          const el = webVideoRef.current;
+                          if (el) {
+                            el.currentTime = 0;
+                            try {
+                              await el.play();
+                            } catch (_) {
+
+                            }
+                          }
+                          return;
+                        }
+                        try {
+                          const p = videoRef.current;
+                          if (p) {
+                            p.replay();
+                            p.play();
+                          }
+                        } catch (_) {
+
+                        }
+                      }}>
+                      
                               <View style={estilos.videoReplayBoton}>
                                 <Ionicons name="refresh" size={22} color="#000" />
                                 <Text style={estilos.videoReplayTexto}>Reproducir</Text>
                               </View>
-                            </Pressable>
-                          ) : null}
+                            </Pressable> :
+                    null}
                         </View>
-                      )}
+                  }
                     </View>
                     <View style={[estilos.modalMediaColDerMobile, esWeb && estilos.modalMediaColDerMobileWebApilado]}>
                       <View style={estilos.modalAccionesFilaMobile}>
@@ -1212,196 +1231,203 @@ export default function ContenidoGeneral({ navigation }) {
                             </Text>
                           </View>
                           <TouchableOpacity
-                            style={estilos.cardAccionItem}
-                            onPress={() => onLike(mediaItem)}
-                            activeOpacity={0.7}
-                            disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}
-                          >
+                        style={estilos.cardAccionItem}
+                        onPress={() => onLike(mediaItem)}
+                        activeOpacity={0.7}
+                        disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}>
+                        
                             <Ionicons name="heart-outline" size={20} color="#888" />
                             <Text style={estilos.cardAccionNumero}>
                               {mediaItem.numeroLikes ?? 0}
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
-                            style={estilos.cardAccionItem}
-                            onPress={() => abrirComentarios(mediaItem)}
-                            activeOpacity={0.7}
-                          >
+                        style={estilos.cardAccionItem}
+                        onPress={() => abrirComentarios(mediaItem)}
+                        activeOpacity={0.7}>
+                        
                             <Ionicons name="chatbubble-outline" size={18} color="#888" />
                             <Text style={estilos.cardAccionNumero}>
                               {Array.isArray(mediaItem.comentarios) ? mediaItem.comentarios.length : mediaItem.numeroComentarios ?? 0}
                             </Text>
                           </TouchableOpacity>
                         </View>
-                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ? (
-                          <TouchableOpacity
-                            style={estilos.modalAbrirArchivo}
-                            onPress={() => abrirContenido(mediaItem)}
-                          >
+                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ?
+                    <TouchableOpacity
+                      style={estilos.modalAbrirArchivo}
+                      onPress={() => abrirContenido(mediaItem)}>
+                      
                             <Ionicons name="open-outline" size={16} color="#00dc57" />
                             <Text style={estilos.modalAbrirArchivoTexto}>Abrir archivo</Text>
-                          </TouchableOpacity>
-                        ) : null}
+                          </TouchableOpacity> :
+                    null}
                       </View>
                       <View style={estilos.modalComentariosMobile}>
                         <Text style={estilos.modalComentariosTitulo}>Comentarios</Text>
-                        {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ? (
-                          <ScrollView
-                            style={estilos.modalComentariosScrollMobile}
-                            contentContainerStyle={estilos.modalComentariosScrollContenido}
-                            showsVerticalScrollIndicator={false}
-                            nestedScrollEnabled
-                            keyboardShouldPersistTaps="handled"
-                          >
+                        {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ?
+                    <ScrollView
+                      style={estilos.modalComentariosScrollMobile}
+                      contentContainerStyle={estilos.modalComentariosScrollContenido}
+                      showsVerticalScrollIndicator={false}
+                      nestedScrollEnabled
+                      keyboardShouldPersistTaps="handled">
+                      
                             {mediaItem.comentarios.map((c, idx) => {
-                              const esObjeto = c && typeof c === 'object';
-                              const texto = esObjeto ? c.texto || '' : String(c || '');
-                              const usuario = esObjeto ? c.usuario || '' : '';
-                              if (!texto) return null;
-                              return (
-                                <View key={idx} style={estilos.modalComentarioCaja}>
-                                  {usuario ? (
-                                    <Text style={estilos.modalComentarioUsuario}>{usuario}</Text>
-                                  ) : null}
+                        const esObjeto = c && typeof c === 'object';
+                        const texto = esObjeto ? c.texto || '' : String(c || '');
+                        const usuario = esObjeto ? c.usuario || '' : '';
+                        if (!texto) return null;
+                        return (
+                          <View key={idx} style={estilos.modalComentarioCaja}>
+                                  {usuario ?
+                            <View style={estilos.modalComentarioUsuarioFila}>
+                                      <Text style={estilos.modalComentarioUsuario}>{usuario}</Text>
+                                      {etiquetaNivelComentario(c) ?
+                              <Text style={estilos.modalComentarioNivel}>
+                                          {etiquetaNivelComentario(c)}
+                                        </Text> :
+                              null}
+                                    </View> :
+                            null}
                                   <Text style={estilos.modalComentarioItem}>{texto}</Text>
-                                </View>
-                              );
-                            })}
-                          </ScrollView>
-                        ) : (
-                          <View style={estilos.modalComentariosVacioMobile}>
+                                </View>);
+
+                      })}
+                          </ScrollView> :
+
+                    <View style={estilos.modalComentariosVacioMobile}>
                             <Text style={estilos.modalComentarioVacio}>Sé el primero en comentar.</Text>
                           </View>
-                        )}
+                    }
                       </View>
                     </View>
-                  </View>
-                ) : (
-                <View style={estilos.modalMediaCuerpoRow}>
+                  </View> :
+
+              <View style={estilos.modalMediaCuerpoRow}>
                   <View style={estilos.modalMediaColMedia}>
-                    {mediaUrlSeleccionada && (
-                      <View
-                        style={[
-                          estilos.cardPreviewImgModal,
-                          {
-                            height: esWebDesktop
-                              ? ventanaAlto * 0.78
-                              : ventanaAlto * 0.45,
-                          },
-                        ]}
-                      >
+                    {mediaUrlSeleccionada &&
+                  <View
+                    style={[
+                    estilos.cardPreviewImgModal,
+                    {
+                      height: esWebDesktop ?
+                      ventanaAlto * 0.78 :
+                      ventanaAlto * 0.45
+                    }]
+                    }>
+                    
                         <View style={estilos.mediaCenterBox}>
-                          {usarVideoEnModal ? (
-                            Platform.OS === 'web' ? (
-                              <VideoModalPlayerWeb
-                                key={mediaUrlSeleccionada}
-                                src={mediaUrlSeleccionada}
-                                poster={posterModalVideoWeb}
-                                videoRef={webVideoRef}
-                                onAspectKnown={(ar) => setMediaAspectRatio(ar)}
-                                onEnded={() => setVideoTerminado(true)}
-                                onVideoError={(msg) =>
-                                  Alert.alert(
-                                    'Vídeo',
-                                    `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
-                                  )
-                                }
-                              />
-                            ) : (
-                              <VideoModalPlayerNative
-                                key={mediaUrlSeleccionada}
-                                uri={mediaUrlSeleccionada}
-                                playerRef={videoRef}
-                                style={[
-                                  estilos.cardPreviewVideo,
-                                  {
-                                    maxHeight: '100%',
-                                    maxWidth: '100%',
-                                    aspectRatio: mediaAspectRatio || 16 / 9,
-                                  },
-                                ]}
-                                onAspectKnown={(ar) => setMediaAspectRatio(ar)}
-                                onEnded={() => setVideoTerminado(true)}
-                                onVideoError={(msg) =>
-                                  Alert.alert(
-                                    'Vídeo',
-                                    `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
-                                  )
-                                }
-                              />
-                            )
-                          ) : (
-                            <Image
-                              source={{ uri: mediaUrlSeleccionada }}
-                              style={[
-                                estilos.cardPreviewImgInner,
-                                Platform.OS === 'web'
-                                  ? {
-                                      display: 'block',
-                                      alignSelf: 'center',
-                                      width: '100%',
-                                      height: '100%',
-                                      maxWidth: '100%',
-                                      maxHeight: '100%',
-                                      objectFit: 'contain',
-                                      objectPosition: 'center center',
-                                    }
-                                  : {
-                                      maxHeight: '100%',
-                                      maxWidth: '100%',
-                                      aspectRatio: mediaAspectRatio || 16 / 9,
-                                    },
-                              ]}
-                              resizeMode="contain"
-                              onLoad={(e) => {
-                                const w = e?.nativeEvent?.source?.width;
-                                const h = e?.nativeEvent?.source?.height;
-                                if (w && h) {
-                                  setMediaAspectRatio(w / h);
-                                }
-                              }}
-                            />
-                          )}
+                          {usarVideoEnModal ?
+                      Platform.OS === 'web' ?
+                      <VideoModalPlayerWeb
+                        key={mediaUrlSeleccionada}
+                        src={mediaUrlSeleccionada}
+                        poster={posterModalVideoWeb}
+                        videoRef={webVideoRef}
+                        onAspectKnown={(ar) => setMediaAspectRatio(ar)}
+                        onEnded={() => setVideoTerminado(true)}
+                        onVideoError={(msg) =>
+                        Alert.alert(
+                          'Vídeo',
+                          `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
+                        )
+                        } /> :
+
+
+                      <VideoModalPlayerNative
+                        key={mediaUrlSeleccionada}
+                        uri={mediaUrlSeleccionada}
+                        playerRef={videoRef}
+                        style={[
+                        estilos.cardPreviewVideo,
+                        {
+                          maxHeight: '100%',
+                          maxWidth: '100%',
+                          aspectRatio: mediaAspectRatio || 16 / 9
+                        }]
+                        }
+                        onAspectKnown={(ar) => setMediaAspectRatio(ar)}
+                        onEnded={() => setVideoTerminado(true)}
+                        onVideoError={(msg) =>
+                        Alert.alert(
+                          'Vídeo',
+                          `${msg}\n\nPrueba reproducir de nuevo o usa «Abrir archivo».`
+                        )
+                        } /> :
+
+
+
+                      <Image
+                        source={{ uri: mediaUrlSeleccionada }}
+                        style={[
+                        estilos.cardPreviewImgInner,
+                        Platform.OS === 'web' ?
+                        {
+                          display: 'block',
+                          alignSelf: 'center',
+                          width: '100%',
+                          height: '100%',
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain',
+                          objectPosition: 'center center'
+                        } :
+                        {
+                          maxHeight: '100%',
+                          maxWidth: '100%',
+                          aspectRatio: mediaAspectRatio || 16 / 9
+                        }]
+                        }
+                        resizeMode="contain"
+                        onLoad={(e) => {
+                          const w = e?.nativeEvent?.source?.width;
+                          const h = e?.nativeEvent?.source?.height;
+                          if (w && h) {
+                            setMediaAspectRatio(w / h);
+                          }
+                        }} />
+
+                      }
                         </View>
-                        {videoTerminado && usarVideoEnModal ? (
-                          <Pressable
-                            style={estilos.videoReplayOverlay}
-                            onPress={async () => {
-                              setVideoTerminado(false);
-                              if (Platform.OS === 'web') {
-                                const el = webVideoRef.current;
-                                if (el) {
-                                  el.currentTime = 0;
-                                  try {
-                                    await el.play();
-                                  } catch (_) {
-                                    /* noop */
-                                  }
-                                }
-                                return;
-                              }
-                              try {
-                                const p = videoRef.current;
-                                if (p) {
-                                  p.replay();
-                                  p.play();
-                                }
-                              } catch (_) {
-                                /* noop */
-                              }
-                            }}
-                          >
+                        {videoTerminado && usarVideoEnModal ?
+                    <Pressable
+                      style={estilos.videoReplayOverlay}
+                      onPress={async () => {
+                        setVideoTerminado(false);
+                        if (Platform.OS === 'web') {
+                          const el = webVideoRef.current;
+                          if (el) {
+                            el.currentTime = 0;
+                            try {
+                              await el.play();
+                            } catch (_) {
+
+                            }
+                          }
+                          return;
+                        }
+                        try {
+                          const p = videoRef.current;
+                          if (p) {
+                            p.replay();
+                            p.play();
+                          }
+                        } catch (_) {
+
+                        }
+                      }}>
+                      
                             <View style={estilos.videoReplayBoton}>
                               <Ionicons name="refresh" size={22} color="#000" />
                               <Text style={estilos.videoReplayTexto}>Reproducir</Text>
                             </View>
-                          </Pressable>
-                        ) : null}
+                          </Pressable> :
+                    null}
                       </View>
-                    )}
+                  }
                   </View>
-                  {esWeb ? (
-                    <View style={estilos.modalMediaColDer}>
+                  {esWeb ?
+                <View style={estilos.modalMediaColDer}>
                       <View style={estilos.modalAccionesFila}>
                         <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
                           <View style={estilos.cardAccionItem}>
@@ -1411,68 +1437,75 @@ export default function ContenidoGeneral({ navigation }) {
                             </Text>
                           </View>
                           <TouchableOpacity
-                            style={estilos.cardAccionItem}
-                            onPress={() => onLike(mediaItem)}
-                            activeOpacity={0.7}
-                            disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}
-                          >
+                        style={estilos.cardAccionItem}
+                        onPress={() => onLike(mediaItem)}
+                        activeOpacity={0.7}
+                        disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}>
+                        
                             <Ionicons name="heart-outline" size={20} color="#888" />
                             <Text style={estilos.cardAccionNumero}>
                               {mediaItem.numeroLikes ?? 0}
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
-                            style={estilos.cardAccionItem}
-                            onPress={() => abrirComentarios(mediaItem)}
-                            activeOpacity={0.7}
-                          >
+                        style={estilos.cardAccionItem}
+                        onPress={() => abrirComentarios(mediaItem)}
+                        activeOpacity={0.7}>
+                        
                             <Ionicons name="chatbubble-outline" size={18} color="#888" />
                             <Text style={estilos.cardAccionNumero}>
                               {Array.isArray(mediaItem.comentarios) ? mediaItem.comentarios.length : mediaItem.numeroComentarios ?? 0}
                             </Text>
                           </TouchableOpacity>
                         </View>
-                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ? (
-                          <TouchableOpacity
-                            style={estilos.modalAbrirArchivo}
-                            onPress={() => abrirContenido(mediaItem)}
-                          >
+                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ?
+                    <TouchableOpacity
+                      style={estilos.modalAbrirArchivo}
+                      onPress={() => abrirContenido(mediaItem)}>
+                      
                             <Ionicons name="open-outline" size={16} color="#00dc57" />
                             <Text style={estilos.modalAbrirArchivoTexto}>Abrir archivo</Text>
-                          </TouchableOpacity>
-                        ) : null}
+                          </TouchableOpacity> :
+                    null}
                       </View>
                       <View style={estilos.modalComentarios}>
                         <Text style={estilos.modalComentariosTitulo}>Comentarios</Text>
                         <ScrollView
-                          style={estilos.modalComentariosScroll}
-                          contentContainerStyle={estilos.modalComentariosScrollContenido}
-                          showsVerticalScrollIndicator={false}
-                        keyboardShouldPersistTaps="handled"
-                        >
-                          {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ? (
-                            mediaItem.comentarios.map((c, idx) => {
-                              const esObjeto = c && typeof c === 'object';
-                              const texto = esObjeto ? c.texto || '' : String(c || '');
-                              const usuario = esObjeto ? c.usuario || '' : '';
-                              if (!texto) return null;
-                              return (
-                                <View key={idx} style={estilos.modalComentarioCaja}>
-                                  {usuario ? (
-                                    <Text style={estilos.modalComentarioUsuario}>{usuario}</Text>
-                                  ) : null}
+                      style={estilos.modalComentariosScroll}
+                      contentContainerStyle={estilos.modalComentariosScrollContenido}
+                      showsVerticalScrollIndicator={false}
+                      keyboardShouldPersistTaps="handled">
+                      
+                          {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ?
+                      mediaItem.comentarios.map((c, idx) => {
+                        const esObjeto = c && typeof c === 'object';
+                        const texto = esObjeto ? c.texto || '' : String(c || '');
+                        const usuario = esObjeto ? c.usuario || '' : '';
+                        if (!texto) return null;
+                        return (
+                          <View key={idx} style={estilos.modalComentarioCaja}>
+                                  {usuario ?
+                            <View style={estilos.modalComentarioUsuarioFila}>
+                                      <Text style={estilos.modalComentarioUsuario}>{usuario}</Text>
+                                      {etiquetaNivelComentario(c) ?
+                              <Text style={estilos.modalComentarioNivel}>
+                                          {etiquetaNivelComentario(c)}
+                                        </Text> :
+                              null}
+                                    </View> :
+                            null}
                                   <Text style={estilos.modalComentarioItem}>{texto}</Text>
-                                </View>
-                              );
-                            })
-                          ) : (
-                            <Text style={estilos.modalComentarioVacio}>Sé el primero en comentar.</Text>
-                          )}
+                                </View>);
+
+                      }) :
+
+                      <Text style={estilos.modalComentarioVacio}>Sé el primero en comentar.</Text>
+                      }
                         </ScrollView>
                       </View>
-                    </View>
-                  ) : (
-                    <View style={[estilos.modalMediaColDerMobile, esWeb && estilos.modalMediaColDerMobileWeb]}>
+                    </View> :
+
+                <View style={[estilos.modalMediaColDerMobile, esWeb && estilos.modalMediaColDerMobileWeb]}>
                       <View style={estilos.modalAccionesFilaMobile}>
                         <View style={[estilos.cardAcciones, estilos.cardAccionesSinBorde]}>
                           <View style={estilos.cardAccionItem}>
@@ -1482,74 +1515,81 @@ export default function ContenidoGeneral({ navigation }) {
                             </Text>
                           </View>
                           <TouchableOpacity
-                            style={estilos.cardAccionItem}
-                            onPress={() => onLike(mediaItem)}
-                            activeOpacity={0.7}
-                            disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}
-                          >
+                        style={estilos.cardAccionItem}
+                        onPress={() => onLike(mediaItem)}
+                        activeOpacity={0.7}
+                        disabled={likesHechos.has(String(mediaItem?.id ?? mediaItem?._id?.toString?.() ?? mediaItem?._id))}>
+                        
                             <Ionicons name="heart-outline" size={20} color="#888" />
                             <Text style={estilos.cardAccionNumero}>
                               {mediaItem.numeroLikes ?? 0}
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
-                            style={estilos.cardAccionItem}
-                            onPress={() => abrirComentarios(mediaItem)}
-                            activeOpacity={0.7}
-                          >
+                        style={estilos.cardAccionItem}
+                        onPress={() => abrirComentarios(mediaItem)}
+                        activeOpacity={0.7}>
+                        
                             <Ionicons name="chatbubble-outline" size={18} color="#888" />
                             <Text style={estilos.cardAccionNumero}>
                               {Array.isArray(mediaItem.comentarios) ? mediaItem.comentarios.length : mediaItem.numeroComentarios ?? 0}
                             </Text>
                           </TouchableOpacity>
                         </View>
-                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ? (
-                          <TouchableOpacity
-                            style={estilos.modalAbrirArchivo}
-                            onPress={() => abrirContenido(mediaItem)}
-                          >
+                        {mediaItem.urlMediaCompleta || mediaItem.urlMedia ?
+                    <TouchableOpacity
+                      style={estilos.modalAbrirArchivo}
+                      onPress={() => abrirContenido(mediaItem)}>
+                      
                             <Ionicons name="open-outline" size={16} color="#00dc57" />
                             <Text style={estilos.modalAbrirArchivoTexto}>Abrir archivo</Text>
-                          </TouchableOpacity>
-                        ) : null}
+                          </TouchableOpacity> :
+                    null}
                       </View>
                       <View style={estilos.modalComentariosMobile}>
                         <Text style={estilos.modalComentariosTitulo}>Comentarios</Text>
-                        {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ? (
-                          <ScrollView
-                            style={estilos.modalComentariosScrollMobile}
-                            contentContainerStyle={estilos.modalComentariosScrollContenido}
-                            showsVerticalScrollIndicator={false}
-                            nestedScrollEnabled
-                            keyboardShouldPersistTaps="handled"
-                          >
+                        {Array.isArray(mediaItem.comentarios) && mediaItem.comentarios.length > 0 ?
+                    <ScrollView
+                      style={estilos.modalComentariosScrollMobile}
+                      contentContainerStyle={estilos.modalComentariosScrollContenido}
+                      showsVerticalScrollIndicator={false}
+                      nestedScrollEnabled
+                      keyboardShouldPersistTaps="handled">
+                      
                             {mediaItem.comentarios.map((c, idx) => {
-                              const esObjeto = c && typeof c === 'object';
-                              const texto = esObjeto ? c.texto || '' : String(c || '');
-                              const usuario = esObjeto ? c.usuario || '' : '';
-                              if (!texto) return null;
-                              return (
-                                <View key={idx} style={estilos.modalComentarioCaja}>
-                                  {usuario ? (
-                                    <Text style={estilos.modalComentarioUsuario}>{usuario}</Text>
-                                  ) : null}
+                        const esObjeto = c && typeof c === 'object';
+                        const texto = esObjeto ? c.texto || '' : String(c || '');
+                        const usuario = esObjeto ? c.usuario || '' : '';
+                        if (!texto) return null;
+                        return (
+                          <View key={idx} style={estilos.modalComentarioCaja}>
+                                  {usuario ?
+                            <View style={estilos.modalComentarioUsuarioFila}>
+                                      <Text style={estilos.modalComentarioUsuario}>{usuario}</Text>
+                                      {etiquetaNivelComentario(c) ?
+                              <Text style={estilos.modalComentarioNivel}>
+                                          {etiquetaNivelComentario(c)}
+                                        </Text> :
+                              null}
+                                    </View> :
+                            null}
                                   <Text style={estilos.modalComentarioItem}>{texto}</Text>
-                                </View>
-                              );
-                            })}
-                          </ScrollView>
-                        ) : (
-                          <View style={estilos.modalComentariosVacioMobile}>
+                                </View>);
+
+                      })}
+                          </ScrollView> :
+
+                    <View style={estilos.modalComentariosVacioMobile}>
                             <Text style={estilos.modalComentarioVacio}>Sé el primero en comentar.</Text>
                           </View>
-                        )}
+                    }
                       </View>
                     </View>
-                  )}
+                }
                 </View>
-                )}
+              }
               </>
-            )}
+            }
           </View>
         </View>
       </Modal>
@@ -1558,8 +1598,8 @@ export default function ContenidoGeneral({ navigation }) {
         visible={!!comentarioItem}
         transparent
         animationType="fade"
-        onRequestClose={cerrarComentarioModal}
-      >
+        onRequestClose={cerrarComentarioModal}>
+        
         <Pressable style={estilos.modalFondo} onPress={cerrarComentarioModal}>
           <Pressable style={estilos.modalCaja} onPress={(e) => e.stopPropagation()}>
             <Text style={estilos.modalTitulo}>Nuevo comentario</Text>
@@ -1571,8 +1611,8 @@ export default function ContenidoGeneral({ navigation }) {
               onChangeText={setComentarioTexto}
               multiline
               maxLength={500}
-              editable={!enviandoComentario}
-            />
+              editable={!enviandoComentario} />
+            
             <View style={estilos.modalBotones}>
               <TouchableOpacity style={estilos.modalBotonCancelar} onPress={cerrarComentarioModal}>
                 <Text style={estilos.modalBotonTextoCancelar}>Cancelar</Text>
@@ -1580,23 +1620,24 @@ export default function ContenidoGeneral({ navigation }) {
               <TouchableOpacity
                 style={[estilos.modalBotonEnviar, (!comentarioTexto.trim() || enviandoComentario) && estilos.modalBotonDisabled]}
                 onPress={enviarComentario}
-                disabled={!comentarioTexto.trim() || enviandoComentario}
-              >
+                disabled={!comentarioTexto.trim() || enviandoComentario}>
+                
                 <Text style={estilos.modalBotonTextoEnviar}>{enviandoComentario ? 'Enviando…' : 'Enviar'}</Text>
               </TouchableOpacity>
             </View>
           </Pressable>
         </Pressable>
       </Modal>
-    </View>
-  );
+    </View>);
+
 }
+
 
 const estilos = StyleSheet.create({
   contenedor: {
     flex: 1,
     backgroundColor: '#0d0d0d',
-    ...(Platform.OS !== 'web' && { overflow: 'visible' }),
+    ...(Platform.OS !== 'web' && { overflow: 'visible' })
   },
   areaContenido: { flex: 1 },
   fondoAbsoluto: {
@@ -1606,7 +1647,7 @@ const estilos = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 0,
-    backgroundColor: '#0d0d0d',
+    backgroundColor: '#0d0d0d'
   },
   fondoImagen: {
     position: 'absolute',
@@ -1616,36 +1657,36 @@ const estilos = StyleSheet.create({
     bottom: 0,
     width: '100%',
     zIndex: 0,
-    backgroundColor: '#0d0d0d',
+    backgroundColor: '#0d0d0d'
   },
   scroll: { flex: 1 },
   scrollContenido: {
     padding: Platform.OS === 'web' ? 20 : 14,
     paddingBottom: 48,
     zIndex: 1,
-    ...(Platform.OS === 'web' ? { alignItems: 'center' } : null),
+    ...(Platform.OS === 'web' ? { alignItems: 'center' } : null)
   },
   scrollContenidoWebMovil: {
     padding: 14,
-    alignItems: 'stretch',
+    alignItems: 'stretch'
   },
   contenidoSobreFondo: { zIndex: 1, alignItems: 'center', width: '100%' },
   contenidoCentrado: {
     width: Platform.OS === 'web' ? '50%' : '100%',
     maxWidth: Platform.OS === 'web' ? 600 : '100%',
-    alignSelf: Platform.OS === 'web' ? 'center' : 'stretch',
+    alignSelf: Platform.OS === 'web' ? 'center' : 'stretch'
   },
   contenidoCentradoWebMovil: {
     width: '100%',
     maxWidth: '100%',
-    alignSelf: 'stretch',
+    alignSelf: 'stretch'
   },
   seccion: {
     fontSize: 18,
     color: '#fff',
     fontWeight: '600',
     marginBottom: 12,
-    marginTop: 16,
+    marginTop: 16
   },
   cardContenedor: { position: 'relative', marginBottom: 12 },
   card: {
@@ -1654,13 +1695,13 @@ const estilos = StyleSheet.create({
     padding: Platform.OS === 'web' ? 18 : 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 10
   },
   cardTipoBadge: {
     flexDirection: 'row',
@@ -1669,7 +1710,7 @@ const estilos = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: 'rgba(0,220,87,0.12)',
+    backgroundColor: 'rgba(0,220,87,0.12)'
   },
   cardTipoTexto: { color: '#00dc57', fontSize: 12, textTransform: 'capitalize' },
   cardHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -1686,7 +1727,7 @@ const estilos = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 8
   },
   cardEtiquetasLinea: { color: '#888', fontSize: 11, textAlign: 'right', flexShrink: 1 },
   modalMediaFondo: {
@@ -1694,10 +1735,10 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 12,
+    padding: 12
   },
   modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFillObject
   },
   modalMediaCaja: {
     width: '96%',
@@ -1712,7 +1753,7 @@ const estilos = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'stretch',
     zIndex: 1,
-    ...(Platform.OS === 'web' ? { position: 'relative' } : null),
+    ...(Platform.OS === 'web' ? { position: 'relative' } : null)
   },
   modalMediaCabecera: {
     width: '100%',
@@ -1723,26 +1764,26 @@ const estilos = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.08)',
     zIndex: 20,
     elevation: 20,
-    backgroundColor: Platform.OS === 'web' ? '#121212' : 'rgba(18,18,18,0.99)',
+    backgroundColor: Platform.OS === 'web' ? '#121212' : 'rgba(18,18,18,0.99)'
   },
   modalMediaHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 8
   },
   modalMediaTituloTop: {
     color: '#fff',
     fontSize: 20,
     fontWeight: '700',
-    marginBottom: 2,
+    marginBottom: 2
   },
   modalMediaDescripcionTop: {
     color: '#bbb',
     fontSize: 14,
     lineHeight: 20,
     marginBottom: 0,
-    paddingBottom: 0,
+    paddingBottom: 0
   },
   modalMediaCerrar: { padding: 4 },
   modalMediaTitulo: {
@@ -1750,28 +1791,28 @@ const estilos = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     marginTop: Platform.OS === 'web' ? 12 : 6,
-    marginBottom: Platform.OS === 'web' ? 6 : 4,
+    marginBottom: Platform.OS === 'web' ? 6 : 4
   },
   modalMediaCuerpoRow: {
     flex: 1,
     minHeight: Platform.OS === 'web' ? 0 : undefined,
     flexDirection: Platform.OS === 'web' ? 'row' : 'column',
     gap: Platform.OS === 'web' ? 16 : 10,
-    alignItems: 'stretch',
+    alignItems: 'stretch'
   },
   modalMediaCuerpoRowWebMovil: {
     flexDirection: 'column',
     gap: 0,
-    minHeight: 0,
+    minHeight: 0
   },
-  /** Web modal apilado: columna fija (cabecera → video → acciones) sin flex raro que empalme el &lt;video&gt; con el texto. */
+
   modalMediaFlujoApilado: {
     flex: 1,
     minHeight: 0,
     width: '100%',
     flexDirection: 'column',
     alignItems: 'stretch',
-    ...(Platform.OS === 'web' ? { position: 'relative' } : null),
+    ...(Platform.OS === 'web' ? { position: 'relative' } : null)
   },
   modalMediaZonaVideoApilada: {
     width: '100%',
@@ -1779,7 +1820,7 @@ const estilos = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     zIndex: 0,
-    marginTop: 0,
+    marginTop: 0
   },
   modalMediaColDerMobileWebApilado: {
     flex: 1,
@@ -1787,9 +1828,9 @@ const estilos = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     zIndex: 1,
-    marginTop: 14,
+    marginTop: 14
   },
-  // Web móvil: título y descripción arriba; el vídeo empieza después (evita texto encima del reproductor).
+
   modalMediaBloqueTextoWebMovil: {
     width: '100%',
     flexShrink: 0,
@@ -1800,23 +1841,23 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.24)',
     borderRadius: 10,
     paddingHorizontal: 8,
-    paddingTop: 4,
+    paddingTop: 4
   },
   modalMediaTituloEncimaVideoWebMovil: {
     marginTop: 0,
-    marginBottom: 4,
+    marginBottom: 4
   },
   modalMediaDescripcionEncimaVideoWebMovil: {
-    marginBottom: 0,
+    marginBottom: 0
   },
   modalMediaColMedia: {
     flex: Platform.OS === 'web' ? 5 : 0,
     minHeight: Platform.OS === 'web' ? 0 : undefined,
     justifyContent: Platform.OS === 'web' ? 'center' : 'flex-start',
     alignItems: 'center',
-    width: '100%',
+    width: '100%'
   },
-  // En web móvil el cuerpo es columna: flex:5 en la imagen roba casi todo el alto y los comentarios casi no se ven.
+
   modalMediaColMediaWebMovil: {
     flex: 0,
     flexGrow: 0,
@@ -1824,19 +1865,19 @@ const estilos = StyleSheet.create({
     marginTop: 0,
     marginBottom: 12,
     position: 'relative',
-    zIndex: 1,
+    zIndex: 1
   },
   modalMediaColDer: {
     flex: Platform.OS === 'web' ? 2 : 5,
     minHeight: Platform.OS === 'web' ? undefined : 260,
-    ...(Platform.OS === 'web'
-      ? {
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
-          overflow: 'hidden',
-        }
-      : null),
+    ...(Platform.OS === 'web' ?
+    {
+      display: 'flex',
+      flexDirection: 'column',
+      minHeight: 0,
+      overflow: 'hidden'
+    } :
+    null)
   },
   modalMediaColDerMobile: {
     flex: 1,
@@ -1847,7 +1888,7 @@ const estilos = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.06)',
     paddingHorizontal: 12,
     paddingTop: 8,
-    paddingBottom: 12,
+    paddingBottom: 12
   },
   modalMediaColDerMobileWeb: {
     flex: 1,
@@ -1855,24 +1896,24 @@ const estilos = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
     zIndex: 2,
-    marginTop: 16,
+    marginTop: 16
   },
   modalMediaColDerScroll: {
     flex: 1,
     borderRadius: 14,
     backgroundColor: 'rgba(0,0,0,0.22)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.06)'
   },
   modalMediaColDerScrollContenido: {
     paddingHorizontal: 12,
     paddingTop: 8,
-    paddingBottom: 16,
+    paddingBottom: 16
   },
   modalComentarios: {
     marginTop: Platform.OS === 'web' ? 12 : 10,
     flex: 1,
-    minHeight: 0,
+    minHeight: 0
   },
   modalComentariosMobile: { marginTop: 10, flex: 1, minHeight: 0 },
   modalComentariosTitulo: { color: '#fff', fontSize: 14, fontWeight: '600', marginBottom: 4 },
@@ -1887,16 +1928,29 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 12
   },
   modalComentarioCaja: {
     paddingVertical: 6,
     paddingHorizontal: 8,
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.03)',
-    marginBottom: 6,
+    marginBottom: 6
   },
-  modalComentarioUsuario: { color: '#00dc57', fontSize: 12, fontWeight: '600', marginBottom: 2 },
+  modalComentarioUsuarioFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2
+  },
+  modalComentarioUsuario: { color: '#00dc57', fontSize: 12, fontWeight: '600' },
+  modalComentarioNivel: {
+    color: '#9ea3a9',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4
+  },
   modalComentarioItem: { color: '#ccc', fontSize: 13 },
   modalComentarioVacio: { color: '#666', fontSize: 12 },
   modalAccionesFila: {
@@ -1907,7 +1961,7 @@ const estilos = StyleSheet.create({
     gap: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: 'rgba(255,255,255,0.06)'
   },
   modalAccionesFilaMobile: {
     marginTop: 0,
@@ -1916,7 +1970,7 @@ const estilos = StyleSheet.create({
     gap: 10,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: 'rgba(255,255,255,0.06)'
   },
   modalAbrirArchivo: {
     flexDirection: 'row',
@@ -1926,7 +1980,7 @@ const estilos = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#00dc57',
-    gap: 6,
+    gap: 6
   },
   modalAbrirArchivoTexto: { color: '#00dc57', fontSize: 13, fontWeight: '500' },
   cardMeta: { color: '#666', fontSize: 12 },
@@ -1934,7 +1988,7 @@ const estilos = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.2)'
   },
   cardAcciones: {
     flexDirection: 'row',
@@ -1943,12 +1997,12 @@ const estilos = StyleSheet.create({
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopColor: 'rgba(255,255,255,0.06)'
   },
   cardAccionesSinBorde: {
     marginTop: 0,
     paddingTop: 0,
-    borderTopWidth: 0,
+    borderTopWidth: 0
   },
   cardAccionItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardAccionNumero: { color: '#aaa', fontSize: 14 },
@@ -1963,7 +2017,7 @@ const estilos = StyleSheet.create({
     overflow: 'hidden',
     marginVertical: 12,
     backgroundColor: '#000',
-    position: 'relative',
+    position: 'relative'
   },
   cardPreviewImgModal: {
     width: '100%',
@@ -1976,7 +2030,7 @@ const estilos = StyleSheet.create({
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 0,
+    minHeight: 0
   },
   cardPreviewImgModalWebMovil: {
     marginTop: 0,
@@ -1986,7 +2040,7 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
     borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
+    borderTopRightRadius: 0
   },
   mediaCenterBox: {
     flex: 1,
@@ -1994,12 +2048,12 @@ const estilos = StyleSheet.create({
     height: '100%',
     minHeight: 0,
     justifyContent: 'center',
-    // En web, 'center' deja el <video> al ancho intrínseco y parece recorte tipo cover.
-    alignItems: Platform.OS === 'web' ? 'stretch' : 'center',
+
+    alignItems: Platform.OS === 'web' ? 'stretch' : 'center'
   },
   cardPreviewImgInner: { width: '100%', height: '100%' },
   cardPreviewImgBlurWeb: {
-    ...(Platform.OS === 'web' ? { filter: 'blur(12px)' } : null),
+    ...(Platform.OS === 'web' ? { filter: 'blur(12px)' } : null)
   },
   cardPreviewObfuscador: {
     ...StyleSheet.absoluteFillObject,
@@ -2007,7 +2061,7 @@ const estilos = StyleSheet.create({
     ...(Platform.OS === 'web' ? { backdropFilter: 'blur(12px)' } : null),
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 14,
+    padding: 14
   },
   cardPreviewLeyendaCaja: {
     backgroundColor: 'rgba(0,0,0,0.45)',
@@ -2017,31 +2071,31 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)',
     maxWidth: 320,
-    width: '100%',
+    width: '100%'
   },
   cardPreviewLeyendaTitulo: {
     color: '#fff',
     fontSize: 15,
     fontWeight: '800',
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 4
   },
   cardPreviewLeyendaSub: {
     color: 'rgba(255,255,255,0.85)',
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: 18
   },
   cardPreviewVideo: {
     width: '100%',
-    height: '100%',
+    height: '100%'
   },
   videoReplayOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.15)'
   },
   videoReplayBoton: {
     flexDirection: 'row',
@@ -2050,7 +2104,7 @@ const estilos = StyleSheet.create({
     backgroundColor: '#00dc57',
     paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 999,
+    borderRadius: 999
   },
   videoReplayTexto: { color: '#000', fontWeight: '700' },
   enlaceMapa: { color: '#00dc57', marginTop: 6, fontSize: 14 },
@@ -2064,7 +2118,7 @@ const estilos = StyleSheet.create({
     borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 10
   },
   estadoCargaTexto: { color: '#aaa', fontSize: 13 },
   estadoErrorCaja: {
@@ -2073,14 +2127,14 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(244,67,54,0.12)',
     borderWidth: 1,
     borderColor: 'rgba(244,67,54,0.35)',
-    borderRadius: 10,
+    borderRadius: 10
   },
   estadoErrorTexto: { color: '#ffd3d3', fontSize: 13, marginBottom: 10 },
   estadoErrorDetalleDev: {
     color: '#ffd3d3',
     fontSize: 11,
     marginBottom: 10,
-    opacity: 0.85,
+    opacity: 0.85
   },
   estadoErrorBoton: {
     alignSelf: 'flex-start',
@@ -2088,7 +2142,7 @@ const estilos = StyleSheet.create({
     borderColor: '#00dc57',
     borderRadius: 8,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 6
   },
   estadoErrorBotonTexto: { color: '#00dc57', fontSize: 12, fontWeight: '600' },
   modalFondo: {
@@ -2096,7 +2150,7 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 24
   },
   modalCaja: {
     width: '100%',
@@ -2105,7 +2159,7 @@ const estilos = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.08)'
   },
   modalTitulo: { color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 14 },
   modalInput: {
@@ -2118,7 +2172,7 @@ const estilos = StyleSheet.create({
     textAlignVertical: 'top',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    marginBottom: 16,
+    marginBottom: 16
   },
   modalBotones: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
   modalBotonCancelar: { paddingVertical: 10, paddingHorizontal: 16 },
@@ -2127,8 +2181,8 @@ const estilos = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     backgroundColor: '#00dc57',
-    borderRadius: 8,
+    borderRadius: 8
   },
   modalBotonTextoEnviar: { color: '#000', fontWeight: '600', fontSize: 15 },
-  modalBotonDisabled: { opacity: 0.5 },
+  modalBotonDisabled: { opacity: 0.5 }
 });

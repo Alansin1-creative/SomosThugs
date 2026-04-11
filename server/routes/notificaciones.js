@@ -14,10 +14,10 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     const limiteRaw = Number(req.query?.limit);
     const limit = Number.isFinite(limiteRaw) ? Math.min(Math.max(limiteRaw, 1), 100) : 50;
-    const lista = await Notificacion.find({ usuarioId: req.userId })
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    const lista = await Notificacion.find({ usuarioId: req.userId }).
+    sort({ createdAt: -1 }).
+    limit(limit).
+    lean();
     res.json(lista.map((d) => toDoc(d)));
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -60,4 +60,3 @@ router.patch('/:id/leida', authMiddleware, async (req, res) => {
 });
 
 module.exports = router;
-

@@ -25,12 +25,12 @@ export default function MenuAdmin({ navigation }) {
       </TouchableOpacity>
       <TouchableOpacity
         style={[estilos.boton, estilos.botonSecundario]}
-        onPress={() => navigation.navigate('ModoAdmin')}
-      >
+        onPress={() => navigation.navigate('ModoAdmin')}>
+        
         <Text style={estilos.botonSecundarioTexto}>Entrar al modo admin</Text>
       </TouchableOpacity>
-    </View>
-  );
+    </View>);
+
 }
 
 const estilos = StyleSheet.create({
@@ -38,7 +38,7 @@ const estilos = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0d0d0d',
     padding: 24,
-    paddingTop: 80,
+    paddingTop: 80
   },
   titulo: { fontSize: 28, color: '#fff', fontWeight: '700', marginBottom: 8 },
   subtitulo: { fontSize: 16, color: '#888', marginBottom: 32 },
@@ -47,9 +47,9 @@ const estilos = StyleSheet.create({
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 16
   },
   botonSecundario: { backgroundColor: '#2a2a2a', borderWidth: 1, borderColor: '#00dc57' },
   botonTexto: { color: '#000', fontSize: 18, fontWeight: '600' },
-  botonSecundarioTexto: { color: '#00dc57', fontSize: 18, fontWeight: '600' },
+  botonSecundarioTexto: { color: '#00dc57', fontSize: 18, fontWeight: '600' }
 });

@@ -6,7 +6,7 @@ const flyerSchema = new mongoose.Schema(
     urlImagen: { type: String, required: true },
     activo: { type: Boolean, default: true },
     orden: { type: Number, default: 0 },
-    creadoPor: { type: String, default: '' },
+    creadoPor: { type: String, default: '' }
   },
   { timestamps: true }
 );

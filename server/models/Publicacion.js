@@ -15,7 +15,7 @@ const publicacionSchema = new mongoose.Schema({
   enlaceExterno: String,
   destacado: Boolean,
   orden: Number,
-  fechaPublicacion: { type: Date, default: Date.now },
+  fechaPublicacion: { type: Date, default: Date.now }
 }, { timestamps: true });
 
 publicacionSchema.index({ fechaPublicacion: -1 });

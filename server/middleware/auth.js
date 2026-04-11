@@ -32,7 +32,7 @@ async function requireAdmin(req, res, next) {
   next();
 }
 
-/** Thug o admin pueden ver contenido exclusivo; solo admin puede crear/editar/borrar */
+
 async function requireThugOrAdmin(req, res, next) {
   const u = await Usuario.findById(req.userId);
   if (!u) return res.status(403).json({ error: 'No autorizado' });

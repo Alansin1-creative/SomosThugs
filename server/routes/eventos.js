@@ -40,7 +40,7 @@ function toDoc(doc) {
     cupoMaximo: capacidad,
     asistentes: undefined,
     totalConfirmados: asistentesArr.length,
-    _id: undefined,
+    _id: undefined
   };
 }
 
@@ -60,7 +60,7 @@ router.get('/publicos', authMiddleware, async (req, res) => {
           fechaInicio: base.fechaInicio,
           nivelRequerido: 'thug',
           bloqueado: true,
-          esPublico: true,
+          esPublico: true
         };
       }
       return { ...base, nivelRequerido, bloqueado: false };
@@ -139,7 +139,7 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
       doc.capacidad = Number.isFinite(cap) ? cap : undefined;
     }
     delete doc.cupoMaximo;
-    // Permitir subir imagen promocional en base64 desde el admin
+
     if (b.imagenBase64) {
       doc.imagenUrl = guardarImagenBase64(b.imagenBase64) || doc.imagenUrl;
       delete doc.imagenBase64;
@@ -155,21 +155,21 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
         tipo: 'nuevo_evento',
         titulo: 'Nuevo evento creado',
         mensaje: evento?.titulo ? `Se publicó: ${evento.titulo}` : 'Hay un nuevo evento disponible.',
-        entidadId: evento?._id?.toString?.(),
+        entidadId: evento?._id?.toString?.()
       });
       const usuarios = await Usuario.find({
         activo: { $ne: false },
         aceptaNotificaciones: { $ne: false },
-        expoPushTokens: { $exists: true, $ne: [] },
-      })
-        .select('expoPushTokens')
-        .lean();
-      const tokens = usuarios.flatMap((u) => (Array.isArray(u.expoPushTokens) ? u.expoPushTokens : []));
+        expoPushTokens: { $exists: true, $ne: [] }
+      }).
+      select('expoPushTokens').
+      lean();
+      const tokens = usuarios.flatMap((u) => Array.isArray(u.expoPushTokens) ? u.expoPushTokens : []);
       if (tokens.length > 0) {
         await enviarPush(tokens, {
           title: 'Nuevo evento creado',
           body: evento?.titulo ? `Se publicó: ${evento.titulo}` : 'Hay un nuevo evento disponible.',
-          data: { tipo: 'nuevo_evento', entidadId: evento?._id?.toString?.() || '' },
+          data: { tipo: 'nuevo_evento', entidadId: evento?._id?.toString?.() || '' }
         });
       }
     } catch (notifErr) {

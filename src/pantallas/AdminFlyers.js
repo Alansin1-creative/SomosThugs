@@ -80,7 +80,7 @@ export default function AdminFlyers({ navigation }) {
       const r = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.85,
-        base64: true,
+        base64: true
       });
       if (r.canceled || !r.assets?.[0]) return;
       const asset = r.assets[0];
@@ -120,9 +120,9 @@ export default function AdminFlyers({ navigation }) {
     }
 
     Alert.alert('Eliminar flyer', '¿Seguro que quieres eliminar esta imagen?', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: ejecutar },
-    ]);
+    { text: 'Cancelar', style: 'cancel' },
+    { text: 'Eliminar', style: 'destructive', onPress: ejecutar }]
+    );
   };
 
   return (
@@ -143,21 +143,21 @@ export default function AdminFlyers({ navigation }) {
 
       <ScrollView contentContainerStyle={estilos.lista}>
         {cargando ? <ActivityIndicator color="#00dc57" /> : null}
-        {!cargando && lista.length === 0 ? (
-          <Text style={estilos.vacio}>Sin flyers todavía.</Text>
-        ) : null}
-        {lista.map((item) => (
-          <View key={item.id} style={estilos.card}>
+        {!cargando && lista.length === 0 ?
+        <Text style={estilos.vacio}>Sin flyers todavía.</Text> :
+        null}
+        {lista.map((item) =>
+        <View key={item.id} style={estilos.card}>
             <Image source={{ uri: absolutizar(item.urlImagen) }} style={estilos.imagen} resizeMode="cover" />
             <TouchableOpacity style={estilos.borrar} onPress={() => borrar(item)}>
               <Ionicons name="trash-outline" size={16} color="#ff5f5f" />
               <Text style={estilos.borrarTxt}>Eliminar</Text>
             </TouchableOpacity>
           </View>
-        ))}
+        )}
       </ScrollView>
-    </View>
-  );
+    </View>);
+
 }
 
 const estilos = StyleSheet.create({
@@ -169,7 +169,7 @@ const estilos = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
+    borderBottomColor: '#2a2a2a'
   },
   botonAtras: { padding: 8, marginRight: 8 },
   botonAtrasTexto: { color: '#00dc57', fontSize: 14 },
@@ -182,7 +182,7 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: 8
   },
   botonSubirDisabled: { opacity: 0.6 },
   botonSubirTxt: { color: '#000', fontWeight: '700' },
@@ -193,7 +193,7 @@ const estilos = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#2b2b2b',
-    backgroundColor: '#141414',
+    backgroundColor: '#141414'
   },
   imagen: { width: '100%', height: 180, backgroundColor: '#111' },
   borrar: {
@@ -204,7 +204,7 @@ const estilos = StyleSheet.create({
     paddingVertical: 10,
     borderTopWidth: 1,
     borderTopColor: '#242424',
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-end'
   },
-  borrarTxt: { color: '#ff5f5f', fontWeight: '600' },
+  borrarTxt: { color: '#ff5f5f', fontWeight: '600' }
 });

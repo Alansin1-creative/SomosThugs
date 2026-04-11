@@ -6,10 +6,10 @@ import { AuthProvider } from '../src/contexto/AuthContext';
 import { Slot } from 'expo-router';
 
 LogBox.ignoreLogs([
-  'props.pointerEvents is deprecated',
-  'Cross-Origin-Opener-Policy',
-  'Unexpected text node',
-]);
+'props.pointerEvents is deprecated',
+'Cross-Origin-Opener-Policy',
+'Unexpected text node']
+);
 
 if (Platform.OS === 'web' && typeof console !== 'undefined') {
   const _warn = console.warn;
@@ -26,6 +26,6 @@ export default function RootLayout() {
         <StatusBar style="light" />
         <Slot />
       </AuthProvider>
-    </SafeAreaProvider>
-  );
+    </SafeAreaProvider>);
+
 }

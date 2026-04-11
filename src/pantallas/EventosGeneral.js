@@ -10,8 +10,8 @@ import {
   Image,
   Linking,
   Dimensions,
-  Alert,
-} from 'react-native';
+  Alert } from
+'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -21,7 +21,7 @@ import { useAuth } from '../contexto/AuthContext';
 import { esAdmin, nombreRutaHomeApp, puedeVerContenidoExclusivo } from '../constantes/nivelesAcceso';
 
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
-const LOGO_THUGS = require('../../assets/logothugs.png');
+const LOGO_HEADER_BANNER = require('../../assets/logo-somos-thugs-banner.png');
 
 function normalizarUrlMedia(raw) {
   const s = String(raw || '').trim();
@@ -36,9 +36,9 @@ export default function EventosGeneral({ navigation }) {
   const [eventos, setEventos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
-  const [ubicacion, setUbicacion] = useState(null); // { latitude, longitude }
-  const [etaPorEvento, setEtaPorEvento] = useState({}); // id -> { texto, segundos }
-  const [imgIdxPorEvento, setImgIdxPorEvento] = useState({}); // id -> idx de candidato
+  const [ubicacion, setUbicacion] = useState(null);
+  const [etaPorEvento, setEtaPorEvento] = useState({});
+  const [imgIdxPorEvento, setImgIdxPorEvento] = useState({});
   const { height: ventanaAlto, width: ventanaAncho } = Dimensions.get('window');
   const esWeb = Platform.OS === 'web';
   const esWebMovil = esWeb && ventanaAncho < 820;
@@ -50,7 +50,7 @@ export default function EventosGeneral({ navigation }) {
       const loc = await Location.getCurrentPositionAsync({});
       setUbicacion(loc.coords);
     } catch (_) {
-      // noop
+
     }
   };
 
@@ -84,8 +84,8 @@ export default function EventosGeneral({ navigation }) {
   };
 
   const fetchEtaOSRM = async (orig, dest) => {
-    // OSRM público (driving). No requiere API key.
-    // Nota: el orden es lng,lat
+
+
     const url = `https://router.project-osrm.org/route/v1/driving/${orig.longitude},${orig.latitude};${dest.longitude},${dest.latitude}?overview=false&alternatives=false&steps=false`;
     const res = await fetch(url);
     const data = await res.json().catch(() => ({}));
@@ -100,7 +100,7 @@ export default function EventosGeneral({ navigation }) {
       if (!ubicacion) return;
       if (!Array.isArray(eventos) || eventos.length === 0) return;
 
-      // calcular para los primeros N sin saturar
+
       const pendientes = [];
       for (const ev of eventos) {
         const id = String(ev.id || ev._id || '');
@@ -114,7 +114,7 @@ export default function EventosGeneral({ navigation }) {
       }
       if (pendientes.length === 0) return;
 
-      // Concurrencia baja
+
       const next = {};
       for (const p of pendientes) {
         try {
@@ -128,8 +128,8 @@ export default function EventosGeneral({ navigation }) {
         setEtaPorEvento((prev) => ({ ...prev, ...next }));
       }
     })();
-    return () => { cancel = true; };
-  }, [ubicacion, eventos]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {cancel = true;};
+  }, [ubicacion, eventos]);
 
   const abrirMapa = (lat, lng) => {
     if (lat == null || lng == null) return;
@@ -149,9 +149,9 @@ export default function EventosGeneral({ navigation }) {
   const titulo = 'Eventos';
   const rutaHomeHeader = esAdmin(perfil) ? 'ContenidoGeneral' : nombreRutaHomeApp(perfil);
   const alturaFondoNativo =
-    Platform.OS !== 'web'
-      ? Dimensions.get('window').height - (insets.top + 8 + 48) + insets.bottom
-      : null;
+  Platform.OS !== 'web' ?
+  Dimensions.get('window').height - (insets.top + 8 + 48) + insets.bottom :
+  null;
 
   return (
     <View style={[estilos.contenedor, { paddingTop: insets.top + 8 }]}>
@@ -160,12 +160,12 @@ export default function EventosGeneral({ navigation }) {
           onPress={() => navigation.navigate(rutaHomeHeader)}
           style={estilos.headerBack}
           hitSlop={10}
-          activeOpacity={0.8}
-        >
+          activeOpacity={0.8}>
+          
           <Ionicons name="arrow-back" size={20} color="#fff" />
-          <Image source={LOGO_THUGS} style={estilos.headerLogoImg} resizeMode="contain" />
+          <Image source={LOGO_HEADER_BANNER} style={estilos.headerLogoAlLado} resizeMode="contain" />
         </TouchableOpacity>
-        <Text style={estilos.headerTitulo} pointerEvents="none">
+        <Text style={estilos.headerTitulo} pointerEvents="none" numberOfLines={1} ellipsizeMode="tail">
           {titulo}
         </Text>
         <View style={estilos.headerEspacioDer} />
@@ -174,57 +174,57 @@ export default function EventosGeneral({ navigation }) {
       <View style={estilos.areaContenido}>
         <View
           style={[
-            estilos.fondoAbsoluto,
-            alturaFondoNativo != null && {
-              top: 0,
-              bottom: undefined,
-              height: alturaFondoNativo,
-            },
-          ]}
-          pointerEvents="none"
-        >
+          estilos.fondoAbsoluto,
+          alturaFondoNativo != null && {
+            top: 0,
+            bottom: undefined,
+            height: alturaFondoNativo
+          }]
+          }
+          pointerEvents="none">
+          
           <Image
             source={FONDO_THUGS}
             style={[
-              estilos.fondoImagen,
-              alturaFondoNativo != null && {
-                bottom: undefined,
-                height: alturaFondoNativo,
-              },
-            ]}
-            resizeMode={Platform.OS === 'web' ? 'cover' : 'repeat'}
-          />
+            estilos.fondoImagen,
+            alturaFondoNativo != null && {
+              bottom: undefined,
+              height: alturaFondoNativo
+            }]
+            }
+            resizeMode={Platform.OS === 'web' ? 'cover' : 'repeat'} />
+          
         </View>
 
         <ScrollView
           style={estilos.scroll}
           contentContainerStyle={[
-            estilos.scrollContenido,
-            esWebMovil && estilos.scrollContenidoWebMovil,
-          ]}
-          refreshControl={
-            <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
+          estilos.scrollContenido,
+          esWebMovil && estilos.scrollContenidoWebMovil]
           }
-          showsVerticalScrollIndicator={false}
-        >
+          refreshControl={
+          <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
+          }
+          showsVerticalScrollIndicator={false}>
+          
           <View style={estilos.contenidoSobreFondo}>
             <View style={[estilos.contenidoCentrado, esWebMovil && estilos.contenidoCentradoWebMovil]}>
-              {cargando ? (
-                <Text style={estilos.vacio}>Cargando…</Text>
-              ) : eventos.length === 0 ? (
-                <View style={estilos.vacioCaja}>
+              {cargando ?
+              <Text style={estilos.vacio}>Cargando…</Text> :
+              eventos.length === 0 ?
+              <View style={estilos.vacioCaja}>
                   <Text style={estilos.vacio}>Sin eventos por ahora.</Text>
-                </View>
-              ) : null}
+                </View> :
+              null}
 
               {eventos.map((ev) => {
                 const candidatosRaw = [
-                  ev.imagenUrl,
-                  ev.imagenPromocionalUrl,
-                  ev.imagenPromocional,
-                  ev.urlImagen,
-                  ev.imagen,
-                ].filter(Boolean);
+                ev.imagenUrl,
+                ev.imagenPromocionalUrl,
+                ev.imagenPromocional,
+                ev.urlImagen,
+                ev.imagen].
+                filter(Boolean);
                 const candidatos = candidatosRaw.map((c) => normalizarUrlMedia(c)).filter(Boolean);
                 const fecha = ev.fechaInicio ? new Date(ev.fechaInicio) : null;
                 const fechaTexto = fecha ? fecha.toLocaleString() : '';
@@ -236,176 +236,176 @@ export default function EventosGeneral({ navigation }) {
                 const enlace = ev.enlaceEntradas || '';
                 const id = String(ev.id || ev._id || '');
                 const eta = id ? etaPorEvento[id]?.texto : null;
-                const imgIdx = id ? (imgIdxPorEvento[id] ?? 0) : 0;
+                const imgIdx = id ? imgIdxPorEvento[id] ?? 0 : 0;
                 const img = candidatos[imgIdx] || null;
                 const nivelEv = String(ev?.nivelRequerido || '').toLowerCase();
                 const bloqueado =
-                  ev?.bloqueado === true ||
-                  (nivelEv === 'thug' &&
-                    !puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol));
+                ev?.bloqueado === true ||
+                nivelEv === 'thug' &&
+                !puedeVerContenidoExclusivo(perfil?.nivelAcceso, perfil?.rol);
 
                 return (
                   <View key={ev.id || ev._id} style={estilos.cardContenedor}>
                     <View style={estilos.card}>
                       <View style={estilos.cardHeader}>
                         <Text style={estilos.cardTitulo}>{ev.titulo || '(sin título)'}</Text>
-                        {ev.nivelRequerido ? (
-                          <Text style={estilos.badgeNivel}>{String(ev.nivelRequerido).toUpperCase()}</Text>
-                        ) : null}
+                        {ev.nivelRequerido ?
+                        <Text style={estilos.badgeNivel}>{String(ev.nivelRequerido).toUpperCase()}</Text> :
+                        null}
                       </View>
 
                       <View style={estilos.cardImgWrap}>
-                        {img ? (
-                          <Image
-                            source={{ uri: img }}
-                            style={[estilos.cardImg, bloqueado && estilos.cardImgBloqueada]}
-                            resizeMode="cover"
-                            blurRadius={bloqueado ? 12 : 0}
-                            onError={() => {
-                              if (!id) return;
-                              setImgIdxPorEvento((prev) => {
-                                const nextIdx = (prev[id] ?? 0) + 1;
-                                if (nextIdx >= candidatos.length) return { ...prev, [id]: Number.MAX_SAFE_INTEGER };
-                                return { ...prev, [id]: nextIdx };
-                              });
-                            }}
-                          />
-                        ) : (
-                          <View style={estilos.cardImgPlaceholder}>
+                        {img ?
+                        <Image
+                          source={{ uri: img }}
+                          style={[estilos.cardImg, bloqueado && estilos.cardImgBloqueada]}
+                          resizeMode="cover"
+                          blurRadius={bloqueado ? 12 : 0}
+                          onError={() => {
+                            if (!id) return;
+                            setImgIdxPorEvento((prev) => {
+                              const nextIdx = (prev[id] ?? 0) + 1;
+                              if (nextIdx >= candidatos.length) return { ...prev, [id]: Number.MAX_SAFE_INTEGER };
+                              return { ...prev, [id]: nextIdx };
+                            });
+                          }} /> :
+
+
+                        <View style={estilos.cardImgPlaceholder}>
                             <Ionicons name="image-outline" size={20} color="#6b7280" />
                             <Text style={estilos.cardImgPlaceholderTexto}>Sin imagen</Text>
                           </View>
-                        )}
-                        {bloqueado ? (
-                          <View pointerEvents="none" style={estilos.cardBloqueadoOverlay}>
+                        }
+                        {bloqueado ?
+                        <View pointerEvents="none" style={estilos.cardBloqueadoOverlay}>
                             <Text style={estilos.cardBloqueadoTitulo}>Evento Thug</Text>
                             <Text style={estilos.cardBloqueadoSub}>Sube de nivel para verlo completo</Text>
-                          </View>
-                        ) : null}
+                          </View> :
+                        null}
                       </View>
 
-                      {!bloqueado && ev.descripcion ? (
-                        <Text style={estilos.cardTexto}>{ev.descripcion}</Text>
-                      ) : null}
+                      {!bloqueado && ev.descripcion ?
+                      <Text style={estilos.cardTexto}>{ev.descripcion}</Text> :
+                      null}
 
-                      {!bloqueado ? (
-                        <View style={estilos.metaFila}>
-                          {fechaTexto ? (
-                            <View style={estilos.metaItem}>
+                      {!bloqueado ?
+                      <View style={estilos.metaFila}>
+                          {fechaTexto ?
+                        <View style={estilos.metaItem}>
                               <Ionicons name="calendar-outline" size={16} color="#9ca3af" />
                               <Text style={estilos.metaTexto}>{fechaTexto}</Text>
-                            </View>
-                          ) : null}
-                          {ev.lugar ? (
-                            <View style={estilos.metaItem}>
+                            </View> :
+                        null}
+                          {ev.lugar ?
+                        <View style={estilos.metaItem}>
                               <Ionicons name="location-outline" size={16} color="#9ca3af" />
                               <Text style={estilos.metaTexto}>{ev.lugar}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      ) : null}
+                            </View> :
+                        null}
+                        </View> :
+                      null}
 
-                      {!bloqueado && (precio != null || cupo != null) ? (
-                        <View style={estilos.metaFila}>
-                          {precio != null ? (
-                            <View style={estilos.metaItem}>
+                      {!bloqueado && (precio != null || cupo != null) ?
+                      <View style={estilos.metaFila}>
+                          {precio != null ?
+                        <View style={estilos.metaItem}>
                               <Ionicons name="cash-outline" size={16} color="#9ca3af" />
                               <Text style={estilos.metaTexto}>${precio}</Text>
-                            </View>
-                          ) : null}
-                          {cupo != null ? (
-                            <View style={estilos.metaItem}>
+                            </View> :
+                        null}
+                          {cupo != null ?
+                        <View style={estilos.metaItem}>
                               <Ionicons name="people-outline" size={16} color="#9ca3af" />
                               <Text style={estilos.metaTexto}>Cupo: {cupo}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      ) : null}
+                            </View> :
+                        null}
+                        </View> :
+                      null}
 
-                      {!bloqueado && ((lat != null && lng != null) || telefono || enlace) ? (
-                        <>
-                          {lat != null && lng != null ? (
-                            <View
-                              style={[
-                                estilos.accionesPrincipalesFila,
-                                esWebMovil && estilos.accionesPrincipalesFilaWebMovil,
-                              ]}
-                            >
-                              {telefono ? (
-                                <View style={estilos.bloqueWhatsapp}>
+                      {!bloqueado && (lat != null && lng != null || telefono || enlace) ?
+                      <>
+                          {lat != null && lng != null ?
+                        <View
+                          style={[
+                          estilos.accionesPrincipalesFila,
+                          esWebMovil && estilos.accionesPrincipalesFilaWebMovil]
+                          }>
+                          
+                              {telefono ?
+                          <View style={estilos.bloqueWhatsapp}>
                                   <TouchableOpacity
-                                    style={estilos.botonAccion}
-                                    onPress={() => abrirWhatsApp(telefono)}
-                                    activeOpacity={0.85}
-                                  >
+                              style={estilos.botonAccion}
+                              onPress={() => abrirWhatsApp(telefono)}
+                              activeOpacity={0.85}>
+                              
                                     <Ionicons name="logo-whatsapp" size={16} color="#00dc57" />
                                     <Text style={estilos.botonAccionTexto}>{`WhatsApp: ${telefono}`}</Text>
                                   </TouchableOpacity>
-                                </View>
-                              ) : null}
+                                </View> :
+                          null}
                               <View style={[estilos.bloqueMapa, esWebMovil && estilos.bloqueMapaWebMovil]}>
                                 <TouchableOpacity
-                                  style={estilos.botonAccion}
-                                  onPress={() => abrirMapa(lat, lng)}
-                                  activeOpacity={0.85}
-                                >
+                              style={estilos.botonAccion}
+                              onPress={() => abrirMapa(lat, lng)}
+                              activeOpacity={0.85}>
+                              
                                   <Ionicons name="map-outline" size={16} color="#00dc57" />
                                   <Text style={estilos.botonAccionTexto}>Ver mapa</Text>
                                 </TouchableOpacity>
-                                {ubicacion ? (
-                                  <Text style={estilos.etaTexto}>
+                                {ubicacion ?
+                            <Text style={estilos.etaTexto}>
                                     {eta ? `≈ ${eta}` : 'Calculando…'}
-                                  </Text>
-                                ) : (
-                                  <TouchableOpacity
-                                    onPress={() =>
-                                      Alert.alert('Ubicación', 'Activa la ubicación para ver el tiempo aproximado de ruta.')
-                                    }
-                                  >
+                                  </Text> :
+
+                            <TouchableOpacity
+                              onPress={() =>
+                              Alert.alert('Ubicación', 'Activa la ubicación para ver el tiempo aproximado de ruta.')
+                              }>
+                              
                                     <Text style={estilos.etaTextoMuted}>Activa ubicación</Text>
                                   </TouchableOpacity>
-                                )}
+                            }
                               </View>
-                            </View>
-                          ) : null}
-                          {telefono && (lat == null || lng == null) ? (
-                            <View style={estilos.accionesFila}>
+                            </View> :
+                        null}
+                          {telefono && (lat == null || lng == null) ?
+                        <View style={estilos.accionesFila}>
                               <TouchableOpacity
-                                style={estilos.botonAccion}
-                                onPress={() => abrirWhatsApp(telefono)}
-                                activeOpacity={0.85}
-                              >
+                            style={estilos.botonAccion}
+                            onPress={() => abrirWhatsApp(telefono)}
+                            activeOpacity={0.85}>
+                            
                                 <Ionicons name="logo-whatsapp" size={16} color="#00dc57" />
                                 <Text style={estilos.botonAccionTexto}>{`WhatsApp: ${telefono}`}</Text>
                               </TouchableOpacity>
-                            </View>
-                          ) : null}
-                          {enlace ? (
-                            <View style={estilos.accionesFila}>
+                            </View> :
+                        null}
+                          {enlace ?
+                        <View style={estilos.accionesFila}>
                               <TouchableOpacity
-                                style={estilos.botonAccion}
-                                onPress={() => Linking.openURL(enlace)}
-                                activeOpacity={0.85}
-                              >
+                            style={estilos.botonAccion}
+                            onPress={() => Linking.openURL(enlace)}
+                            activeOpacity={0.85}>
+                            
                                 <Ionicons name="open-outline" size={16} color="#00dc57" />
                                 <Text style={estilos.botonAccionTexto}>Entradas</Text>
                               </TouchableOpacity>
-                            </View>
-                          ) : null}
-                        </>
-                      ) : null}
+                            </View> :
+                        null}
+                        </> :
+                      null}
 
                       {ventanaAlto < 740 ? <View style={{ height: 4 }} /> : null}
                     </View>
-                  </View>
-                );
+                  </View>);
+
               })}
             </View>
           </View>
         </ScrollView>
       </View>
-    </View>
-  );
+    </View>);
+
 }
 
 const estilos = StyleSheet.create({
@@ -418,17 +418,23 @@ const estilos = StyleSheet.create({
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0d0d0d',
+    backgroundColor: '#0d0d0d'
   },
   headerBack: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     padding: 4,
-    width: 80,
-    zIndex: 1,
+    flex: 1,
+    minWidth: 0,
+    zIndex: 1
   },
-  headerLogoImg: { width: 36, height: 36 },
+  headerLogoAlLado: {
+    height: 36,
+    width: 118,
+    flexShrink: 1,
+    maxWidth: 140
+  },
   headerTitulo: {
     position: 'absolute',
     left: 0,
@@ -438,8 +444,10 @@ const estilos = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     zIndex: 0,
+    pointerEvents: 'none',
+    paddingHorizontal: 128
   },
-  headerEspacioDer: { width: 80, zIndex: 1 },
+  headerEspacioDer: { flex: 1, minWidth: 0, zIndex: 1 },
   areaContenido: { flex: 1 },
   fondoAbsoluto: {
     position: 'absolute',
@@ -448,7 +456,7 @@ const estilos = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 0,
-    backgroundColor: '#0d0d0d',
+    backgroundColor: '#0d0d0d'
   },
   fondoImagen: {
     position: 'absolute',
@@ -458,29 +466,29 @@ const estilos = StyleSheet.create({
     bottom: 0,
     width: '100%',
     zIndex: 0,
-    backgroundColor: '#0d0d0d',
+    backgroundColor: '#0d0d0d'
   },
   scroll: { flex: 1 },
   scrollContenido: {
     padding: Platform.OS === 'web' ? 20 : 14,
     paddingBottom: 48,
     zIndex: 1,
-    ...(Platform.OS === 'web' ? { alignItems: 'center' } : null),
+    ...(Platform.OS === 'web' ? { alignItems: 'center' } : null)
   },
   scrollContenidoWebMovil: {
     padding: 14,
-    alignItems: 'stretch',
+    alignItems: 'stretch'
   },
   contenidoSobreFondo: { zIndex: 1, alignItems: 'center', width: '100%' },
   contenidoCentrado: {
     width: Platform.OS === 'web' ? '50%' : '100%',
     maxWidth: Platform.OS === 'web' ? 700 : '100%',
-    alignSelf: Platform.OS === 'web' ? 'center' : 'stretch',
+    alignSelf: Platform.OS === 'web' ? 'center' : 'stretch'
   },
   contenidoCentradoWebMovil: {
     width: '100%',
     maxWidth: '100%',
-    alignSelf: 'stretch',
+    alignSelf: 'stretch'
   },
   vacioCaja: { padding: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10 },
   vacio: { color: '#888', fontSize: 14 },
@@ -491,7 +499,7 @@ const estilos = StyleSheet.create({
     padding: Platform.OS === 'web' ? 18 : 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.06)',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   cardTitulo: { color: '#fff', fontSize: 16, fontWeight: '700', flex: 1 },
@@ -504,7 +512,7 @@ const estilos = StyleSheet.create({
     borderColor: 'rgba(0,220,87,0.2)',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 999,
+    borderRadius: 999
   },
   cardImgWrap: {
     marginTop: 12,
@@ -514,7 +522,7 @@ const estilos = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#000',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.08)'
   },
   cardImg: { width: '100%', height: '100%' },
   cardImgBloqueada: { opacity: Platform.OS === 'web' ? 0.78 : 0.82 },
@@ -523,7 +531,7 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.35)',
-    paddingHorizontal: 14,
+    paddingHorizontal: 14
   },
   cardBloqueadoTitulo: { color: '#00dc57', fontSize: 15, fontWeight: '800', marginBottom: 4 },
   cardBloqueadoSub: { color: '#d1d5db', fontSize: 12, fontWeight: '700', textAlign: 'center' },
@@ -532,7 +540,7 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: 'rgba(0,0,0,0.35)'
   },
   cardImgPlaceholderTexto: { color: '#6b7280', fontSize: 12, fontWeight: '700' },
   cardTexto: { color: '#bbb', fontSize: 14, marginTop: 10, lineHeight: 20 },
@@ -544,12 +552,12 @@ const estilos = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
-    marginTop: 14,
+    marginTop: 14
   },
   accionesPrincipalesFilaWebMovil: {
     flexDirection: 'column',
     alignItems: 'stretch',
-    justifyContent: 'flex-start',
+    justifyContent: 'flex-start'
   },
   bloqueWhatsapp: { alignItems: 'flex-start' },
   bloqueMapa: { marginTop: -1, alignItems: 'flex-end' },
@@ -564,10 +572,9 @@ const estilos = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,220,87,0.35)',
-    backgroundColor: 'rgba(0,0,0,0.15)',
+    backgroundColor: 'rgba(0,0,0,0.15)'
   },
   botonAccionTexto: { color: '#00dc57', fontSize: 13, fontWeight: '700' },
   etaTexto: { marginTop: 6, color: '#c7c7c7', fontSize: 12, fontWeight: '700' },
-  etaTextoMuted: { marginTop: 6, color: '#6b7280', fontSize: 12, fontWeight: '700' },
+  etaTextoMuted: { marginTop: 6, color: '#6b7280', fontSize: 12, fontWeight: '700' }
 });
-

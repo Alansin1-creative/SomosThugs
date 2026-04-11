@@ -10,10 +10,18 @@ async function getToken() {
 
 async function request(path, options = {}) {
   const token = await getToken();
-  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  const method = (options.method || 'GET').toUpperCase();
+  const hasBody =
+  options.body != null &&
+  options.body !== '' &&
+  !(typeof options.body === 'string' && options.body.length === 0);
+  const headers = { ...options.headers };
+  if (hasBody || method !== 'GET' && method !== 'HEAD') {
+    if (headers['Content-Type'] == null) headers['Content-Type'] = 'application/json';
+  }
   if (token) headers.Authorization = `Bearer ${token}`;
   const base = getBaseUrl();
-  const res = await fetch(`${base}${path}`, { ...options, headers });
+  const res = await fetch(`${base}${path}`, { ...options, method, headers });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || res.statusText);
   return data;
@@ -76,7 +84,7 @@ export async function confirmarAsistenciaEvento(id) {
   return request(`/eventos/${idStr}/asistencia`, { method: 'POST', body: JSON.stringify({}) });
 }
 
-/** Lista todos los eventos (solo admin) */
+
 export async function listarEventos() {
   return request('/eventos');
 }
@@ -89,34 +97,34 @@ export async function listarContenidoExclusivo() {
   return request('/contenido-exclusivo');
 }
 
-/** Feed de contenido con nivel requerido fan (para vista Contenido general) */
+
 export async function listarContenidoExclusivoFeed() {
   return request('/contenido-exclusivo/feed');
 }
 
-/** Feed unificado: fan + thug en una lista; thug viene bloqueado si el usuario es fan */
+
 export async function listarFeedUnificado() {
   return request('/contenido-exclusivo/feed-unificado');
 }
 
-/** Registra una vista en el contenido. Feed: una por usuario. Modal: pasar { desdeAperturaModal: true } para +1 en cada apertura. */
+
 export async function registrarVistaContenido(id, opts = {}) {
   const idStr = id != null ? String(id) : '';
   const body = opts.desdeAperturaModal ? { desdeAperturaModal: true } : {};
   return request(`/contenido-exclusivo/${idStr}/vista`, { method: 'POST', body: JSON.stringify(body) });
 }
 
-/** Dar like a un contenido (incrementa numeroLikes) */
+
 export async function darLikeContenido(id) {
   const idStr = id != null ? String(id) : '';
   return request(`/contenido-exclusivo/${idStr}/like`, { method: 'POST', body: JSON.stringify({}) });
 }
 
-/** Añadir comentario a un contenido */
+
 export async function agregarComentarioContenido(id, texto) {
   return request(`/contenido-exclusivo/${id}/comentarios`, {
     method: 'POST',
-    body: JSON.stringify({ texto }),
+    body: JSON.stringify({ texto })
   });
 }
 
@@ -139,7 +147,7 @@ export async function placesAutocomplete(q) {
   const qq = String(q ?? '').trim();
   if (!qq) return { predictions: [] };
   const googleKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-  // En web podemos usar el picker de Google directo (sin proxy) si hay key pública.
+
   if (Platform.OS === 'web' && googleKey) {
     const url = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json');
     url.searchParams.set('input', qq);
@@ -152,9 +160,9 @@ export async function placesAutocomplete(q) {
     if (status && status !== 'OK' && status !== 'ZERO_RESULTS') {
       throw new Error(data?.error_message || status);
     }
-    const predictions = Array.isArray(data?.predictions)
-      ? data.predictions.map((p) => ({ placeId: p.place_id, description: p.description }))
-      : [];
+    const predictions = Array.isArray(data?.predictions) ?
+    data.predictions.map((p) => ({ placeId: p.place_id, description: p.description })) :
+    [];
     return { predictions };
   }
 
@@ -184,7 +192,7 @@ export async function placeDetails(placeId) {
       nombre: r.name || '',
       direccion: r.formatted_address || '',
       latitud: typeof loc.lat === 'number' ? loc.lat : null,
-      longitud: typeof loc.lng === 'number' ? loc.lng : null,
+      longitud: typeof loc.lng === 'number' ? loc.lng : null
     };
   }
 
@@ -251,7 +259,11 @@ export async function marcarTodasNotificacionesLeidas() {
 }
 
 export async function listarFlyersPublicos() {
-  return request('/flyers');
+  const base = getBaseUrl();
+  const res = await fetch(`${base}/flyers`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
 }
 
 export async function listarFlyersAdmin() {
@@ -267,20 +279,20 @@ export async function eliminarFlyer(id) {
   return request(`/flyers/${idStr}`, { method: 'DELETE' });
 }
 
-/** Stripe Checkout: suscripción mensual Thug — devuelve { url } */
+
 export async function stripeCrearSesionSuscripcionThug() {
   return request('/stripe/create-checkout-subscription', { method: 'POST', body: JSON.stringify({}) });
 }
 
-/** Stripe Checkout: boleto de evento (precio > 0) — devuelve { url } */
+
 export async function stripeCrearSesionBoletoEvento(eventoId) {
   return request('/stripe/create-checkout-event', {
     method: 'POST',
-    body: JSON.stringify({ eventoId: String(eventoId) }),
+    body: JSON.stringify({ eventoId: String(eventoId) })
   });
 }
 
-/** Portal Stripe: cancelar suscripción, tarjeta, facturas (requiere haber pagado con Stripe antes). */
+
 export async function stripeCrearSesionPortalFacturacion() {
   return request('/stripe/create-billing-portal-session', { method: 'POST', body: JSON.stringify({}) });
 }

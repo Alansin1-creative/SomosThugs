@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,9 @@ import {
   Platform,
   KeyboardAvoidingView,
   Linking,
-} from 'react-native';
+  Modal,
+  Pressable } from
+'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Google from 'expo-auth-session/providers/google';
@@ -24,6 +26,8 @@ import { iniciarSesionEmail, registrarEmail, iniciarSesionConTokenGoogle } from 
 import { listarFlyersPublicos } from '../servicios/api';
 import { getBaseUrl } from '../config/api';
 import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
+import { useFocusEffect } from '@react-navigation/native';
+import { aplicarSeoWeb } from '../servicios/seoWeb';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -31,68 +35,132 @@ const GOOGLE_CLIENT_ID = '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.goo
 const GOOGLE_WEB_CLIENT_ID = '844963020835-b7pt28vp1upelsefhapf22qsksjecj3l.apps.googleusercontent.com';
 
 const LOGO_TEXTO = 'Somos Thugs';
+
+const TITULO_HEADER_PRESSKIT = '¿SOMOS THUGS O QUÉ?';
+const ETIQUETA_FESTIVAL_ARTIST_INFO = 'Festival Escena Desierto';
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
-const LOGO_THUGS = require('../../assets/logothugs.png');
-// Logo del bloque (registro + logo lateral y logo ancho completo al iniciar sesión). Cambia la ruta para usar otro archivo.
-const LOGO_BLOQUE = require('../../assets/logo2.png');
+
+const LOGO_HEADER_INVITADO = require('../../assets/logo-somos-thugs-banner.png');
+
+const PORTADA_ALBUM_ROLANDO_CALLES = require('../../assets/album-rolando-calles-arte.png');
 const IMAGEN_ARTIST = require('../../assets/artist.png');
+const IMAGEN_TRAYECTORIA = require('../../assets/trayectoria-presentacion-en-vivo.png');
+
+
+const VIDEOS_TRAYECTORIA = [
+{
+  titulo: 'Los Thugs — Live Rimas Y Chingazos Episodio 1',
+  youtubeUrl: 'https://www.youtube.com/watch?v=QOq-kwFbOTA'
+},
+{
+  titulo: 'One Last Time Party',
+  youtubeUrl: 'https://www.youtube.com/watch?v=JCsszoogPJw'
+},
+{
+  titulo: 'Thugs Sessionz Cap 1',
+  subtitulo: 'Segunda sesión programada de consumo cannábico',
+  youtubeUrl: 'https://www.youtube.com/watch?v=DqncmZCz8oQ'
+},
+{
+  titulo: 'Thugs Sessionz Cap 2',
+  youtubeUrl: 'https://www.youtube.com/watch?v=OV2TSIbEJBQ'
+}];
+
 const REDES_SOCIALES = [
-  { id: 'youtube', icon: 'logo-youtube', label: 'Los Thugs', url: 'https://www.youtube.com/@losthugs33' },
-  { id: 'facebook', icon: 'logo-facebook', label: 'LosThugs', url: 'https://www.facebook.com/losthugs614' },
-  { id: 'instagram', icon: 'logo-instagram', label: 'Los.Thugs', url: 'https://instagram.com/Los.Thugs' },
-  { id: 'spotify', icon: 'musical-notes', label: 'Los Thugs', url: 'https://open.spotify.com/artist/1ZqgJzPb8hw9d5NnnvGnzk' },
-];
+{ id: 'youtube', icon: 'logo-youtube', label: 'Los Thugs', url: 'https://www.youtube.com/@losthugs33' },
+{ id: 'facebook', icon: 'logo-facebook', label: 'LosThugs', url: 'https://www.facebook.com/losthugs614' },
+{ id: 'instagram', icon: 'logo-instagram', label: 'Los.Thugs', url: 'https://instagram.com/Los.Thugs' }];
+
 
 const REDES_HANDLES = [
-  { label: 'Fb', handle: '@losthugs614', url: 'https://www.facebook.com/losthugs614' },
-  { label: 'ig', handle: '@los.thugs', url: 'https://instagram.com/los.thugs' },
-  { label: 'YouTube', handle: '@losthugs33', url: 'https://www.youtube.com/@losthugs33' },
-];
+{ label: 'Fb', handle: '@losthugs614', url: 'https://www.facebook.com/losthugs614' },
+{ label: 'ig', handle: '@los.thugs', url: 'https://instagram.com/los.thugs' },
+{ label: 'YouTube', handle: '@losthugs33', url: 'https://www.youtube.com/@losthugs33' }];
+
+
+const FOTO_INTEGRANTE_SERGIO_MARIN = require('../../assets/integrante-sergio-marin.png');
+const FOTO_INTEGRANTE_OMEGA_MORALES = require('../../assets/integrante-omega-morales.png');
+const FOTO_INTEGRANTE_CHARDS_RIVERA = require('../../assets/integrante-chards-rivera.png');
+const FOTO_INTEGRANTE_PABLITO_TATTOOS = require('../../assets/integrante-pablito-tattoos.png');
 
 const INTEGRANTES = [
-  { nombre: 'Chards Rivera', ig: '@chardsrivera', url: 'https://instagram.com/chardsrivera' },
-  { nombre: 'Omega Morales', ig: '@moralesomega', url: 'https://instagram.com/moralesomega' },
-];
+{
+  nombre: 'Chards Rivera',
+  ig: '@chardsrivera',
+  url: 'https://instagram.com/chardsrivera',
+  foto: FOTO_INTEGRANTE_CHARDS_RIVERA
+},
+{
+  nombre: 'Omega Morales',
+  ig: '@moralesomega',
+  url: 'https://instagram.com/moralesomega',
+  foto: FOTO_INTEGRANTE_OMEGA_MORALES
+},
+{
+  nombre: 'Pablito Tattos',
+  ig: '@pablito.tattoos',
+  url: 'https://www.instagram.com/pablito.tattoos/',
+  foto: FOTO_INTEGRANTE_PABLITO_TATTOOS
+},
+{
+  nombre: 'Sergio Marin',
+  ig: '@marinzote87',
+  url: 'https://www.instagram.com/marinzote87/',
+  foto: FOTO_INTEGRANTE_SERGIO_MARIN
+}];
+
 
 const LINKS_PRENSA = [
-  { titulo: 'Casa Norte', url: 'https://www.youtube.com/watch?v=X_o6TkUZT48' },
-  { titulo: 'Circuito Norte - Antena 102.5 fm', url: 'https://www.facebook.com/share/x/1DcNydKnaM/' },
-  { titulo: 'Ay Claudia!', url: 'https://www.youtube.com/watch?v=MDAXTgeKNII' },
-];
+{ titulo: 'Casa Norte', url: 'https://www.youtube.com/watch?v=X_o6TkUZT48' },
+{ titulo: 'Circuito Norte - Antena 102.5 fm', url: 'https://www.facebook.com/share/x/1DcNydKnaM/' },
+{ titulo: 'Ay Claudia!', url: 'https://www.youtube.com/watch?v=MDAXTgeKNII' }];
 
-// Frase al final de cada bloque (mismo estilo: título verde, subtítulo blanco). Alternan izq/der por índice.
+
+
 const FRASES_BLOQUES = [
-  { titulo: 'ANDAMOS ROLANDO CALLES', subtitulo: '¡NOMÁS A VER QUE SE VE!' },
-  { titulo: 'CREANDO COSAS GRANDES', subtitulo: 'SUEÑOS RAROS' },
-  { titulo: 'PODER NORTEÑO', subtitulo: 'DEL MÉJICO MÁGICO' },
-  { titulo: 'ROLANDO CALLES', subtitulo: 'EN CADA CANCIÓN' },
-  { titulo: 'DE LA CALLE AL ESCENARIO', subtitulo: 'TRAYECTO THUG' },
-  { titulo: 'CONECTA CON NOSOTROS', subtitulo: 'SÍGUENOS EN REDES' },
-  { titulo: 'PRENSA Y MEDIOS', subtitulo: 'MIRA LO QUE DICEN' },
-];
+{ titulo: 'SI SE SIENTE BIEN', subtitulo: 'YEAH SE SIENTE' },
+{ titulo: 'EXOTICAS CARRETERAS', subtitulo: 'EFECTO LCD' },
+{ titulo: 'ENERGIA POSITIVA QUE DETONE', subtitulo: 'Y QUE REVIENTE' },
+{ titulo: 'LA DJ VA A MEZCLARLO', subtitulo: 'HASTA EL AMANECER' },
+{ titulo: 'TINTA DE MI MENTE', subtitulo: 'DEMENTE CONCIENTE' },
+{ titulo: 'DENUEVO EN EL JUEGO', subtitulo: 'LOS LOCOS DEL WEST' },
+{ titulo: 'CHECK CHECK', subtitulo: 'CHEQUELE MUY BIEN' }];
 
-// Singles: titulo, url (Spotify), cover?, youtubeUrl? (opcional: al tenerlo se puede expandir y ver video embebido)
+
+
 const SINGLES = [
-  { titulo: 'Mr Pipeins (Live)', url: 'https://open.spotify.com/album/1JnRG3WRJRNRqgNHw85gWj', cover: require('../../assets/pipeins.png'), youtubeUrl: 'https://youtu.be/0JDIv9j1FoE' },
-  { titulo: 'Méjico Mágico', url: 'https://open.spotify.com/album/3IMLWcl5o6bXfME4LNoJG9', cover: require('../../assets/mijicomajico.png'), youtubeUrl: 'https://youtu.be/cYNtsn8qb_c' },
-  { titulo: 'El Último Tren', url: 'https://open.spotify.com/album/16zmKIQJ1CGwfwtQlgzAJs', cover: require('../../assets/ultimotren.png'), youtubeUrl: 'https://youtu.be/INefC_h6IBo' },
-  { titulo: 'El Song De La Thug Life', url: 'https://open.spotify.com/album/5up5lvNRgiNBXg1J5aOtv7', cover: require('../../assets/elsong.png'), youtubeUrl: 'https://youtu.be/wdmctl790lw' },
-  { titulo: '7 Postes', url: 'https://open.spotify.com/track/01MO4fXNPRxwzTDFLvNL5K', youtubeUrl: 'https://www.youtube.com/watch?v=VHtbPIgi_1Y', cover: require('../../assets/7postes.png') },
-  { titulo: 'Playeras Pa\' Detonar', url: 'https://open.spotify.com/track/19MwdytK5mpFlmetaJxn2w', youtubeUrl: 'https://www.youtube.com/watch?v=gOodHcuYgog', cover: require('../../assets/playeras.png') },
-];
+{ titulo: 'Mr Pipeins (Live)', url: 'https://open.spotify.com/album/1JnRG3WRJRNRqgNHw85gWj', cover: require('../../assets/pipeins.png'), youtubeUrl: 'https://youtu.be/0JDIv9j1FoE' },
+{ titulo: 'Méjico Mágico', url: 'https://open.spotify.com/album/3IMLWcl5o6bXfME4LNoJG9', cover: require('../../assets/mijicomajico.png'), youtubeUrl: 'https://youtu.be/cYNtsn8qb_c' },
+{ titulo: 'El Último Tren', url: 'https://open.spotify.com/album/16zmKIQJ1CGwfwtQlgzAJs', cover: require('../../assets/ultimotren.png'), youtubeUrl: 'https://youtu.be/INefC_h6IBo' },
+{ titulo: 'El Song De La Thug Life', url: 'https://open.spotify.com/album/5up5lvNRgiNBXg1J5aOtv7', cover: require('../../assets/elsong.png'), youtubeUrl: 'https://youtu.be/wdmctl790lw' },
+{ titulo: '7 Postes', url: 'https://open.spotify.com/track/01MO4fXNPRxwzTDFLvNL5K', youtubeUrl: 'https://www.youtube.com/watch?v=VHtbPIgi_1Y', cover: require('../../assets/7postes.png') },
+{ titulo: 'Playeras Pa\' Detonar', url: 'https://open.spotify.com/track/19MwdytK5mpFlmetaJxn2w', youtubeUrl: 'https://www.youtube.com/watch?v=gOodHcuYgog', cover: require('../../assets/playeras.png') }];
+
 
 const WHATSAPP_NUMERO = '3315873924';
 const EMAIL_CONTACTO = 'info.rolandocallesent@gmail.com';
-const REDES_FOOTER = [
-  { id: 'spotify', icon: 'musical-notes', url: 'https://open.spotify.com/artist/1ZqgJzPb8hw9d5NnnvGnzk' },
-  { id: 'youtube', icon: 'logo-youtube', url: 'https://www.youtube.com/@losthugs33' },
-  { id: 'facebook', icon: 'logo-facebook', url: 'https://www.facebook.com/losthugs614' },
-  { id: 'whatsapp', icon: 'logo-whatsapp', url: `https://wa.me/52${WHATSAPP_NUMERO.replace(/\s/g, '')}` },
-  { id: 'instagram', icon: 'logo-instagram', url: 'https://instagram.com/los.thugs' },
-  { id: 'email', icon: 'mail', url: `mailto:${EMAIL_CONTACTO}` },
-];
+const VIDEO_HERO_YOUTUBE = 'https://www.youtube.com/watch?v=SJxBQJqo5pk';
 
-/** Tras login/registro/Google: admin → panel; resto → Contenido general (Inicio). */
+
+const COMUNIDAD_TEXTO_PRINCIPAL =
+'Somos una comunidad de artistas urbanos independientes en México, enfocada en rap, freestyle y cultura callejera, donde los sueños raros se convierten en realidad.';
+
+const COMUNIDAD_TEXTO_SECUNDARIO =
+'Accede a episodios completos, contenido exclusivo y conecta con una comunidad de artistas urbanos.';
+
+
+const COMUNIDAD_CTA_TEXTO = '¿Somos thugs o qué?';
+const REDES_FOOTER = [
+{ id: 'spotify', icon: 'musical-notes', url: 'https://open.spotify.com/artist/1ZqgJzPb8hw9d5NnnvGnzk' },
+{ id: 'youtube', icon: 'logo-youtube', url: 'https://www.youtube.com/@losthugs33' },
+{ id: 'facebook', icon: 'logo-facebook', url: 'https://www.facebook.com/losthugs614' },
+{ id: 'whatsapp', icon: 'logo-whatsapp', url: `https://wa.me/52${WHATSAPP_NUMERO.replace(/\s/g, '')}` },
+{ id: 'instagram', icon: 'logo-instagram', url: 'https://instagram.com/los.thugs' },
+{ id: 'email', icon: 'mail', url: `mailto:${EMAIL_CONTACTO}` }];
+
+const BOOKING_WHATSAPP = WHATSAPP_NUMERO;
+
+
 function navegarSegunPerfil(navigation, perfil) {
   navigation.replace(nombreRutaHomeApp(perfil));
 }
@@ -100,13 +168,13 @@ function navegarSegunPerfil(navigation, perfil) {
 const PRESENTACIONES_ITEMS = 6;
 const CARRUSEL_GAP = 12;
 const FLYERS_PRESENTACIONES = [
-  require('../../assets/flyers/flyer1.jpeg'),
-  require('../../assets/flyers/flyer2.jpeg'),
-  require('../../assets/flyers/flyer3.jpeg'),
-  require('../../assets/flyers/flyer4.jpeg'),
-  require('../../assets/flyers/flyer5.jpeg'),
-  require('../../assets/flyers/flyer6.jpeg'),
-];
+require('../../assets/flyers/flyer1.jpeg'),
+require('../../assets/flyers/flyer2.jpeg'),
+require('../../assets/flyers/flyer3.jpeg'),
+require('../../assets/flyers/flyer4.jpeg'),
+require('../../assets/flyers/flyer5.jpeg'),
+require('../../assets/flyers/flyer6.jpeg')];
+
 
 function absolutizarFlyer(url) {
   const s = String(url || '').trim();
@@ -116,10 +184,15 @@ function absolutizarFlyer(url) {
   return `${base}${s.startsWith('/') ? s : `/${s}`}`;
 }
 
-// Añade álbumes: id único, titulo, spotifyUrl (ej: https://open.spotify.com/album/xxxxx)
+
 const ALBUMS = [
-  { id: '1', titulo: 'Rolando Calles', spotifyUrl: 'https://open.spotify.com/album/6C5iPRNs1pbrZuyVkmJLBd' },
-];
+{
+  id: '1',
+  titulo: 'Rolando Calles',
+  spotifyUrl: 'https://open.spotify.com/album/6C5iPRNs1pbrZuyVkmJLBd',
+  portada: PORTADA_ALBUM_ROLANDO_CALLES
+}];
+
 
 function extraerAlbumIdSpotify(url) {
   if (!url) return null;
@@ -137,14 +210,30 @@ const youtubeEmbedContenedor = { width: '70%', alignSelf: 'center', aspectRatio:
 const youtubeEmbedBoton = { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, paddingVertical: 14, paddingHorizontal: 20, backgroundColor: 'rgba(255,0,0,0.15)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,0,0,0.4)' };
 const youtubeEmbedBotonTexto = { color: '#ff0000', fontSize: 15, fontWeight: '600' };
 
-function YouTubeEmbed({ videoId, youtubeUrl }) {
+function YouTubeEmbed({
+  videoId,
+  youtubeUrl,
+  startSeconds = 0,
+  endSeconds = 0,
+  autoplay = false,
+  muted = false,
+  containerStyle
+}) {
   const contenedorRef = useRef(null);
   useEffect(() => {
     if (Platform.OS !== 'web' || !videoId || typeof document === 'undefined') return;
     const container = contenedorRef.current;
     if (!container || typeof container.appendChild !== 'function') return;
+    const params = new URLSearchParams({
+      rel: '0',
+      playsinline: '1',
+      autoplay: autoplay ? '1' : '0',
+      mute: muted ? '1' : '0'
+    });
+    if (startSeconds > 0) params.set('start', String(startSeconds));
+    if (endSeconds > 0) params.set('end', String(endSeconds));
     const el = document.createElement('iframe');
-    el.src = `https://www.youtube.com/embed/${videoId}?rel=0`;
+    el.src = `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
     el.style.width = '100%';
     el.style.height = '100%';
     el.style.border = 'none';
@@ -152,17 +241,17 @@ function YouTubeEmbed({ videoId, youtubeUrl }) {
     el.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
     el.setAttribute('allowFullScreen', '');
     container.appendChild(el);
-    return () => { try { container.removeChild(el); } catch (_) {} };
-  }, [videoId]);
+    return () => {try {container.removeChild(el);} catch (_) {}};
+  }, [videoId, startSeconds, endSeconds, autoplay, muted]);
   if (Platform.OS === 'web') {
-    return <View ref={contenedorRef} style={youtubeEmbedContenedor} collapsable={false} />;
+    return <View ref={contenedorRef} style={[youtubeEmbedContenedor, containerStyle]} collapsable={false} />;
   }
   return (
     <TouchableOpacity style={youtubeEmbedBoton} onPress={() => youtubeUrl && Linking.openURL(youtubeUrl)}>
       <Ionicons name="logo-youtube" size={24} color="#ff0000" />
       <Text style={youtubeEmbedBotonTexto}>Ver en YouTube</Text>
-    </TouchableOpacity>
-  );
+    </TouchableOpacity>);
+
 }
 
 const spotifyEmbedContenedor = { width: '100%', height: 352, marginTop: 12, borderRadius: 12, overflow: 'hidden' };
@@ -184,7 +273,7 @@ function SpotifyEmbed({ albumId, spotifyUrl }) {
     el.setAttribute('allow', 'autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture');
     el.setAttribute('loading', 'lazy');
     container.appendChild(el);
-    return () => { try { container.removeChild(el); } catch (_) {} };
+    return () => {try {container.removeChild(el);} catch (_) {}};
   }, [albumId]);
   if (Platform.OS === 'web') {
     return <View ref={contenedorRef} style={spotifyEmbedContenedor} collapsable={false} />;
@@ -193,8 +282,8 @@ function SpotifyEmbed({ albumId, spotifyUrl }) {
     <TouchableOpacity style={spotifyEmbedBoton} onPress={() => spotifyUrl && Linking.openURL(spotifyUrl)}>
       <Ionicons name="musical-notes" size={24} color="#00dc57" />
       <Text style={spotifyEmbedBotonTexto}>Abrir en Spotify</Text>
-    </TouchableOpacity>
-  );
+    </TouchableOpacity>);
+
 }
 
 export default function InicioPresskit({ navigation }) {
@@ -202,7 +291,7 @@ export default function InicioPresskit({ navigation }) {
   const dimensions = useWindowDimensions();
   const [webSize, setWebSize] = useState(null);
 
-  // En web, useWindowDimensions no siempre se actualiza al redimensionar; escuchamos resize para que el layout (columna/fila) cambie al estrechar el navegador.
+
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const update = () => setWebSize({ width: window.innerWidth, height: window.innerHeight });
@@ -212,17 +301,26 @@ export default function InicioPresskit({ navigation }) {
   }, []);
 
   const width = Platform.OS === 'web' && webSize != null ? webSize.width : dimensions.width;
-  const windowHeight = Platform.OS === 'web' && webSize != null ? webSize.height : dimensions.height;
   const esWebDesktop = Platform.OS === 'web' && width >= 768;
+
+  const screenW =
+  Platform.OS === 'web' && typeof window !== 'undefined' ?
+  window.screen?.width || width :
+  width;
+  const umbralDosColsTrayectoria = Math.max(640, Math.round(screenW * 0.5));
+  const esTrayectoriaGridDosColumnas =
+  Platform.OS === 'web' && width >= umbralDosColsTrayectoria;
   const contentWidth = Math.max(width - 64, 320);
-  const footerIconSize = Platform.OS === 'web' ? (width < 360 ? 22 : width < 520 ? 24 : 28) : 28;
+
+  const presskitHeroVideoWidth = Math.max(Math.round(contentWidth * 0.78), 272);
+  const footerIconSize = Platform.OS === 'web' ? width < 360 ? 22 : width < 520 ? 24 : 28 : 28;
   const carruselItemWidth = Math.min((contentWidth - 48) * 0.52, 220);
   const carruselSnapInterval = carruselItemWidth + CARRUSEL_GAP;
   const { perfil, cerrarSesion, establecerPerfil } = useAuth();
   const estaAutenticado = !!perfil;
   const rutaHomeHeader = esAdmin(perfil) ? 'ContenidoGeneral' : nombreRutaHomeApp(perfil);
 
-  const [modo, setModo] = useState('registro'); // 'login' | 'registro'
+  const [modo, setModo] = useState('login');
   const [nombre, setNombre] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -238,7 +336,72 @@ export default function InicioPresskit({ navigation }) {
   const [albumExpandidoId, setAlbumExpandidoId] = useState(null);
   const [singleExpandidoId, setSingleExpandidoId] = useState(null);
   const [flyersDinamicos, setFlyersDinamicos] = useState([]);
+  const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [globoRegistroVisible, setGloboRegistroVisible] = useState(false);
   const scrollRef = useRef(null);
+  const contenidoPresskitYRef = useRef(0);
+  const linksPrensaYEnContenidoRef = useRef(0);
+  const linksPrensaAbsYRef = useRef(0);
+  const linksPrensaScrollMedidoRef = useRef(false);
+  const globoRegistroDisparadoRef = useRef(false);
+  const heroVideoId = extraerVideoIdYouTube(VIDEO_HERO_YOUTUBE);
+
+
+  const abrirModalRegistro = useCallback(() => {
+    setModo('registro');
+    setAuthModalVisible(true);
+  }, []);
+
+  const actualizarLinksPrensaAbsY = useCallback(() => {
+    linksPrensaAbsYRef.current = contenidoPresskitYRef.current + linksPrensaYEnContenidoRef.current;
+  }, []);
+
+  const onContenidoPresskitLayout = useCallback(
+    (e) => {
+      contenidoPresskitYRef.current = e.nativeEvent.layout.y;
+      if (linksPrensaScrollMedidoRef.current) actualizarLinksPrensaAbsY();
+    },
+    [actualizarLinksPrensaAbsY]
+  );
+
+  const onLinksPrensaSectionLayout = useCallback(
+    (e) => {
+      const { y, height } = e.nativeEvent.layout;
+      if (height <= 0) return;
+      linksPrensaYEnContenidoRef.current = y;
+      linksPrensaScrollMedidoRef.current = true;
+      actualizarLinksPrensaAbsY();
+    },
+    [actualizarLinksPrensaAbsY]
+  );
+
+  const onPresskitScroll = useCallback(
+    (e) => {
+      if (estaAutenticado || globoRegistroDisparadoRef.current || !linksPrensaScrollMedidoRef.current) return;
+      const { contentOffset, layoutMeasurement } = e.nativeEvent;
+      const scrollY = contentOffset.y;
+      const viewH = layoutMeasurement.height;
+      const sectionY = linksPrensaAbsYRef.current;
+      if (scrollY + viewH >= sectionY + 100) {
+        globoRegistroDisparadoRef.current = true;
+        setGloboRegistroVisible(true);
+      }
+    },
+    [estaAutenticado]
+  );
+
+  useEffect(() => {
+    if (estaAutenticado) {
+      setGloboRegistroVisible(false);
+    }
+  }, [estaAutenticado]);
+
+  useFocusEffect(
+    useCallback(() => {
+      aplicarSeoWeb();
+    }, [])
+  );
+
   useEffect(() => {
     let cancel = false;
     (async () => {
@@ -247,9 +410,9 @@ export default function InicioPresskit({ navigation }) {
         if (cancel) return;
         const arr = Array.isArray(data) ? data : [];
         setFlyersDinamicos(
-          arr
-            .map((x) => absolutizarFlyer(x?.urlImagen))
-            .filter((x) => typeof x === 'string' && x.length > 0)
+          arr.
+          map((x) => absolutizarFlyer(x?.urlImagen)).
+          filter((x) => typeof x === 'string' && x.length > 0)
         );
       } catch (_) {
         if (!cancel) setFlyersDinamicos([]);
@@ -261,12 +424,12 @@ export default function InicioPresskit({ navigation }) {
   }, []);
 
   const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : undefined;
-  const [request, , promptAsync] = Google.useIdTokenAuthRequest(
+  const [request,, promptAsync] = Google.useIdTokenAuthRequest(
     {
       webClientId: Platform.OS === 'web' ? GOOGLE_WEB_CLIENT_ID : undefined,
       redirectUri: webRedirectUri,
       iosClientId: Platform.OS === 'ios' ? GOOGLE_CLIENT_ID : undefined,
-      androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined,
+      androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined
     },
     { useProxy: false }
   );
@@ -305,7 +468,7 @@ export default function InicioPresskit({ navigation }) {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.6,
-      base64: true,
+      base64: true
     });
     if (!resultado.canceled && resultado.assets[0]) {
       const asset = resultado.assets[0];
@@ -324,7 +487,7 @@ export default function InicioPresskit({ navigation }) {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.6,
-      base64: true,
+      base64: true
     });
     if (!resultado.canceled && resultado.assets[0]) {
       const asset = resultado.assets[0];
@@ -339,10 +502,10 @@ export default function InicioPresskit({ navigation }) {
       return;
     }
     Alert.alert('Foto', 'Elige el origen', [
-      { text: 'Galería', onPress: elegirDeGaleria },
-      { text: 'Tomar foto', onPress: tomarFoto },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+    { text: 'Galería', onPress: elegirDeGaleria },
+    { text: 'Tomar foto', onPress: tomarFoto },
+    { text: 'Cancelar', style: 'cancel' }]
+    );
   };
 
   const onLogin = async () => {
@@ -353,7 +516,7 @@ export default function InicioPresskit({ navigation }) {
     setLoginCargando(true);
     try {
       const p = await iniciarSesionEmail(email.trim(), password);
-      if (!p) { Alert.alert('Error', 'Perfil no encontrado.'); return; }
+      if (!p) {Alert.alert('Error', 'Perfil no encontrado.');return;}
       establecerPerfil(p);
       navegarSegunPerfil(navigation, p);
     } catch (e) {
@@ -383,7 +546,7 @@ export default function InicioPresskit({ navigation }) {
         username: username.trim(),
         telefono: telefono.trim(),
         fotoBase64: fotoBase64 || undefined,
-        aceptaNotificaciones,
+        aceptaNotificaciones
       });
       establecerPerfil(p);
       navegarSegunPerfil(navigation, p);
@@ -393,6 +556,165 @@ export default function InicioPresskit({ navigation }) {
       setRegCargando(false);
     }
   };
+
+  const renderAuthForm = () =>
+  <>
+      <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={estilos.cuadroGlass}>
+      
+        <View style={estilos.formularioUnico}>
+          <Text style={estilos.tituloMitad}>
+            {modo === 'registro' ? 'Registro' : 'Iniciar sesión'}
+          </Text>
+          {modo === 'registro' &&
+        <>
+              <View style={estilos.filaFoto}>
+                {fotoUri ?
+            <View style={estilos.fotoPreview}>
+                    <Image source={{ uri: fotoUri }} style={estilos.fotoPreviewImg} />
+                    <TouchableOpacity style={estilos.quitarFoto} onPress={() => {setFotoUri(null);setFotoBase64(null);}}>
+                      <Ionicons name="close-circle" size={24} color="#fff" />
+                    </TouchableOpacity>
+                  </View> :
+            null}
+                <TouchableOpacity style={estilos.botonFotoUnico} onPress={elegirOrigenFoto}>
+                  <Ionicons name="camera-outline" size={28} color="#00dc57" />
+                  <Text style={estilos.botonFotoTexto}>Agregar foto</Text>
+                </TouchableOpacity>
+              </View>
+              <TextInput
+            style={estilos.input}
+            placeholder="Nombre completo"
+            placeholderTextColor="#9ca3af"
+            value={nombre}
+            onChangeText={setNombre}
+            autoCapitalize="words" />
+          
+              <TextInput
+            style={estilos.input}
+            placeholder="Usuario *"
+            placeholderTextColor="#9ca3af"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none" />
+          
+            </>
+        }
+          <TextInput
+          style={estilos.input}
+          placeholder="Correo *"
+          placeholderTextColor="#9ca3af"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none" />
+        
+          {modo === 'registro' &&
+        <TextInput
+          style={estilos.input}
+          placeholder="Teléfono (opcional)"
+          placeholderTextColor="#9ca3af"
+          value={telefono}
+          onChangeText={setTelefono}
+          keyboardType="phone-pad" />
+
+        }
+          <View style={estilos.inputContenedorPassword}>
+            <TextInput
+            style={estilos.input}
+            placeholder={modo === 'registro' ? 'Contraseña (mín. 6) *' : 'Contraseña'}
+            placeholderTextColor="#9ca3af"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!mostrarPass} />
+          
+            <TouchableOpacity style={estilos.ojo} onPress={() => setMostrarPass((v) => !v)}>
+              <Ionicons name={mostrarPass ? 'eye-off-outline' : 'eye-outline'} size={20} color="#6b7280" />
+            </TouchableOpacity>
+          </View>
+          {modo === 'registro' &&
+        <TouchableOpacity
+          style={estilos.filaCheckbox}
+          onPress={() => setAceptaNotificaciones((v) => !v)}
+          activeOpacity={0.7}>
+          
+              <Ionicons
+            name={aceptaNotificaciones ? 'checkbox' : 'square-outline'}
+            size={22}
+            color={aceptaNotificaciones ? '#00dc57' : '#6b7280'} />
+          
+              <Text style={estilos.checkboxTexto}>Acepto notificaciones</Text>
+            </TouchableOpacity>
+        }
+          {modo === 'registro' ?
+        <>
+              <TouchableOpacity
+            style={[estilos.boton, regCargando && estilos.botonDeshabilitado]}
+            onPress={onRegister}
+            disabled={regCargando}>
+            
+                {regCargando ? <ActivityIndicator color="#fff" size="small" /> : <Text style={estilos.botonTexto}>Registrarme</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={estilos.toggle} onPress={() => setModo('login')}>
+                <Text style={estilos.toggleTexto}>¿Ya tienes una cuenta?</Text>
+              </TouchableOpacity>
+            </> :
+
+        <>
+              <TouchableOpacity
+            style={[estilos.boton, loginCargando && estilos.botonDeshabilitado]}
+            onPress={onLogin}
+            disabled={loginCargando}>
+            
+                {loginCargando ? <ActivityIndicator color="#fff" size="small" /> : <Text style={estilos.botonTexto}>Entrar</Text>}
+              </TouchableOpacity>
+              <TouchableOpacity style={estilos.toggle} onPress={() => setModo('registro')}>
+                <Text style={estilos.toggleTexto}>¿Aún no tienes cuenta?</Text>
+              </TouchableOpacity>
+            </>
+        }
+        </View>
+      </KeyboardAvoidingView>
+      <View style={estilos.filaGoogle}>
+        <TouchableOpacity
+        style={[estilos.botonGoogle, cargandoGoogle && estilos.botonDeshabilitado]}
+        onPress={onGoogle}
+        disabled={!request || cargandoGoogle}>
+        
+          {cargandoGoogle ? <ActivityIndicator color="#fff" size="small" /> : <Text style={estilos.botonGoogleTexto}>Entrar con Google</Text>}
+        </TouchableOpacity>
+      </View>
+    </>;
+
+
+  const renderBloqueComunidad = () =>
+  <View style={[estilos.bloqueAncho, { width: contentWidth }]}>
+      <View style={[estilos.bloqueArtistInfoCard, estilos.bloqueComunidadCard]}>
+        <View style={estilos.bloqueArtistInfoContenido}>
+          <View style={estilos.filaArtistInfo}>
+            <Text style={estilos.artistInfoTitulo}>NUESTRA COMUNIDAD</Text>
+            <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
+          </View>
+          <Text style={estilos.comunidadCuerpoPrincipal}>{COMUNIDAD_TEXTO_PRINCIPAL}</Text>
+          {!estaAutenticado ?
+        <TouchableOpacity
+          style={estilos.comunidadBotonCta}
+          onPress={abrirModalRegistro}
+          activeOpacity={0.85}>
+          
+              <Text style={estilos.comunidadBotonCtaTexto}>{COMUNIDAD_CTA_TEXTO}</Text>
+            </TouchableOpacity> :
+        null}
+          <Text style={estilos.comunidadCuerpoSecundario}>
+            {estaAutenticado ?
+          'Tu cuenta te da acceso a episodios completos, contenido exclusivo y a esta comunidad de artistas urbanos.' :
+          COMUNIDAD_TEXTO_SECUNDARIO}
+          </Text>
+        </View>
+      </View>
+    </View>;
+
 
   return (
     <View style={estilos.contenedor}>
@@ -405,17 +727,29 @@ export default function InicioPresskit({ navigation }) {
               scrollRef.current?.scrollTo({ y: 0, animated: true });
             }
           }}
-          style={estilos.headerBack}
+          style={[estilos.headerBack, !estaAutenticado && estilos.headerBackInvitado]}
           hitSlop={10}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="arrow-back" size={20} color="#fff" />
-          <Image source={LOGO_THUGS} style={estilos.headerLogoImg} resizeMode="contain" />
+          activeOpacity={0.8}>
+          
+          {estaAutenticado ? <Ionicons name="arrow-back" size={20} color="#fff" /> : null}
+          <Image source={LOGO_HEADER_INVITADO} style={estilos.headerLogoAlLado} resizeMode="contain" />
         </TouchableOpacity>
-        <Text style={estilos.headerTituloPresskit} pointerEvents="none">
-          Presskit
+        <Text style={estilos.headerTituloPresskit} pointerEvents="none" numberOfLines={2}>
+          {TITULO_HEADER_PRESSKIT}
         </Text>
-        <View style={estilos.headerEspacioPresskit} />
+        <View style={estilos.headerDerPresskit}>
+          {!estaAutenticado ?
+          <TouchableOpacity
+            style={estilos.headerRegistrarBtn}
+            onPress={abrirModalRegistro}
+            activeOpacity={0.8}>
+            
+              <Text style={estilos.headerRegistrarBtnTexto}>Registrar</Text>
+            </TouchableOpacity> :
+
+          <View style={estilos.headerEspacioPresskit} />
+          }
+        </View>
       </View>
       <ScrollView
         ref={scrollRef}
@@ -423,217 +757,35 @@ export default function InicioPresskit({ navigation }) {
         contentContainerStyle={[estilos.scrollContenido, estilos.scrollContenidoFondo, estaAutenticado && { paddingTop: 0 }, Platform.OS === 'web' && estilos.scrollContenidoRelative]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-      >
-        {Platform.OS === 'web' ? (
-          <View style={estilos.fondoImagenWrapperWeb} pointerEvents="none">
+        onScroll={onPresskitScroll}
+        scrollEventThrottle={32}>
+        
+        {Platform.OS === 'web' ?
+        <View style={estilos.fondoImagenWrapperWeb} pointerEvents="none">
             <Image source={FONDO_THUGS} style={estilos.fondoImagen} resizeMode="repeat" />
-          </View>
-        ) : (
-          <Image
-            source={FONDO_THUGS}
-            style={estilos.fondoImagen}
-            resizeMode="repeat"
-          />
-        )}
-        <View style={estilos.contenidoSobreFondo}>
-        {!estaAutenticado && (() => {
-          const esColumna = width < 768 || Platform.OS !== 'web';
-          return (
-          <View
-            style={[
-              estilos.mitades,
-              {
-                width: contentWidth,
-                flexDirection: esColumna ? 'column' : 'row',
-                ...(Platform.OS !== 'web' && { marginTop: 56 }),
-                ...(Platform.OS === 'web' && { marginTop: 32 }),
-                ...(esColumna
-                  ? {}
-                  : Platform.OS === 'web'
-                    ? { minHeight: windowHeight * 0.82 }
-                    : { height: windowHeight * 0.58 }),
-              },
-            ]}
-          >
-            <View
-              style={[
-                estilos.mitadIzquierda,
-                estilos.mitadIzquierdaLogo,
-                esColumna
-                  ? {
-                      width: '100%',
-                      flex: 0,
-                      minHeight: Platform.OS === 'web' ? 680 : undefined,
-                      maxHeight: 720,
-                      marginBottom: 16,
-                    }
-                  : { width: contentWidth / 2, flex: 1 },
-              ]}
-            >
-              <Image
-                source={LOGO_BLOQUE}
-                style={[
-                  estilos.imagenLogoThugsLateral,
-                  esColumna && {
-                    maxHeight: 680,
-                    ...(Platform.OS === 'web' && { marginTop: 0 }),
-                  },
-                ]}
-                resizeMode="contain"
-              />
-            </View>
-            <View
-              style={[
-                estilos.mitadDerechaScroll,
-                estilos.mitadDerechaScrollContenido,
-                esColumna ? { flex: 0, marginTop: 8 } : {},
-              ]}
-            >
-            <View
-              style={[
-                estilos.mitadDerecha,
-                esColumna ? { width: '100%', paddingRight: 0 } : { width: contentWidth / 2 },
-              ]}
-            >
-              <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                style={estilos.cuadroGlass}
-              >
-            <View style={estilos.formularioUnico}>
-              <Text style={estilos.tituloMitad}>
-                {modo === 'registro' ? 'Registro' : 'Iniciar sesión'}
-              </Text>
-              {modo === 'registro' && (
-                <>
-                  <View style={estilos.filaFoto}>
-                    {fotoUri ? (
-                      <View style={estilos.fotoPreview}>
-                        <Image source={{ uri: fotoUri }} style={estilos.fotoPreviewImg} />
-                        <TouchableOpacity style={estilos.quitarFoto} onPress={() => { setFotoUri(null); setFotoBase64(null); }}>
-                          <Ionicons name="close-circle" size={24} color="#fff" />
-                        </TouchableOpacity>
-                      </View>
-                    ) : null}
-                    <TouchableOpacity style={estilos.botonFotoUnico} onPress={elegirOrigenFoto}>
-                      <Ionicons name="camera-outline" size={28} color="#00dc57" />
-                      <Text style={estilos.botonFotoTexto}>Agregar foto</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <TextInput
-                    style={estilos.input}
-                    placeholder="Nombre completo"
-                    placeholderTextColor="#9ca3af"
-                    value={nombre}
-                    onChangeText={setNombre}
-                    autoCapitalize="words"
-                  />
-                  <TextInput
-                    style={estilos.input}
-                    placeholder="Usuario *"
-                    placeholderTextColor="#9ca3af"
-                    value={username}
-                    onChangeText={setUsername}
-                    autoCapitalize="none"
-                  />
-                </>
-              )}
-              <TextInput
-                style={estilos.input}
-                placeholder="Correo *"
-                placeholderTextColor="#9ca3af"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              {modo === 'registro' && (
-                <TextInput
-                  style={estilos.input}
-                  placeholder="Teléfono (opcional)"
-                  placeholderTextColor="#9ca3af"
-                  value={telefono}
-                  onChangeText={setTelefono}
-                  keyboardType="phone-pad"
-                />
-              )}
-              <View style={estilos.inputContenedorPassword}>
-                <TextInput
-                  style={estilos.input}
-                  placeholder={modo === 'registro' ? 'Contraseña (mín. 6) *' : 'Contraseña'}
-                  placeholderTextColor="#9ca3af"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!mostrarPass}
-                />
-                <TouchableOpacity style={estilos.ojo} onPress={() => setMostrarPass((v) => !v)}>
-                  <Ionicons name={mostrarPass ? 'eye-off-outline' : 'eye-outline'} size={20} color="#6b7280" />
-                </TouchableOpacity>
-              </View>
-              {modo === 'registro' && (
-                <>
-                  <TouchableOpacity
-                    style={estilos.filaCheckbox}
-                    onPress={() => setAceptaNotificaciones((v) => !v)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={aceptaNotificaciones ? 'checkbox' : 'square-outline'}
-                      size={22}
-                      color={aceptaNotificaciones ? '#00dc57' : '#6b7280'}
-                    />
-                    <Text style={estilos.checkboxTexto}>Acepto notificaciones</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-              {modo === 'registro' ? (
-                <>
-                  <TouchableOpacity
-                    style={[estilos.boton, regCargando && estilos.botonDeshabilitado]}
-                    onPress={onRegister}
-                    disabled={regCargando}
-                  >
-                    {regCargando ? <ActivityIndicator color="#fff" size="small" /> : <Text style={estilos.botonTexto}>Registrarme</Text>}
-                  </TouchableOpacity>
-                  <TouchableOpacity style={estilos.toggle} onPress={() => setModo('login')}>
-                    <Text style={estilos.toggleTexto}>¿Ya tienes una cuenta?</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <>
-                  <TouchableOpacity
-                    style={[estilos.boton, loginCargando && estilos.botonDeshabilitado]}
-                    onPress={onLogin}
-                    disabled={loginCargando}
-                  >
-                    {loginCargando ? <ActivityIndicator color="#fff" size="small" /> : <Text style={estilos.botonTexto}>Entrar</Text>}
-                  </TouchableOpacity>
-                  <TouchableOpacity style={estilos.toggle} onPress={() => setModo('registro')}>
-                    <Text style={estilos.toggleTexto}>¿Aún no tienes cuenta?</Text>
-                  </TouchableOpacity>
-                </>
-              )}
-            </View>
-              </KeyboardAvoidingView>
-              <View style={estilos.filaGoogle}>
-                <TouchableOpacity
-                  style={[estilos.botonGoogle, cargandoGoogle && estilos.botonDeshabilitado]}
-                  onPress={onGoogle}
-                  disabled={!request || cargandoGoogle}
-                >
-                  {cargandoGoogle ? <ActivityIndicator color="#fff" size="small" /> : <Text style={estilos.botonGoogleTexto}>Entrar con Google</Text>}
-                </TouchableOpacity>
-              </View>
-            </View>
-            </View>
-          </View>
-          );
-        })()}
-        {estaAutenticado && (
-          <View style={estilos.logoAnchoCompleto}>
-            <Image source={LOGO_BLOQUE} style={estilos.logoAnchoCompletoImg} resizeMode="contain" />
-          </View>
-        )}
+          </View> :
 
+        <Image
+          source={FONDO_THUGS}
+          style={estilos.fondoImagen}
+          resizeMode="repeat" />
+
+        }
+        <View style={estilos.contenidoSobreFondo} onLayout={onContenidoPresskitLayout}>
+        {heroVideoId ?
+          <View style={[estilos.bloqueAncho, estilos.heroVideoTopBlock, { width: presskitHeroVideoWidth }]}>
+            <YouTubeEmbed
+              videoId={heroVideoId}
+              youtubeUrl={VIDEO_HERO_YOUTUBE}
+              startSeconds={0}
+              endSeconds={69}
+              autoplay
+              muted
+              containerStyle={estilos.heroVideoTopEmbed} />
+            
+          </View> :
+          null}
+        {heroVideoId ? renderBloqueComunidad() : null}
         <View style={[estilos.bloqueAncho, estilos.bloqueArtistInfoCard, { width: contentWidth }, estaAutenticado && estilos.primeraTarjetaPegadaAlLogo]}>
           <View style={estilos.bloqueArtistInfoContenido}>
             <View style={estilos.filaArtistInfo}>
@@ -648,36 +800,38 @@ export default function InicioPresskit({ navigation }) {
             </Text>
 
             <View style={[estilos.filaRedes, estilos.filaRedesCentrada]}>
-              {REDES_SOCIALES.map((red) => (
+              {REDES_SOCIALES.map((red) =>
                 <TouchableOpacity
                   key={red.id}
                   style={estilos.redItem}
                   onPress={() => red.url && Linking.openURL(red.url)}
-                  activeOpacity={0.7}
-                >
+                  activeOpacity={0.7}>
+                  
                   <Ionicons name={red.icon} size={34} color="#fff" />
                   <Text style={estilos.redLabel} numberOfLines={1}>{red.label}</Text>
                 </TouchableOpacity>
-              ))}
+                )}
             </View>
 
             <View
-              style={[
+                style={[
                 estilos.enVivoWrapper,
-                esWebDesktop
-                  ? estilos.enVivoWrapperWebDesktop
-                  : Platform.OS === 'web'
-                    ? estilos.enVivoWrapperWebMobile
-                    : estilos.enVivoWrapperNative,
-              ]}
-            >
-              <Text style={estilos.enVivoEtiqueta}>EN VIVO</Text>
+                esWebDesktop ?
+                estilos.enVivoWrapperWebDesktop :
+                Platform.OS === 'web' ?
+                estilos.enVivoWrapperWebMobile :
+                estilos.enVivoWrapperNative]
+                }>
+                
+              <Text style={estilos.enVivoEtiqueta} numberOfLines={2}>
+                {ETIQUETA_FESTIVAL_ARTIST_INFO}
+              </Text>
               <View style={[estilos.imagenArtistInfoContenedor, esWebDesktop && estilos.imagenArtistInfoContenedorWebDesktop]}>
                 <Image
-                  source={IMAGEN_ARTIST}
-                  style={[estilos.imagenArtistInfo, esWebDesktop && estilos.imagenArtistInfoWebDesktop]}
-                  resizeMode={esWebDesktop ? 'cover' : 'contain'}
-                />
+                    source={IMAGEN_ARTIST}
+                    style={[estilos.imagenArtistInfo, esWebDesktop && estilos.imagenArtistInfoWebDesktop]}
+                    resizeMode={esWebDesktop ? 'cover' : 'contain'} />
+                  
               </View>
             </View>
             <Text style={[estilos.bioTexto, estilos.bioTextoBlock]}>
@@ -698,25 +852,25 @@ export default function InicioPresskit({ navigation }) {
               <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
             </View>
             <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              decelerationRate="fast"
-              snapToInterval={carruselSnapInterval}
-              snapToAlignment="start"
-              contentContainerStyle={estilos.carruselPresentacionesContenido}
-              style={estilos.carruselPresentaciones}
-            >
-              {(flyersDinamicos.length > 0 ? flyersDinamicos : FLYERS_PRESENTACIONES).map((flyer, idx) => (
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                decelerationRate="fast"
+                snapToInterval={carruselSnapInterval}
+                snapToAlignment="start"
+                contentContainerStyle={estilos.carruselPresentacionesContenido}
+                style={estilos.carruselPresentaciones}>
+                
+              {(flyersDinamicos.length > 0 ? flyersDinamicos : FLYERS_PRESENTACIONES).map((flyer, idx) =>
                 <View key={`flyer-${idx}`} style={[estilos.carruselPresentacionesItem, { width: carruselItemWidth }]}>
                   <View style={estilos.carruselPresentacionesPlaceholder}>
                     <Image
                       source={typeof flyer === 'string' ? { uri: flyer } : flyer}
                       style={estilos.carruselPresentacionesImagen}
-                      resizeMode="cover"
-                    />
+                      resizeMode="cover" />
+                    
                   </View>
                 </View>
-              ))}
+                )}
             </ScrollView>
             <Text style={estilos.bioTexto}>
               Hemos tenido presentaciones en el foro cultural más importante de Chihuahua "Don Burro", también estuvimos en el Bazar Libertad en la Plaza del Ángel, colaboraciones con el "Movimiento Cannábico de Chihuahua." Tuvimos la oportunidad de tocar fuera de nuestra ciudad. Visitamos Meoqui, Cd. Aldama, Cd. Delicias y Cd. Juárez.
@@ -746,27 +900,37 @@ export default function InicioPresskit({ navigation }) {
             </Text>
             <View style={estilos.listaAlbums}>
               {ALBUMS.map((album) => {
-                const expandido = albumExpandidoId === album.id;
-                const albumIdSpotify = extraerAlbumIdSpotify(album.spotifyUrl);
-                return (
-                  <View key={album.id} style={estilos.listaAlbumsItem}>
+                  const expandido = albumExpandidoId === album.id;
+                  const albumIdSpotify = extraerAlbumIdSpotify(album.spotifyUrl);
+                  return (
+                    <View key={album.id} style={estilos.listaAlbumsItem}>
                     <TouchableOpacity
-                      style={estilos.listaAlbumsFila}
-                      onPress={() => setAlbumExpandidoId(expandido ? null : album.id)}
-                      activeOpacity={0.7}
-                    >
+                        style={estilos.listaAlbumsFila}
+                        onPress={() => setAlbumExpandidoId(expandido ? null : album.id)}
+                        activeOpacity={0.7}>
+                        
                       <View style={estilos.listaAlbumsFilaIzq}>
-                        <Ionicons name="musical-notes" size={22} color="#00dc57" />
+                        {album.portada ?
+                          <View style={estilos.listaAlbumsPortadaMarco}>
+                            <Image
+                              source={album.portada}
+                              style={estilos.listaAlbumsPortadaImg}
+                              resizeMode="contain" />
+                            
+                          </View> :
+
+                          <Ionicons name="musical-notes" size={22} color="#00dc57" />
+                          }
                         <Text style={estilos.listaAlbumsTitulo}>{album.titulo}</Text>
                       </View>
                       <Ionicons name={expandido ? 'chevron-up' : 'chevron-down'} size={22} color="#00dc57" />
                     </TouchableOpacity>
-                    {expandido && albumIdSpotify && (
+                    {expandido && albumIdSpotify &&
                       <SpotifyEmbed albumId={albumIdSpotify} spotifyUrl={album.spotifyUrl} />
-                    )}
-                  </View>
-                );
-              })}
+                      }
+                  </View>);
+
+                })}
             </View>
             <Text style={estilos.bioTexto}>
               El contenido de canciones abordan aventuras por los caminos de la república, patinando desde las calles hasta las galaxias, multiversos de graffiti y hierbas, creando negocios de los sueños que cada uno moldea con sus talentos y reviviendo las historias de este par de callejeros.
@@ -790,9 +954,9 @@ export default function InicioPresskit({ navigation }) {
             </View>
             <View style={estilos.lineaFlechas} />
             <View style={estilos.listaLinks}>
-              {SINGLES.length === 0 ? (
-                <Text style={estilos.listaLinksVacio}>Aún no hay singles. Agrega canciones en la constante SINGLES del código.</Text>
-              ) : (
+              {SINGLES.length === 0 ?
+                <Text style={estilos.listaLinksVacio}>Aún no hay singles. Agrega canciones en la constante SINGLES del código.</Text> :
+
                 SINGLES.map((link, idx) => {
                   const tieneYoutube = !!link.youtubeUrl;
                   const expandido = singleExpandidoId === idx;
@@ -801,40 +965,40 @@ export default function InicioPresskit({ navigation }) {
                     <View key={idx} style={estilos.listaAlbumsItem}>
                       <TouchableOpacity
                         onPress={() => {
-                          if (tieneYoutube) setSingleExpandidoId(expandido ? null : idx);
-                          else if (link.url) Linking.openURL(link.url);
+                          if (tieneYoutube) setSingleExpandidoId(expandido ? null : idx);else
+                          if (link.url) Linking.openURL(link.url);
                         }}
                         style={estilos.linkItem}
-                        activeOpacity={0.7}
-                      >
-                        {link.cover != null && (
-                          <Image source={link.cover} style={estilos.linkItemCover} resizeMode="cover" />
-                        )}
+                        activeOpacity={0.7}>
+                        
+                        {link.cover != null &&
+                        <Image source={link.cover} style={estilos.linkItemCover} resizeMode="cover" />
+                        }
                         <View style={estilos.linkItemTexto}>
                           <Text style={estilos.linkTitulo}>{link.titulo}</Text>
                           {link.url ? <Text style={estilos.linkUrl} numberOfLines={1}>{link.url}</Text> : null}
                           <View style={estilos.linkAcciones}>
-                            {tieneYoutube && (
-                              <Text style={estilos.linkVerEn}>{expandido ? '▼ Ocultar video' : '▶ Ver video'}</Text>
-                            )}
-                            {link.url && (
-                              <TouchableOpacity onPress={() => link.url && Linking.openURL(link.url)} hitSlop={8}>
+                            {tieneYoutube &&
+                            <Text style={estilos.linkVerEn}>{expandido ? '▼ Ocultar video' : '▶ Ver video'}</Text>
+                            }
+                            {link.url &&
+                            <TouchableOpacity onPress={() => link.url && Linking.openURL(link.url)} hitSlop={8}>
                                 <Text style={estilos.linkVerEn}>Escuchar en Spotify →</Text>
                               </TouchableOpacity>
-                            )}
+                            }
                           </View>
                         </View>
-                        {tieneYoutube && (
-                          <Ionicons name={expandido ? 'chevron-up' : 'chevron-down'} size={22} color="#00dc57" />
-                        )}
+                        {tieneYoutube &&
+                        <Ionicons name={expandido ? 'chevron-up' : 'chevron-down'} size={22} color="#00dc57" />
+                        }
                       </TouchableOpacity>
-                      {tieneYoutube && expandido && videoId && (
-                        <YouTubeEmbed videoId={videoId} youtubeUrl={link.youtubeUrl} />
-                      )}
-                    </View>
-                  );
+                      {tieneYoutube && expandido && videoId &&
+                      <YouTubeEmbed videoId={videoId} youtubeUrl={link.youtubeUrl} />
+                      }
+                    </View>);
+
                 })
-              )}
+                }
             </View>
             <View style={[estilos.fraseBloque, estilos.fraseBloqueDer]}>
               <Text style={[estilos.fraseTitulo, estilos.fraseTituloDer]}>{FRASES_BLOQUES[3].titulo}</Text>
@@ -851,17 +1015,70 @@ export default function InicioPresskit({ navigation }) {
               <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
             </View>
             <Text style={estilos.bioTexto}>
-              Creamos 2 canciones producidas en estudio para JMAS Chihuahua, coordinación y dirección del evento para su presentación en Marzo año 2025.
-            </Text>
-            <Text style={estilos.bioTexto}>
-              En el año 2024 participamos en "Festival Antojos" de Cuu.
-            </Text>
-            <Text style={estilos.bioTexto}>
-              Fuimos protagonistas en el Festival Musical "Escena Desierto 2023" en Cd. Aldama.
+              Fuimos nominados en los Monsters Music Awards como mejor artista de rap, cuya premiación se llevó a cabo en el Teatro Metropolitan en Ciudad de México.
             </Text>
             <Text style={estilos.bioTexto}>
               Hemos compartido escenario con artistas nacionales e internacionales tales como: Desplantes Cuu, Delay Castillo Cuu, Vickingos del Norte Cuu, Koko Yamasaki Xalapa, Kion Bajosuelo de Cd. Juárez, Real Stylo de San Luis, Pedro Mo de Perú y algunos más.
             </Text>
+            <Text style={estilos.bioTexto}>
+              Producimos el álbum Rolando Calles, que cuenta con 11 canciones, en colaboración con Amazonas Music Group.
+            </Text>
+            <Text style={estilos.bioTexto}>
+              Creamos 2 canciones producidas en estudio para JMAS Chihuahua, además de la coordinación y dirección del evento para su presentación.
+            </Text>
+            <Text style={estilos.bioTexto}>
+              Participamos en el &quot;Festival Antojos&quot; de Cuu.
+            </Text>
+            <Text style={estilos.bioTexto}>
+              Fuimos protagonistas en el Festival Musical &quot;Escena Desierto&quot; en Cd. Aldama.
+            </Text>
+            <Text style={estilos.bioTexto}>
+              Realizamos y organizamos presentaciones de manera independiente desde Chihuahua en Tlatelolco, Ciudad de México, en Panorama 21, foro cultural y cocina artesanal, así como en la ciudad de Guadalajara, Jalisco, en el foro Philly Fritz Club.
+            </Text>
+            <Text style={estilos.bioTexto}>
+              Actualmente nos encontramos trabajando en nuestro siguiente material discográfico.
+            </Text>
+            <View style={estilos.trayectoriaImagenWrap}>
+              <Image
+                  source={IMAGEN_TRAYECTORIA}
+                  style={estilos.trayectoriaImagen}
+                  resizeMode="cover"
+                  accessibilityLabel="Presentación en vivo frente al público" />
+                
+            </View>
+            <View
+                style={[
+                estilos.trayectoriaVideosGrid,
+                esTrayectoriaGridDosColumnas && estilos.trayectoriaVideosGridDesktop]
+                }>
+                
+              {VIDEOS_TRAYECTORIA.map((v, idx) => {
+                  const vid = extraerVideoIdYouTube(v.youtubeUrl);
+                  return (
+                    <View
+                      key={v.youtubeUrl}
+                      style={[
+                      estilos.trayectoriaVideoBloque,
+                      esTrayectoriaGridDosColumnas && estilos.trayectoriaVideoBloqueDesktop,
+                      !esTrayectoriaGridDosColumnas && idx > 0 && estilos.trayectoriaVideoBloqueMobileSep]
+                      }>
+                      
+                    <Text style={estilos.trayectoriaVideoTitulo}>{v.titulo}</Text>
+                    {v.subtitulo ?
+                      <Text style={estilos.trayectoriaVideoSubtitulo}>{v.subtitulo}</Text> :
+                      null}
+                    <YouTubeEmbed
+                        videoId={vid}
+                        youtubeUrl={v.youtubeUrl}
+                        containerStyle={[
+                        estilos.trayectoriaYoutubeEmbed,
+                        esTrayectoriaGridDosColumnas && estilos.trayectoriaYoutubeEmbedDesktop]
+                        } />
+                      
+                  </View>);
+
+                })}
+            </View>
             <View style={[estilos.fraseBloque, estilos.fraseBloqueIzq]}>
               <Text style={[estilos.fraseTitulo, estilos.fraseTituloIzq]}>{FRASES_BLOQUES[4].titulo}</Text>
               <Text style={[estilos.fraseSubtitulo, estilos.fraseSubtituloIzq]}>{FRASES_BLOQUES[4].subtitulo}</Text>
@@ -872,33 +1089,30 @@ export default function InicioPresskit({ navigation }) {
         <View style={[estilos.bloqueAncho, estilos.bloqueArtistInfoCard, { width: contentWidth }]}>
           <View style={estilos.bloqueArtistInfoContenido}>
             <View style={estilos.filaArtistInfo}>
-              <Text style={estilos.artistInfoTitulo}>REDES</Text>
+              <Text style={estilos.artistInfoTitulo}>INTEGRANTES</Text>
               <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
             </View>
-            {REDES_SOCIALES.map((red) => (
-              <View key={red.id} style={estilos.redCard}>
-                <View style={estilos.redCardIcono}>
-                  <Ionicons name={red.icon} size={28} color="#fff" />
-                </View>
-                <View style={estilos.redCardContenido}>
-                  <Text style={estilos.integranteNombre}>{red.label}</Text>
-                  <TouchableOpacity onPress={() => red.url && Linking.openURL(red.url)} style={estilos.integranteLink}>
-                    <Text style={estilos.integranteLinkTexto}>Visitar</Text>
-                    <Ionicons name="open-outline" size={16} color="#00dc57" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-            <Text style={estilos.integrantesTitulo}>Integrantes</Text>
-            {INTEGRANTES.map((i) => (
+            {INTEGRANTES.map((i) =>
               <View key={i.ig} style={estilos.integranteCard}>
-                <Text style={estilos.integranteNombre}>{i.nombre}</Text>
-                <TouchableOpacity onPress={() => Linking.openURL(i.url)} style={estilos.integranteLink}>
-                  <Text style={estilos.integranteLinkTexto}>Visitar</Text>
-                  <Ionicons name="open-outline" size={16} color="#00dc57" />
-                </TouchableOpacity>
+                <View style={estilos.integranteCardBody}>
+                  {i.foto ?
+                  <Image
+                    source={i.foto}
+                    style={estilos.integranteFoto}
+                    resizeMode="cover"
+                    accessibilityLabel={`${i.nombre}, foto del integrante`} /> :
+
+                  null}
+                  <View style={estilos.integranteCardTexto}>
+                    <Text style={estilos.integranteNombre}>{i.nombre}</Text>
+                    <TouchableOpacity onPress={() => Linking.openURL(i.url)} style={estilos.integranteLink}>
+                      <Text style={estilos.integranteLinkTexto}>Visitar</Text>
+                      <Ionicons name="open-outline" size={16} color="#00dc57" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-            ))}
+              )}
             <View style={[estilos.fraseBloque, estilos.fraseBloqueDer]}>
               <Text style={[estilos.fraseTitulo, estilos.fraseTituloDer]}>{FRASES_BLOQUES[5].titulo}</Text>
               <Text style={[estilos.fraseSubtitulo, estilos.fraseSubtituloDer]}>{FRASES_BLOQUES[5].subtitulo}</Text>
@@ -906,24 +1120,27 @@ export default function InicioPresskit({ navigation }) {
           </View>
         </View>
 
-        <View style={[estilos.bloqueAncho, estilos.bloqueArtistInfoCard, { width: contentWidth }]}>
+        <View
+            style={[estilos.bloqueAncho, estilos.bloqueArtistInfoCard, { width: contentWidth }]}
+            onLayout={onLinksPrensaSectionLayout}>
+            
           <View style={estilos.bloqueArtistInfoContenido}>
             <View style={estilos.filaArtistInfo}>
               <Text style={estilos.artistInfoTitulo}>LINKS PRENSA</Text>
               <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
             </View>
             <View style={[estilos.lineaFlechas, estilos.lineaVerde]} />
-            {LINKS_PRENSA.map((item, idx) => (
+            {LINKS_PRENSA.map((item, idx) =>
               <TouchableOpacity
                 key={idx}
                 onPress={() => item.url && Linking.openURL(item.url)}
                 style={estilos.linkPrensaItem}
-                activeOpacity={0.7}
-              >
+                activeOpacity={0.7}>
+                
                 <Text style={estilos.linkTitulo}>{item.titulo}</Text>
                 <Text style={estilos.linkUrl} numberOfLines={1}>{item.url}</Text>
               </TouchableOpacity>
-            ))}
+              )}
             <View style={[estilos.fraseBloque, estilos.fraseBloqueIzq]}>
               <Text style={[estilos.fraseTitulo, estilos.fraseTituloIzq]}>{FRASES_BLOQUES[6].titulo}</Text>
               <Text style={[estilos.fraseSubtitulo, estilos.fraseSubtituloIzq]}>{FRASES_BLOQUES[6].subtitulo}</Text>
@@ -932,18 +1149,70 @@ export default function InicioPresskit({ navigation }) {
           </View>
         </View>
 
+        <View style={[estilos.bloqueAncho, estilos.bloqueArtistInfoCard, { width: contentWidth }]}>
+          <View style={estilos.bloqueArtistInfoContenido}>
+            <View style={estilos.filaArtistInfo}>
+              <Text style={estilos.artistInfoTitulo}>COLABORACIONES & BOOKING</Text>
+              <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
+            </View>
+            <Text style={estilos.bioTexto}>
+              ¿Quieres trabajar con Los Thugs? Shows en vivo, colaboraciones, producción de eventos o proyectos
+              especiales.
+            </Text>
+            <View style={estilos.bookingGrid}>
+              <TouchableOpacity
+                  style={[estilos.bookingBtn, estilos.bookingBtnPrimario]}
+                  onPress={() =>
+                  Linking.openURL(
+                    `https://wa.me/52${String(BOOKING_WHATSAPP).replace(/\s/g, '')}?text=${encodeURIComponent(
+                      `Hola, quiero colaborar con Los Thugs.
+
+Banda/Proyecto:
+Nombre de contacto:
+Integrantes:
+Ciudad:
+Enlace de musica/redes:
+Tipo de colaboracion:`
+                    )}`
+                  )
+                  }
+                  activeOpacity={0.8}>
+                  
+                <Ionicons name="logo-whatsapp" size={20} color="#00180b" />
+                <Text style={estilos.bookingBtnPrimarioTexto}>Colaboraciones</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                  style={[estilos.bookingBtn, estilos.bookingBtnSecundario]}
+                  onPress={() =>
+                  Linking.openURL(
+                    `https://wa.me/52${String(BOOKING_WHATSAPP).replace(/\s/g, '')}?text=${encodeURIComponent(
+                      'Hola, quiero info para contratar a Los Thugs para un evento.'
+                    )}`
+                  )
+                  }
+                  activeOpacity={0.8}>
+                  
+                <Ionicons name="megaphone-outline" size={20} color="#00dc57" />
+                <Text style={estilos.bookingBtnSecundarioTexto}>Booking</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={estilos.bookingNota}>Estamos listos para llevarlo a otro nivel.</Text>
+          </View>
+        </View>
+
         <View style={estilos.barraVerdeRedes}>
           <View style={estilos.filaIconosFooter}>
-            {REDES_FOOTER.map((red) => (
+            {REDES_FOOTER.map((red) =>
               <TouchableOpacity
                 key={red.id}
                 onPress={() => red.url && Linking.openURL(red.url)}
                 style={estilos.iconoFooter}
-                activeOpacity={0.8}
-              >
+                activeOpacity={0.8}>
+                
                 <Ionicons name={red.icon} size={footerIconSize} color="#fff" />
               </TouchableOpacity>
-            ))}
+              )}
           </View>
         </View>
 
@@ -962,12 +1231,57 @@ export default function InicioPresskit({ navigation }) {
         </View>
         </View>
       </ScrollView>
-    </View>
-  );
+      {!estaAutenticado && globoRegistroVisible ?
+      <View style={[estilos.registroGloboWrap, { bottom: insets.bottom + 14 }]} pointerEvents="box-none">
+          <View style={estilos.registroGlobo}>
+            <TouchableOpacity
+            style={estilos.registroGloboCerrar}
+            onPress={() => setGloboRegistroVisible(false)}
+            hitSlop={12}
+            accessibilityLabel="Cerrar aviso">
+            
+              <Ionicons name="close" size={22} color="#9ca3af" />
+            </TouchableOpacity>
+            <Text style={estilos.registroGloboTitulo}>¿Te identificas con lo que ves?</Text>
+            <Text style={estilos.registroGloboTexto}>
+              Regístrate en la comunidad Somos Thugs y sé parte de esta aventura llamada Mi vida loca.
+            </Text>
+            <TouchableOpacity
+            style={estilos.registroGloboBtn}
+            onPress={() => {
+              setGloboRegistroVisible(false);
+              abrirModalRegistro();
+            }}
+            activeOpacity={0.85}>
+            
+              <Text style={estilos.registroGloboBtnTexto}>Registrarme</Text>
+            </TouchableOpacity>
+          </View>
+        </View> :
+      null}
+      {!estaAutenticado &&
+      <Modal
+        visible={authModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAuthModalVisible(false)}>
+        
+          <Pressable style={estilos.authModalOverlay} onPress={() => setAuthModalVisible(false)}>
+            <Pressable style={estilos.authModalCaja} onPress={(e) => e.stopPropagation()}>
+              {renderAuthForm()}
+            </Pressable>
+          </Pressable>
+        </Modal>
+      }
+    </View>);
+
 }
 
 const estilos = StyleSheet.create({
-  contenedor: { flex: 1 },
+  contenedor: {
+    flex: 1,
+    ...(Platform.OS === 'web' && { position: 'relative' })
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -977,16 +1291,26 @@ const estilos = StyleSheet.create({
     paddingTop: Platform.OS === 'web' ? 10 : 8,
     borderBottomWidth: 1,
     borderBottomColor: '#2a2a2a',
-    backgroundColor: '#0d0d0d',
+    backgroundColor: '#0d0d0d'
   },
   headerBack: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    padding: 4,
+    gap: 6,
+    paddingVertical: 4,
+    paddingRight: 4,
+    paddingLeft: 2,
     flex: 1,
     zIndex: 1,
-    minWidth: 0,
+    minWidth: 0
+  },
+
+  headerBackInvitado: { gap: 0 },
+  headerLogoAlLado: {
+    height: 36,
+    width: 118,
+    flexShrink: 1,
+    maxWidth: 140
   },
   headerTituloPresskit: {
     position: 'absolute',
@@ -994,12 +1318,25 @@ const estilos = StyleSheet.create({
     right: 0,
     textAlign: 'center',
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
     zIndex: 0,
+    paddingHorizontal: 108,
+    alignSelf: 'center',
+    ...(Platform.OS === 'web' && { maxWidth: '100%', boxSizing: 'border-box' })
   },
   headerEspacioPresskit: { width: 80, zIndex: 1 },
-  headerLogoImg: { width: 36, height: 36 },
+  headerDerPresskit: { width: 120, zIndex: 1, alignItems: 'flex-end' },
+  headerRegistrarBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#00dc57',
+    backgroundColor: 'rgba(0,220,87,0.14)'
+  },
+  headerRegistrarBtnTexto: { color: '#00dc57', fontSize: 13, fontWeight: '700' },
   logoTexto: { fontSize: 18, fontWeight: 'bold', color: '#fff' },
   botonesHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headerLink: { paddingVertical: 4, paddingHorizontal: 2 },
@@ -1010,14 +1347,14 @@ const estilos = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#888',
+    borderColor: '#888'
   },
   botonSecundarioTexto: { color: '#ccc', fontSize: 14 },
   botonPrimario: {
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
-    backgroundColor: '#00dc57',
+    backgroundColor: '#00dc57'
   },
   botonPrimarioTexto: { color: '#000', fontSize: 14, fontWeight: '600' },
   botonCerrar: { padding: 8 },
@@ -1028,13 +1365,13 @@ const estilos = StyleSheet.create({
     gap: 10,
     flex: 1,
     justifyContent: 'flex-end',
-    minWidth: 0,
+    minWidth: 0
   },
   headerUsuario: {
     color: '#fff',
     fontSize: 15,
     fontWeight: '600',
-    maxWidth: 140,
+    maxWidth: 140
   },
   headerAvatarWrap: { position: 'relative' },
   headerAvatarTouchable: {
@@ -1042,7 +1379,7 @@ const estilos = StyleSheet.create({
     height: 44,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1a1a1a'
   },
   headerAvatarImg: { width: '100%', height: '100%', borderRadius: 12 },
   headerAvatarPlaceholder: {
@@ -1053,16 +1390,16 @@ const estilos = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#00dc57',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   menuHamburgerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(0,0,0,0.4)'
   },
   menuHamburgerCaja: {
     position: 'absolute',
     top: 56,
-    right: 14,
+    right: 14
   },
   menuHamburger: {
     backgroundColor: '#1a1a1a',
@@ -1071,26 +1408,80 @@ const estilos = StyleSheet.create({
     borderColor: '#333',
     minWidth: 160,
     paddingVertical: 8,
-    ...(Platform.OS === 'web' && { boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }),
+    ...(Platform.OS === 'web' && { boxShadow: '0 8px 24px rgba(0,0,0,0.5)' })
   },
   menuHamburgerItem: {
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 16
   },
   menuHamburgerItemFila: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 8
   },
   menuHamburgerCandado: { marginLeft: 4 },
   menuHamburgerItemTexto: { color: '#fff', fontSize: 15, fontWeight: '500' },
   menuHamburgerItemCerrar: { borderTopWidth: 1, borderTopColor: '#333' },
+  registroGloboWrap: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    zIndex: 95,
+    alignItems: 'flex-end',
+    pointerEvents: 'box-none'
+  },
+  registroGlobo: {
+    position: 'relative',
+    maxWidth: 304,
+    width: '100%',
+    padding: 16,
+    paddingTop: 38,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#00dc57',
+    backgroundColor: 'rgba(12,12,12,0.97)',
+    ...(Platform.OS === 'web' && { boxShadow: '0 14px 42px rgba(0,0,0,0.55)' })
+  },
+  registroGloboCerrar: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 1,
+    padding: 4
+  },
+  registroGloboTitulo: {
+    color: '#00dc57',
+    fontSize: 17,
+    fontWeight: '800',
+    marginBottom: 8,
+    letterSpacing: 0.3,
+    textAlign: 'center'
+  },
+  registroGloboTexto: {
+    color: '#e5e5e5',
+    fontSize: 14,
+    lineHeight: 21,
+    marginBottom: 14,
+    textAlign: 'center'
+  },
+  registroGloboBtn: {
+    alignSelf: 'center',
+    backgroundColor: '#00dc57',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 10
+  },
+  registroGloboBtnTexto: {
+    color: '#000',
+    fontSize: 15,
+    fontWeight: '700'
+  },
   scroll: { flex: 1, ...(Platform.OS === 'web' && { maxWidth: '100%' }) },
   scrollContenido: {
     padding: 32,
     paddingBottom: 40,
     ...(Platform.OS === 'web' && { maxWidth: '100%', boxSizing: 'border-box' }),
-    ...(Platform.OS !== 'web' && { paddingTop: 12, paddingHorizontal: 0 }),
+    ...(Platform.OS !== 'web' && { paddingTop: 12, paddingHorizontal: 0 })
   },
   scrollContenidoFondo: { minHeight: 5800 },
   scrollContenidoRelative: { position: 'relative' },
@@ -1102,7 +1493,7 @@ const estilos = StyleSheet.create({
     bottom: 0,
     width: '100%',
     zIndex: 0,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   fondoImagen: {
     position: 'absolute',
@@ -1111,35 +1502,61 @@ const estilos = StyleSheet.create({
     right: 0,
     height: 11000,
     width: '100%',
-    zIndex: 0,
+    zIndex: 0
   },
   contenidoSobreFondo: {
     flex: 1,
     zIndex: 1,
     ...(Platform.OS === 'web' && { maxWidth: '100%', alignSelf: 'center' }),
-    ...(Platform.OS !== 'web' && { paddingHorizontal: 32 }),
+    ...(Platform.OS !== 'web' && { paddingHorizontal: 32 })
   },
-  mitades: { flexDirection: 'row', alignItems: 'stretch', marginBottom: 0 },
-  mitadIzquierda: {},
-  mitadIzquierdaLogo: { justifyContent: 'flex-start', alignItems: 'center', paddingTop: 0, paddingBottom: 24, paddingRight: 16 },
-  imagenLogoThugsLateral: { width: '100%', height: '100%', maxHeight: '100%', minHeight: 200, marginTop: -30},
-  logoAnchoCompleto: {
-    width: '100%',
-    minHeight: 620,
-    marginBottom: 0,
-    justifyContent: 'center',
+  heroVideoTopBlock: {
+    alignSelf: 'center',
+    marginTop: Platform.OS === 'web' ? 20 : 16,
+    marginBottom: 12
+  },
+  bloqueComunidadCard: {
+    width: '100%'
+  },
+  comunidadCuerpoPrincipal: {
+    color: '#e8e8e8',
+    fontSize: 16,
+    lineHeight: 26,
+    marginBottom: 16,
+    fontWeight: '500'
+  },
+  comunidadCuerpoSecundario: {
+    color: '#b0b0b0',
+    fontSize: 15,
+    lineHeight: 24,
+    marginBottom: 4,
+    marginTop: 0
+  },
+  comunidadBotonCta: {
+    alignSelf: 'stretch',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#00dc57',
+    backgroundColor: 'rgba(0,220,87,0.12)',
     alignItems: 'center',
-    paddingTop: 0,
-    paddingBottom: 24,
+    justifyContent: 'center',
+    marginBottom: 16
   },
-  logoAnchoCompletoImg: {
+  comunidadBotonCtaTexto: {
+    color: '#00dc57',
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center'
+  },
+  heroVideoTopEmbed: {
     width: '100%',
-    height: 560,
-    maxHeight: 800,
+    maxWidth: '100%',
+    alignSelf: 'stretch',
+    marginTop: 0,
+    ...(Platform.OS === 'web' ? { borderRadius: 14, overflow: 'hidden' } : null)
   },
-  mitadDerecha: { overflow: 'hidden', paddingRight: 24 },
-  mitadDerechaScroll: { flex: 1 },
-  mitadDerechaScrollContenido: { flexGrow: 1, paddingBottom: 32 },
   tituloSeccion: { fontSize: 18, color: '#fff', marginBottom: 16 },
   bloqueAncho: { marginBottom: 28 },
   primeraTarjetaPegadaAlLogo: { marginTop: 16 },
@@ -1150,14 +1567,81 @@ const estilos = StyleSheet.create({
     borderColor: 'rgba(34,197,94,0.35)',
     overflow: 'hidden',
     ...(Platform.OS === 'web' && {
-      boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(34,197,94,0.1)',
-    }),
+      boxShadow: '0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(34,197,94,0.1)'
+    })
   },
   bloqueArtistInfoContenido: { padding: 24 },
   filaArtistInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 18, gap: 8 },
   artistInfoTitulo: { fontSize: 20, fontWeight: '700', color: '#22c55e' },
   flechas: { fontSize: 15, color: '#fff', letterSpacing: 1 },
   bioTexto: { color: '#e5e5e5', fontSize: 15, lineHeight: 24, marginBottom: 14 },
+  trayectoriaImagenWrap: {
+    width: '100%',
+    aspectRatio: 2.35,
+    marginBottom: 18,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: '#00dc57',
+    overflow: 'hidden',
+    backgroundColor: '#0a0a0a'
+  },
+  trayectoriaImagen: {
+    width: '100%',
+    height: '100%',
+    ...(Platform.OS === 'web' && { objectFit: 'cover' })
+  },
+
+  trayectoriaVideosGrid: {
+    width: '100%',
+    marginTop: 4
+  },
+  trayectoriaVideosGridDesktop: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    alignContent: 'flex-start',
+    rowGap: 14,
+    columnGap: 12
+  },
+  trayectoriaVideoBloque: {
+    marginTop: 0,
+    marginBottom: 0
+  },
+
+  trayectoriaVideoBloqueDesktop: {
+    flexGrow: 0,
+    flexShrink: 0,
+    width: 'calc(50% - 6px)',
+    maxWidth: 'calc(50% - 6px)',
+    ...(Platform.OS === 'web' && { boxSizing: 'border-box' })
+  },
+  trayectoriaVideoBloqueMobileSep: {
+    marginTop: 16
+  },
+  trayectoriaVideoTitulo: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 4,
+    lineHeight: 20
+  },
+  trayectoriaVideoSubtitulo: {
+    color: '#a3a3a3',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 8
+  },
+
+  trayectoriaYoutubeEmbed: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    marginTop: 2
+  },
+  trayectoriaYoutubeEmbedDesktop: {
+    maxWidth: '100%',
+    width: '100%'
+  },
   bioTextoBlock: { fontSize: 16, lineHeight: 26, marginBottom: 16 },
   bioDestacado: { color: '#fff', fontWeight: '600' },
   filaRedes: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginVertical: 24, gap: 16 },
@@ -1168,29 +1652,29 @@ const estilos = StyleSheet.create({
     width: '50%',
     alignSelf: 'center',
     marginTop: 0,
-    marginBottom: 14,
+    marginBottom: 14
   },
   enVivoWrapperWebDesktop: {
     width: 'auto',
     alignSelf: 'stretch',
-    marginHorizontal: 50,
+    marginHorizontal: 50
   },
   enVivoWrapperWebMobile: {
     width: 'auto',
     alignSelf: 'stretch',
-    marginHorizontal: 8,
+    marginHorizontal: 8
   },
   enVivoWrapperNative: {
     width: 'auto',
     alignSelf: 'stretch',
-    marginHorizontal: -8,
+    marginHorizontal: -8
   },
   enVivoEtiqueta: {
     alignSelf: 'stretch',
     textAlign: 'center',
     marginBottom: 0,
-    paddingHorizontal: 18,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderTopLeftRadius: 8,
     borderTopRightRadius: 8,
     borderBottomLeftRadius: 0,
@@ -1200,9 +1684,9 @@ const estilos = StyleSheet.create({
     borderColor: '#00dc57',
     backgroundColor: 'rgba(0,220,87,0.12)',
     color: '#00dc57',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.5
   },
   imagenArtistInfoContenedor: {
     width: '100%',
@@ -1215,20 +1699,20 @@ const estilos = StyleSheet.create({
     borderBottomRightRadius: 8,
     borderWidth: 2,
     borderColor: '#00dc57',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   imagenArtistInfoContenedorWebDesktop: {
     alignSelf: 'stretch',
     width: '100%',
-    marginHorizontal: 0,
+    marginHorizontal: 0
   },
   imagenArtistInfo: {
     width: '100%',
     height: '100%',
-    ...(Platform.OS === 'web' && { objectFit: 'contain' }),
+    ...(Platform.OS === 'web' && { objectFit: 'contain' })
   },
   imagenArtistInfoWebDesktop: {
-    ...(Platform.OS === 'web' && { objectFit: 'cover' }),
+    ...(Platform.OS === 'web' && { objectFit: 'cover' })
   },
   placeholderConcierto: {
     minHeight: 220,
@@ -1237,7 +1721,7 @@ const estilos = StyleSheet.create({
     borderTopColor: 'rgba(34,197,94,0.25)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 24
   },
   placeholderConciertoInner: {
     alignItems: 'center',
@@ -1247,7 +1731,7 @@ const estilos = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(34,197,94,0.35)',
     borderStyle: 'dashed',
-    minWidth: '100%',
+    minWidth: '100%'
   },
   placeholderConciertoTexto: { color: '#22c55e', fontSize: 17, fontWeight: '600', marginTop: 12 },
   placeholderConciertoSub: { color: '#9ca3af', fontSize: 14, marginTop: 4 },
@@ -1256,7 +1740,7 @@ const estilos = StyleSheet.create({
   ctaTituloBlock: { fontSize: 22 },
   ctaSubtitulo: { fontSize: 16, color: '#fff', fontWeight: '500' },
   ctaSubtituloBlock: { fontSize: 17 },
-  // Frase unificada al cierre de cada bloque (alterna izq/der)
+
   fraseBloque: { marginTop: 24, marginBottom: 12 },
   fraseBloqueIzq: { alignSelf: 'flex-start', alignItems: 'flex-start' },
   fraseBloqueDer: { alignSelf: 'flex-end', alignItems: 'flex-end' },
@@ -1265,7 +1749,7 @@ const estilos = StyleSheet.create({
     fontWeight: '800',
     color: '#00dc57',
     marginBottom: 4,
-    ...(Platform.OS === 'web' && { textShadow: '0 0 14px rgba(0,220,87,0.5)' }),
+    ...(Platform.OS === 'web' && { textShadow: '0 0 14px rgba(0,220,87,0.5)' })
   },
   fraseTituloDer: { textAlign: 'right' },
   fraseTituloIzq: { textAlign: 'left' },
@@ -1278,21 +1762,21 @@ const estilos = StyleSheet.create({
     color: '#22c55e',
     marginBottom: 4,
     ...(Platform.OS === 'web' && {
-      textShadow: '0 0 1px #fff, 0 0 2px #fff',
-    }),
+      textShadow: '0 0 1px #fff, 0 0 2px #fff'
+    })
   },
   lineaFlechas: {
     height: 2,
     backgroundColor: 'rgba(255,255,255,0.25)',
     marginBottom: 16,
-    width: '100%',
+    width: '100%'
   },
   filaPosters: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     gap: 10,
-    marginBottom: 20,
+    marginBottom: 20
   },
   posterPlaceholder: {
     width: '30%',
@@ -1300,7 +1784,7 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(42,42,42,0.9)',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.3)',
+    borderColor: 'rgba(34,197,94,0.3)'
   },
   carruselPresentaciones: { marginBottom: 24 },
   carruselPresentacionesContenido: { paddingRight: 24, paddingVertical: 4 },
@@ -1315,18 +1799,18 @@ const estilos = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     ...(Platform.OS === 'web' && {
-      boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-    }),
+      boxShadow: '0 4px 16px rgba(0,0,0,0.4)'
+    })
   },
   carruselPresentacionesLabel: {
     color: 'rgba(34,197,94,0.8)',
     fontSize: 14,
     fontWeight: '600',
-    marginTop: 12,
+    marginTop: 12
   },
   carruselPresentacionesImagen: {
     width: '100%',
-    height: '100%',
+    height: '100%'
   },
   bioTextoVerde: { color: '#22c55e', fontSize: 15, lineHeight: 24, marginBottom: 14, fontWeight: '500' },
   bioTextoVerdeDestacado: {
@@ -1336,7 +1820,7 @@ const estilos = StyleSheet.create({
     marginBottom: 20,
     marginTop: 4,
     fontWeight: '700',
-    ...(Platform.OS === 'web' && { textShadow: '0 0 12px rgba(0,220,87,0.4)' }),
+    ...(Platform.OS === 'web' && { textShadow: '0 0 12px rgba(0,220,87,0.4)' })
   },
   filaTituloLogo: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
   filaTituloLogoDerecha: { justifyContent: 'flex-end' },
@@ -1347,7 +1831,7 @@ const estilos = StyleSheet.create({
     color: '#00dc57',
     marginBottom: 4,
     textAlign: 'right',
-    ...(Platform.OS === 'web' && { textShadow: '0 0 14px rgba(0,220,87,0.5)' }),
+    ...(Platform.OS === 'web' && { textShadow: '0 0 14px rgba(0,220,87,0.5)' })
   },
   subtituloSeccionDestacado: { fontSize: 15, color: '#00dc57', fontWeight: '700', marginTop: 4, textAlign: 'right' },
   filaAlbum: { flexDirection: 'row', alignItems: 'center', gap: 16, marginVertical: 20 },
@@ -1359,7 +1843,7 @@ const estilos = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#22c55e',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   albumPlaceholderTexto: { color: '#fff', fontSize: 12, fontWeight: '600', textAlign: 'center' },
   albumPlaceholderPeq: {
@@ -1368,7 +1852,7 @@ const estilos = StyleSheet.create({
     borderRadius: 40,
     backgroundColor: 'rgba(42,42,42,0.9)',
     borderWidth: 1,
-    borderColor: 'rgba(34,197,94,0.4)',
+    borderColor: 'rgba(34,197,94,0.4)'
   },
   listaAlbums: { marginBottom: 20 },
   listaAlbumsItem: { marginBottom: 8 },
@@ -1381,9 +1865,25 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(42,42,42,0.6)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0,220,87,0.3)',
+    borderColor: 'rgba(0,220,87,0.3)'
   },
   listaAlbumsFilaIzq: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  listaAlbumsPortadaMarco: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,220,87,0.45)',
+    backgroundColor: '#0a0a0a',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  listaAlbumsPortadaImg: {
+    width: '100%',
+    height: '100%',
+    ...(Platform.OS === 'web' && { objectFit: 'contain' })
+  },
   listaAlbumsTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1 },
   carruselAlbums: { marginBottom: 20 },
   carruselAlbumsContenido: { paddingRight: 24, paddingVertical: 4 },
@@ -1398,7 +1898,7 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 12,
-    ...(Platform.OS === 'web' && { boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }),
+    ...(Platform.OS === 'web' && { boxShadow: '0 4px 16px rgba(0,0,0,0.4)' })
   },
   carruselAlbumsPortadaTexto: { color: '#fff', fontSize: 11, fontWeight: '700', textAlign: 'center' },
   carruselAlbumsTitulo: { color: '#fff', fontSize: 14, fontWeight: '600', marginTop: 10, textAlign: 'center' },
@@ -1416,7 +1916,7 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(34,197,94,0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 4
   },
   integrantesTitulo: { fontSize: 16, color: '#fff', marginTop: 20, marginBottom: 12 },
   integranteCard: {
@@ -1426,8 +1926,23 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(42,42,42,0.5)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(0,220,87,0.2)',
+    borderColor: 'rgba(0,220,87,0.2)'
   },
+  integranteCardBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14
+  },
+  integranteFoto: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(0,220,87,0.45)',
+    backgroundColor: '#1a1a1a',
+    ...(Platform.OS === 'web' && { objectFit: 'cover' })
+  },
+  integranteCardTexto: { flex: 1, minWidth: 0 },
   integranteNombre: { color: '#fff', fontSize: 17, fontWeight: '600', marginBottom: 8 },
   integranteLink: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   integranteLinkTexto: { color: '#00dc57', fontSize: 14, fontWeight: '600' },
@@ -1442,7 +1957,7 @@ const estilos = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(0,220,87,0.2)',
-    gap: 16,
+    gap: 16
   },
   redCardIcono: {
     width: 56,
@@ -1450,7 +1965,7 @@ const estilos = StyleSheet.create({
     borderRadius: 28,
     backgroundColor: 'rgba(34,197,94,0.4)',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   redCardContenido: { flex: 1 },
   filaLinksHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
@@ -1463,7 +1978,7 @@ const estilos = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#22c55e',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   qrPlaceholderTexto: { color: '#22c55e', fontSize: 10, marginTop: 4 },
   qrDerecha: { marginLeft: 'auto' },
@@ -1488,9 +2003,9 @@ const estilos = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 10,
     paddingHorizontal: 16,
-    ...(Platform.OS === 'web'
-      ? { width: '100%', maxWidth: '100%', alignSelf: 'stretch', boxSizing: 'border-box' }
-      : null),
+    ...(Platform.OS === 'web' ?
+    { width: '100%', maxWidth: '100%', alignSelf: 'stretch', boxSizing: 'border-box' } :
+    null)
   },
   filaIconosFooter: {
     flexDirection: 'row',
@@ -1500,7 +2015,7 @@ const estilos = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
     maxWidth: '100%',
-    paddingHorizontal: 4,
+    paddingHorizontal: 4
   },
   iconoFooter: { padding: 6, minWidth: 40, alignItems: 'center', justifyContent: 'center' },
   footerContacto: {
@@ -1509,19 +2024,59 @@ const estilos = StyleSheet.create({
     paddingBottom: 28,
     paddingHorizontal: 24,
     alignItems: 'center',
-    ...(Platform.OS === 'web'
-      ? { width: '100%', maxWidth: '100%', alignSelf: 'stretch', boxSizing: 'border-box' }
-      : null),
+    ...(Platform.OS === 'web' ?
+    { width: '100%', maxWidth: '100%', alignSelf: 'stretch', boxSizing: 'border-box' } :
+    null)
   },
   footerContactoTexto: { color: 'rgba(255,255,255,0.9)', fontSize: 14, marginBottom: 6 },
   footerContactoLink: { color: 'rgba(255,255,255,0.95)', fontSize: 14, fontWeight: '600' },
   filaTerminos: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 4 },
   footerContactoTagline: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontStyle: 'italic', textAlign: 'center', marginTop: 8 },
+  bookingGrid: {
+    marginTop: 8,
+    marginBottom: 10,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10
+  },
+  bookingBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1
+  },
+  bookingBtnPrimario: {
+    backgroundColor: '#00dc57',
+    borderColor: '#00dc57'
+  },
+  bookingBtnPrimarioTexto: {
+    color: '#00180b',
+    fontSize: 14,
+    fontWeight: '800'
+  },
+  bookingBtnSecundario: {
+    backgroundColor: 'rgba(0,220,87,0.08)',
+    borderColor: 'rgba(0,220,87,0.4)'
+  },
+  bookingBtnSecundarioTexto: {
+    color: '#00dc57',
+    fontSize: 14,
+    fontWeight: '700'
+  },
+  bookingNota: {
+    color: '#9ca3af',
+    fontSize: 13,
+    marginTop: 4
+  },
   cardPresskit: {
     marginBottom: 16,
     borderRadius: 8,
     overflow: 'hidden',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#1a1a1a'
   },
   imagenPresskit: { width: '100%', height: 200 },
   placeholderImagen: {
@@ -1529,7 +2084,7 @@ const estilos = StyleSheet.create({
     height: 200,
     backgroundColor: '#2a2a2a',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   placeholderTexto: { color: '#666', fontSize: 14 },
   cuadroGlass: {
@@ -1539,7 +2094,7 @@ const estilos = StyleSheet.create({
     backgroundColor: Platform.OS === 'web' ? 'rgba(26,26,26,0.7)' : 'rgba(26,26,26,0.85)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
-    ...(Platform.OS === 'web' && { backdropFilter: 'blur(12px)' }),
+    ...(Platform.OS === 'web' && { backdropFilter: 'blur(12px)' })
   },
   formularioUnico: { padding: 20 },
   tituloMitad: { fontSize: 16, fontWeight: '600', color: '#fff', marginBottom: 12 },
@@ -1552,7 +2107,7 @@ const estilos = StyleSheet.create({
     paddingVertical: 10,
     color: '#fff',
     fontSize: 14,
-    marginBottom: 10,
+    marginBottom: 10
   },
   filaFoto: { marginBottom: 12, alignItems: 'center' },
   fotoPreview: { position: 'relative', alignSelf: 'center', marginBottom: 8 },
@@ -1567,7 +2122,7 @@ const estilos = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(201,162,39,0.4)',
+    borderColor: 'rgba(201,162,39,0.4)'
   },
   botonFotoTexto: { color: '#00dc57', fontSize: 14 },
   filaCheckbox: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
@@ -1579,7 +2134,7 @@ const estilos = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 4
   },
   botonDeshabilitado: { opacity: 0.7 },
   botonTexto: { color: '#000', fontWeight: '600', fontSize: 14 },
@@ -1588,7 +2143,17 @@ const estilos = StyleSheet.create({
     backgroundColor: '#4285f4',
     borderRadius: 8,
     paddingVertical: 12,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   botonGoogleTexto: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  authModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 20
+  },
+  authModalCaja: {
+    maxHeight: '92%'
+  }
 });

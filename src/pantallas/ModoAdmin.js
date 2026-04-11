@@ -4,11 +4,11 @@ import { useAuth } from '../contexto/AuthContext';
 import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 const OPCIONES = [
-  { id: 'usuarios', titulo: 'Usuarios', descripcion: 'Lista de usuarios, premium, admin, editar y borrar' },
-  { id: 'contenido-exclusivo', titulo: 'Subir contenido Thug', descripcion: 'Crear y editar publicaciones exclusivas (texto, media, métricas)' },
-  { id: 'eventos', titulo: 'Eventos', descripcion: 'Agregar y editar eventos' },
-  { id: 'flyers', titulo: 'Flyers Presskit', descripcion: 'Agregar o quitar imágenes del carrusel' },
-];
+{ id: 'usuarios', titulo: 'Usuarios', descripcion: 'Lista de usuarios, premium, admin, editar y borrar' },
+{ id: 'contenido-exclusivo', titulo: 'Subir contenido Thug', descripcion: 'Crear y editar publicaciones exclusivas (texto, media, métricas)' },
+{ id: 'eventos', titulo: 'Eventos', descripcion: 'Agregar y editar eventos' },
+{ id: 'flyers', titulo: 'Flyers Presskit', descripcion: 'Agregar o quitar imágenes del carrusel' }];
+
 
 export default function ModoAdmin({ navigation }) {
   const { perfil } = useAuth();
@@ -32,28 +32,28 @@ export default function ModoAdmin({ navigation }) {
         <Text style={estilos.titulo}>Modo admin</Text>
         <TouchableOpacity
           style={estilos.botonApp}
-          onPress={() => navigation.replace('ContenidoGeneral')}
-        >
+          onPress={() => navigation.replace('ContenidoGeneral')}>
+          
           <Text style={estilos.botonAppTexto}>Ir a la app</Text>
         </TouchableOpacity>
       </View>
       <ScrollView style={estilos.scroll} contentContainerStyle={estilos.contenido}>
         <Text style={estilos.mensaje}>Panel de administración</Text>
         <Text style={estilos.hint}>Elige una opción:</Text>
-        {OPCIONES.map((op) => (
-          <TouchableOpacity
-            key={op.id}
-            style={estilos.opcion}
-            onPress={() => abrir(op.id)}
-            activeOpacity={0.7}
-          >
+        {OPCIONES.map((op) =>
+        <TouchableOpacity
+          key={op.id}
+          style={estilos.opcion}
+          onPress={() => abrir(op.id)}
+          activeOpacity={0.7}>
+          
             <Text style={estilos.opcionTitulo}>{op.titulo}</Text>
             <Text style={estilos.opcionDesc}>{op.descripcion}</Text>
           </TouchableOpacity>
-        ))}
+        )}
       </ScrollView>
-    </View>
-  );
+    </View>);
+
 }
 
 const estilos = StyleSheet.create({
@@ -66,7 +66,7 @@ const estilos = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
+    borderBottomColor: '#2a2a2a'
   },
   titulo: { fontSize: 20, color: '#fff', fontWeight: '600' },
   botonApp: { padding: 8 },
@@ -81,8 +81,8 @@ const estilos = StyleSheet.create({
     padding: 18,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
+    borderColor: '#2a2a2a'
   },
   opcionTitulo: { fontSize: 18, color: '#fff', fontWeight: '600', marginBottom: 4 },
-  opcionDesc: { fontSize: 13, color: '#888' },
+  opcionDesc: { fontSize: 13, color: '#888' }
 });

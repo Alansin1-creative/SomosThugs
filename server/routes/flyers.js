@@ -33,11 +33,11 @@ function toDoc(doc) {
     orden: Number.isFinite(Number(o.orden)) ? Number(o.orden) : 0,
     creadoPor: o.creadoPor || '',
     createdAt: o.createdAt,
-    updatedAt: o.updatedAt,
+    updatedAt: o.updatedAt
   };
 }
 
-// Público: carrusel presskit
+
 router.get('/', async (_req, res) => {
   try {
     const lista = await Flyer.find({ activo: true }).sort({ orden: 1, createdAt: -1 }).lean();
@@ -47,7 +47,7 @@ router.get('/', async (_req, res) => {
   }
 });
 
-// Admin: listado completo
+
 router.get('/admin', authMiddleware, requireAdmin, async (_req, res) => {
   try {
     const lista = await Flyer.find().sort({ createdAt: -1 }).lean();
@@ -68,14 +68,14 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     const maxOrden = await Flyer.findOne().sort({ orden: -1 }).select('orden').lean();
     const orden = Number(maxOrden?.orden || 0) + 1;
     const [doc] = await Flyer.create([
-      {
-        titulo,
-        urlImagen,
-        activo: true,
-        orden,
-        creadoPor: req.userId || '',
-      },
-    ]);
+    {
+      titulo,
+      urlImagen,
+      activo: true,
+      orden,
+      creadoPor: req.userId || ''
+    }]
+    );
     res.json(toDoc(doc));
   } catch (e) {
     res.status(500).json({ error: e.message });

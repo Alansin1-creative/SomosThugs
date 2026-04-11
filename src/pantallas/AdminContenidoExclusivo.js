@@ -14,8 +14,8 @@ import {
   ActivityIndicator,
   Switch,
   Modal,
-  Pressable,
-} from 'react-native';
+  Pressable } from
+'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -116,7 +116,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
     setRefrescando(false);
   };
 
-  /** Imagen: fotos o videos (preview) */
+
   const elegirImagen = async () => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const input = document.createElement('input');
@@ -143,7 +143,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
         mediaTypes: ImagePicker.MediaTypeOptions.All,
         allowsEditing: true,
         quality: 0.8,
-        base64: true,
+        base64: true
       });
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
@@ -160,7 +160,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
     setImagenBase64(null);
   };
 
-  /** Media: subir documento (PDF), foto o video */
+
   const elegirMediaArchivo = async () => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const input = document.createElement('input');
@@ -185,7 +185,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
-        copyToCacheDirectory: true,
+        copyToCacheDirectory: true
       });
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
@@ -227,7 +227,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: '*/*',
-        copyToCacheDirectory: true,
+        copyToCacheDirectory: true
       });
       if (result.canceled || !result.assets?.[0]) return;
       const asset = result.assets[0];
@@ -273,14 +273,14 @@ export default function AdminContenidoExclusivo({ navigation }) {
       setEditImagenBase64(null);
       const previewPath = previewPathDb;
       setEditImagenUri(
-        previewPath
-          ? previewPath.startsWith('http') || previewPath.startsWith('data:')
-            ? previewPath
-            : getBaseUrl() + previewPath
-          : null
+        previewPath ?
+        previewPath.startsWith('http') || previewPath.startsWith('data:') ?
+        previewPath :
+        getBaseUrl() + previewPath :
+        null
       );
       const nombreExistente =
-        (doc.urlMediaCompleta || '').split('/').pop() || null;
+      (doc.urlMediaCompleta || '').split('/').pop() || null;
       setEditMediaArchivoNombre(nombreExistente);
       setEditClearPreview(false);
       setEditClearMedia(false);
@@ -329,7 +329,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
         mediaTypes: ImagePicker.MediaTypeOptions.All,
         allowsEditing: true,
         quality: 0.8,
-        base64: true,
+        base64: true
       });
       if (result.canceled || !result.assets[0]) return;
       const asset = result.assets[0];
@@ -371,7 +371,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
         categoria: String(editCategoria ?? '').trim(),
         etiquetas: Array.isArray(etiquetas) ? etiquetas : [],
         visible: editVisible !== false,
-        destacado: Boolean(editDestacado),
+        destacado: Boolean(editDestacado)
       };
       if (editImagenBase64) body.mediaPreviewBase64 = editImagenBase64;
       if (editMediaArchivoBase64) body.mediaCompletaBase64 = editMediaArchivoBase64;
@@ -393,33 +393,33 @@ export default function AdminContenidoExclusivo({ navigation }) {
     if (!id) return;
     const titulo = item.titulo || 'Sin título';
 
-    // Confirmación nativa en móviles
+
     if (Platform.OS !== 'web') {
       Alert.alert(
         'Borrar contenido',
         `¿Eliminar "${titulo}"? Esta acción no se puede deshacer.`,
         [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Borrar',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                await eliminarContenidoExclusivo(id);
-                setLista((prev) => prev.filter((it) => it.id !== id));
-                Alert.alert('Listo', 'Contenido eliminado.');
-              } catch (e) {
-                Alert.alert('Error', e?.message || 'No se pudo eliminar.');
-              }
-            },
-          },
-        ]
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Borrar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await eliminarContenidoExclusivo(id);
+              setLista((prev) => prev.filter((it) => it.id !== id));
+              Alert.alert('Listo', 'Contenido eliminado.');
+            } catch (e) {
+              Alert.alert('Error', e?.message || 'No se pudo eliminar.');
+            }
+          }
+        }]
+
       );
       return;
     }
 
-    // Confirmación en web (Alert no soporta botones)
-    // eslint-disable-next-line no-alert
+
+
     const ok = window.confirm(
       `¿Eliminar "${titulo}"?\n\nEsta acción no se puede deshacer.`
     );
@@ -428,10 +428,10 @@ export default function AdminContenidoExclusivo({ navigation }) {
       try {
         await eliminarContenidoExclusivo(id);
         setLista((prev) => prev.filter((it) => it.id !== id));
-        // eslint-disable-next-line no-alert
+
         window.alert('Contenido eliminado.');
       } catch (e) {
-        // eslint-disable-next-line no-alert
+
         window.alert(e?.message || 'No se pudo eliminar.');
       }
     })();
@@ -460,7 +460,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
         etiquetas: Array.isArray(etiquetas) ? etiquetas : [],
         visible: visible !== false,
         destacado: Boolean(destacado),
-        creadoPor: String(perfil?.id ?? ''),
+        creadoPor: String(perfil?.id ?? '')
       };
       if (imagenBase64) body.mediaPreviewBase64 = imagenBase64;
       if (mediaArchivoBase64) body.mediaCompletaBase64 = mediaArchivoBase64;
@@ -490,12 +490,12 @@ export default function AdminContenidoExclusivo({ navigation }) {
         style={estilos.scroll}
         contentContainerStyle={estilos.scrollContenido}
         refreshControl={
-          <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
+        <RefreshControl refreshing={refrescando} onRefresh={onRefresh} tintColor="#00dc57" />
+        }>
+        
+        {lista.length === 0 &&
+        <Text style={estilos.vacio}>Aún no hay contenido. Usa el botón de arriba para subir.</Text>
         }
-      >
-        {lista.length === 0 && (
-          <Text style={estilos.vacio}>Aún no hay contenido. Usa el botón de arriba para subir.</Text>
-        )}
         {lista.map((item) => {
           const previewUrl = item.urlMedia || '';
           const mediaUrl = item.urlMediaCompleta || '';
@@ -521,35 +521,35 @@ export default function AdminContenidoExclusivo({ navigation }) {
                         {item.tipoContenido || item.tipo || 'articulo'}
                       </Text>
                     </View>
-                    {item.destacado && (
-                      <View style={estilos.badgeDestacado}>
+                    {item.destacado &&
+                    <View style={estilos.badgeDestacado}>
                         <Text style={estilos.badgeDestacadoTexto}>Destacado</Text>
                       </View>
-                    )}
-                    {item.visible === false && (
-                      <View style={estilos.badgeOculto}>
+                    }
+                    {item.visible === false &&
+                    <View style={estilos.badgeOculto}>
                         <Text style={estilos.badgeOcultoTexto}>Oculto</Text>
                       </View>
-                    )}
+                    }
                   </View>
                   <TouchableOpacity
                     style={estilos.botonBorrar}
-                    onPress={() => borrarContenido(item)}
-                  >
+                    onPress={() => borrarContenido(item)}>
+                    
                     <Ionicons name="trash-outline" size={20} color="#f44" />
                   </TouchableOpacity>
                 </View>
               </View>
               <View style={estilos.workspacePreview}>
-                {(previewUrl && (previewUrl.startsWith('http') || previewUrl.startsWith('/') || previewUrl.startsWith('data:'))) ? (
-                  <TouchableOpacity style={estilos.workspaceThumb} onPress={() => mediaUrl && Linking.openURL(mediaUrl.startsWith('http') ? mediaUrl : getBaseUrl() + mediaUrl)}>
-                    <Image source={{ uri: (previewUrl.startsWith('http') || previewUrl.startsWith('data:')) ? previewUrl : getBaseUrl() + previewUrl }} style={estilos.workspaceThumbImg} resizeMode="cover" />
-                  </TouchableOpacity>
-                ) : (
-                  <View style={estilos.workspaceThumbPlaceholder}>
+                {previewUrl && (previewUrl.startsWith('http') || previewUrl.startsWith('/') || previewUrl.startsWith('data:')) ?
+                <TouchableOpacity style={estilos.workspaceThumb} onPress={() => mediaUrl && Linking.openURL(mediaUrl.startsWith('http') ? mediaUrl : getBaseUrl() + mediaUrl)}>
+                    <Image source={{ uri: previewUrl.startsWith('http') || previewUrl.startsWith('data:') ? previewUrl : getBaseUrl() + previewUrl }} style={estilos.workspaceThumbImg} resizeMode="cover" />
+                  </TouchableOpacity> :
+
+                <View style={estilos.workspaceThumbPlaceholder}>
                     <Ionicons name="image-outline" size={32} color="#444" />
                   </View>
-                )}
+                }
                 <Text style={estilos.workspacePreviewTexto} numberOfLines={3}>{item.previewTexto || item.descripcion || ''}</Text>
               </View>
               <View style={estilos.workspaceMetricas}>
@@ -572,14 +572,14 @@ export default function AdminContenidoExclusivo({ navigation }) {
               <View style={estilos.workspaceMeta}>
                 {item.categoria ? <Text style={estilos.workspaceMetaItem}>Categoría: {item.categoria}</Text> : null}
                 <Text style={estilos.workspaceMetaItem}>Nivel: {item.nivelRequerido || 'thug'}</Text>
-                {etiquetasArr.length > 0 && (
-                  <Text style={estilos.workspaceMetaItem}>Etiquetas: {etiquetasArr.join(', ')}</Text>
-                )}
+                {etiquetasArr.length > 0 &&
+                <Text style={estilos.workspaceMetaItem}>Etiquetas: {etiquetasArr.join(', ')}</Text>
+                }
                 {fechaPub && <Text style={estilos.workspaceMetaFecha}>Publicado: {new Date(fechaPub).toLocaleDateString()}</Text>}
                 {fechaAct && <Text style={estilos.workspaceMetaFecha}>Actualizado: {new Date(fechaAct).toLocaleDateString()}</Text>}
               </View>
-            </View>
-          );
+            </View>);
+
         })}
       </ScrollView>
 
@@ -587,8 +587,8 @@ export default function AdminContenidoExclusivo({ navigation }) {
         visible={modalVisible}
         transparent
         animationType="slide"
-        onRequestClose={cerrarModal}
-      >
+        onRequestClose={cerrarModal}>
+        
         <Pressable style={estilos.modalOverlay} onPress={cerrarModal}>
           <Pressable style={estilos.modalCaja} onPress={(e) => e.stopPropagation()}>
             <View style={estilos.modalHeader}>
@@ -600,51 +600,51 @@ export default function AdminContenidoExclusivo({ navigation }) {
             <ScrollView
               style={estilos.modalScroll}
               contentContainerStyle={estilos.modalScrollContenido}
-              keyboardShouldPersistTaps="handled"
-            >
+              keyboardShouldPersistTaps="handled">
+              
         <View style={estilos.formulario}>
           <Text style={estilos.label}>Título *</Text>
           <TextInput
-            style={estilos.input}
-            value={titulo}
-            onChangeText={setTitulo}
-            placeholder="Título de la publicación"
-            placeholderTextColor="#666"
-          />
+                  style={estilos.input}
+                  value={titulo}
+                  onChangeText={setTitulo}
+                  placeholder="Título de la publicación"
+                  placeholderTextColor="#666" />
+                
           <Text style={estilos.label}>Descripción</Text>
           <TextInput
-            style={[estilos.input, estilos.inputMultiline]}
-            value={descripcion}
-            onChangeText={setDescripcion}
-            placeholder="Descripción"
-            placeholderTextColor="#666"
-            multiline
-          />
+                  style={[estilos.input, estilos.inputMultiline]}
+                  value={descripcion}
+                  onChangeText={setDescripcion}
+                  placeholder="Descripción"
+                  placeholderTextColor="#666"
+                  multiline />
+                
           <Text style={estilos.label}>Contenido</Text>
           <TextInput
-            style={[estilos.input, estilos.inputMultiline]}
-            value={contenido}
-            onChangeText={setContenido}
-            placeholder="Contenido del artículo o publicación"
-            placeholderTextColor="#666"
-            multiline
-          />
+                  style={[estilos.input, estilos.inputMultiline]}
+                  value={contenido}
+                  onChangeText={setContenido}
+                  placeholder="Contenido del artículo o publicación"
+                  placeholderTextColor="#666"
+                  multiline />
+                
           <Text style={estilos.label}>Complementario</Text>
           <TextInput
-            style={[estilos.input, estilos.inputMultiline]}
-            value={complementario}
-            onChangeText={setComplementario}
-            placeholder="Contenido complementario o adicional"
-            placeholderTextColor="#666"
-            multiline
-          />
+                  style={[estilos.input, estilos.inputMultiline]}
+                  value={complementario}
+                  onChangeText={setComplementario}
+                  placeholder="Contenido complementario o adicional"
+                  placeholderTextColor="#666"
+                  multiline />
+                
           <Text style={estilos.label}>Imagen o video (preview)</Text>
           <View style={estilos.uploadRow}>
             <TouchableOpacity style={estilos.botonUpload} onPress={elegirImagen}>
               <Text style={estilos.botonUploadTexto}>{imagenUri ? 'Cambiar foto' : 'Subir foto'}</Text>
             </TouchableOpacity>
-            {imagenUri && (
-              <>
+            {imagenUri &&
+                  <>
                 <View style={estilos.previewMini}>
                   <Image source={{ uri: imagenUri }} style={estilos.previewImg} resizeMode="cover" />
                 </View>
@@ -652,63 +652,63 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   <Text style={estilos.quitarTexto}>Quitar</Text>
                 </TouchableOpacity>
               </>
-            )}
+                  }
           </View>
           <Text style={estilos.label}>Media (PDF, enlaces o videos)</Text>
           <View style={estilos.uploadRow}>
             <TouchableOpacity style={estilos.botonUpload} onPress={elegirMediaArchivo}>
               <Text style={estilos.botonUploadTexto}>{mediaArchivoNombre ? 'Cambiar' : 'Subir archivo'}</Text>
             </TouchableOpacity>
-            {mediaArchivoNombre && (
-              <>
+            {mediaArchivoNombre &&
+                  <>
                 <Text style={estilos.archivoNombre} numberOfLines={1}>{mediaArchivoNombre}</Text>
                 <TouchableOpacity onPress={limpiarMediaArchivo} style={estilos.quitar}>
                   <Text style={estilos.quitarTexto}>Quitar</Text>
                 </TouchableOpacity>
               </>
-            )}
+                  }
           </View>
 
           <Text style={estilos.label}>Tipo de contenido</Text>
           <View style={estilos.filaOpciones}>
-            {TIPOS_CONTENIDO.map((t) => (
-              <TouchableOpacity
-                key={t}
-                style={[estilos.chip, t === tipoContenido && estilos.chipActivo]}
-                onPress={() => setTipoContenido(t)}
-              >
+            {TIPOS_CONTENIDO.map((t) =>
+                  <TouchableOpacity
+                    key={t}
+                    style={[estilos.chip, t === tipoContenido && estilos.chipActivo]}
+                    onPress={() => setTipoContenido(t)}>
+                    
                 <Text style={[estilos.chipTexto, t === tipoContenido && estilos.chipTextoActivo]}>{t}</Text>
               </TouchableOpacity>
-            ))}
+                  )}
           </View>
           <Text style={estilos.label}>Nivel requerido</Text>
           <View style={estilos.filaOpciones}>
-            {NIVELES.map((n) => (
-              <TouchableOpacity
-                key={n}
-                style={[estilos.chip, n === nivelRequerido && estilos.chipActivo]}
-                onPress={() => setNivelRequerido(n)}
-              >
+            {NIVELES.map((n) =>
+                  <TouchableOpacity
+                    key={n}
+                    style={[estilos.chip, n === nivelRequerido && estilos.chipActivo]}
+                    onPress={() => setNivelRequerido(n)}>
+                    
                 <Text style={[estilos.chipTexto, n === nivelRequerido && estilos.chipTextoActivo]}>{n}</Text>
               </TouchableOpacity>
-            ))}
+                  )}
           </View>
           <Text style={estilos.label}>Categoría</Text>
           <TextInput
-            style={estilos.input}
-            value={categoria}
-            onChangeText={setCategoria}
-            placeholder="Ej: behind the scenes"
-            placeholderTextColor="#666"
-          />
+                  style={estilos.input}
+                  value={categoria}
+                  onChangeText={setCategoria}
+                  placeholder="Ej: behind the scenes"
+                  placeholderTextColor="#666" />
+                
           <Text style={estilos.label}>Etiquetas (separadas por coma)</Text>
           <TextInput
-            style={estilos.input}
-            value={etiquetasStr}
-            onChangeText={setEtiquetasStr}
-            placeholder="ej: sesion, inedito"
-            placeholderTextColor="#666"
-          />
+                  style={estilos.input}
+                  value={etiquetasStr}
+                  onChangeText={setEtiquetasStr}
+                  placeholder="ej: sesion, inedito"
+                  placeholderTextColor="#666" />
+                
           <View style={estilos.filaSwitch}>
             <Text style={estilos.label}>Visible</Text>
             <Switch value={visible} onValueChange={setVisible} trackColor={{ false: '#444', true: '#00dc57' }} thumbColor="#fff" />
@@ -719,10 +719,10 @@ export default function AdminContenidoExclusivo({ navigation }) {
           </View>
 
           <TouchableOpacity
-            style={[estilos.botonSubir, enviando && estilos.botonDeshabilitado]}
-            onPress={enviar}
-            disabled={enviando}
-          >
+                  style={[estilos.botonSubir, enviando && estilos.botonDeshabilitado]}
+                  onPress={enviar}
+                  disabled={enviando}>
+                  
             {enviando ? <ActivityIndicator color="#000" size="small" /> : <Text style={estilos.botonSubirTexto}>Crear publicación</Text>}
           </TouchableOpacity>
         </View>
@@ -735,8 +735,8 @@ export default function AdminContenidoExclusivo({ navigation }) {
         visible={modalEditarVisible}
         transparent
         animationType="slide"
-        onRequestClose={cerrarModalEditar}
-      >
+        onRequestClose={cerrarModalEditar}>
+        
         <Pressable style={estilos.modalOverlay} onPress={cerrarModalEditar}>
           <Pressable style={estilos.modalCaja} onPress={(e) => e.stopPropagation()}>
             <View style={estilos.modalHeader}>
@@ -748,8 +748,8 @@ export default function AdminContenidoExclusivo({ navigation }) {
             <ScrollView
               style={estilos.modalScroll}
               contentContainerStyle={estilos.modalScrollContenido}
-              keyboardShouldPersistTaps="handled"
-            >
+              keyboardShouldPersistTaps="handled">
+              
               <View style={estilos.formulario}>
                 <Text style={estilos.label}>Título *</Text>
                 <TextInput
@@ -757,8 +757,8 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   value={editTitulo}
                   onChangeText={setEditTitulo}
                   placeholder="Título de la publicación"
-                  placeholderTextColor="#666"
-                />
+                  placeholderTextColor="#666" />
+                
                 <Text style={estilos.label}>Descripción</Text>
                 <TextInput
                   style={[estilos.input, estilos.inputMultiline]}
@@ -766,8 +766,8 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   onChangeText={setEditDescripcion}
                   placeholder="Descripción"
                   placeholderTextColor="#666"
-                  multiline
-                />
+                  multiline />
+                
                 <Text style={estilos.label}>Contenido</Text>
                 <TextInput
                   style={[estilos.input, estilos.inputMultiline]}
@@ -775,8 +775,8 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   onChangeText={setEditContenido}
                   placeholder="Contenido del artículo o publicación"
                   placeholderTextColor="#666"
-                  multiline
-                />
+                  multiline />
+                
                 <Text style={estilos.label}>Complementario</Text>
                 <TextInput
                   style={[estilos.input, estilos.inputMultiline]}
@@ -784,15 +784,15 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   onChangeText={setEditComplementario}
                   placeholder="Contenido complementario o adicional"
                   placeholderTextColor="#666"
-                  multiline
-                />
+                  multiline />
+                
                 <Text style={estilos.label}>Imagen o video (preview)</Text>
                 <View style={estilos.uploadRow}>
                   <TouchableOpacity style={estilos.botonUpload} onPress={elegirImagenEdit}>
                     <Text style={estilos.botonUploadTexto}>{editImagenUri ? 'Cambiar foto' : 'Subir foto'}</Text>
                   </TouchableOpacity>
-                  {editImagenUri && (
-                    <>
+                  {editImagenUri &&
+                  <>
                       <View style={estilos.previewMini}>
                         <Image source={{ uri: editImagenUri }} style={estilos.previewImg} resizeMode="cover" />
                       </View>
@@ -800,45 +800,45 @@ export default function AdminContenidoExclusivo({ navigation }) {
                         <Text style={estilos.quitarTexto}>Quitar</Text>
                       </TouchableOpacity>
                     </>
-                  )}
+                  }
                 </View>
                 <Text style={estilos.label}>Media (PDF, enlaces o videos)</Text>
                 <View style={estilos.uploadRow}>
                   <TouchableOpacity style={estilos.botonUpload} onPress={elegirMediaArchivoEdit}>
                     <Text style={estilos.botonUploadTexto}>{editMediaArchivoNombre ? 'Cambiar' : 'Subir archivo'}</Text>
                   </TouchableOpacity>
-                  {editMediaArchivoNombre && (
-                    <>
+                  {editMediaArchivoNombre &&
+                  <>
                       <Text style={estilos.archivoNombre} numberOfLines={1}>{editMediaArchivoNombre}</Text>
                       <TouchableOpacity onPress={limpiarMediaArchivoEdit} style={estilos.quitar}>
                         <Text style={estilos.quitarTexto}>Quitar</Text>
                       </TouchableOpacity>
                     </>
-                  )}
+                  }
                 </View>
                 <Text style={estilos.label}>Tipo de contenido</Text>
                 <View style={estilos.filaOpciones}>
-                  {TIPOS_CONTENIDO.map((t) => (
-                    <TouchableOpacity
-                      key={t}
-                      style={[estilos.chip, t === editTipoContenido && estilos.chipActivo]}
-                      onPress={() => setEditTipoContenido(t)}
-                    >
+                  {TIPOS_CONTENIDO.map((t) =>
+                  <TouchableOpacity
+                    key={t}
+                    style={[estilos.chip, t === editTipoContenido && estilos.chipActivo]}
+                    onPress={() => setEditTipoContenido(t)}>
+                    
                       <Text style={[estilos.chipTexto, t === editTipoContenido && estilos.chipTextoActivo]}>{t}</Text>
                     </TouchableOpacity>
-                  ))}
+                  )}
                 </View>
                 <Text style={estilos.label}>Nivel requerido</Text>
                 <View style={estilos.filaOpciones}>
-                  {NIVELES.map((n) => (
-                    <TouchableOpacity
-                      key={n}
-                      style={[estilos.chip, n === editNivelRequerido && estilos.chipActivo]}
-                      onPress={() => setEditNivelRequerido(n)}
-                    >
+                  {NIVELES.map((n) =>
+                  <TouchableOpacity
+                    key={n}
+                    style={[estilos.chip, n === editNivelRequerido && estilos.chipActivo]}
+                    onPress={() => setEditNivelRequerido(n)}>
+                    
                       <Text style={[estilos.chipTexto, n === editNivelRequerido && estilos.chipTextoActivo]}>{n}</Text>
                     </TouchableOpacity>
-                  ))}
+                  )}
                 </View>
                 <Text style={estilos.label}>Categoría</Text>
                 <TextInput
@@ -846,16 +846,16 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   value={editCategoria}
                   onChangeText={setEditCategoria}
                   placeholder="Ej: behind the scenes"
-                  placeholderTextColor="#666"
-                />
+                  placeholderTextColor="#666" />
+                
                 <Text style={estilos.label}>Etiquetas (separadas por coma)</Text>
                 <TextInput
                   style={estilos.input}
                   value={editEtiquetasStr}
                   onChangeText={setEditEtiquetasStr}
                   placeholder="ej: sesion, inedito"
-                  placeholderTextColor="#666"
-                />
+                  placeholderTextColor="#666" />
+                
                 <View style={estilos.filaSwitch}>
                   <Text style={estilos.label}>Visible</Text>
                   <Switch value={editVisible} onValueChange={setEditVisible} trackColor={{ false: '#444', true: '#00dc57' }} thumbColor="#fff" />
@@ -867,8 +867,8 @@ export default function AdminContenidoExclusivo({ navigation }) {
                 <TouchableOpacity
                   style={[estilos.botonSubir, enviandoEdit && estilos.botonDeshabilitado]}
                   onPress={guardarEdicion}
-                  disabled={enviandoEdit}
-                >
+                  disabled={enviandoEdit}>
+                  
                   {enviandoEdit ? <ActivityIndicator color="#000" size="small" /> : <Text style={estilos.botonSubirTexto}>Guardar cambios</Text>}
                 </TouchableOpacity>
               </View>
@@ -876,8 +876,8 @@ export default function AdminContenidoExclusivo({ navigation }) {
           </Pressable>
         </Pressable>
       </Modal>
-    </View>
-  );
+    </View>);
+
 }
 
 const estilos = StyleSheet.create({
@@ -889,7 +889,7 @@ const estilos = StyleSheet.create({
     paddingTop: 48,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#2a2a2a',
+    borderBottomColor: '#2a2a2a'
   },
   botonAtras: { padding: 8, marginRight: 8 },
   botonAtrasTexto: { color: '#00dc57', fontSize: 14 },
@@ -900,7 +900,7 @@ const estilos = StyleSheet.create({
     marginTop: 16,
     padding: 14,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   botonAbrirModalTexto: { color: '#000', fontWeight: '600', fontSize: 16 },
   scroll: { flex: 1 },
@@ -910,14 +910,14 @@ const estilos = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 20
   },
   modalCaja: {
     backgroundColor: '#1a1a1a',
     borderRadius: 16,
     maxWidth: 500,
     width: '100%',
-    maxHeight: '90%',
+    maxHeight: '90%'
   },
   modalHeader: {
     flexDirection: 'row',
@@ -926,7 +926,7 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
+    borderBottomColor: '#333'
   },
   modalTitulo: { fontSize: 18, color: '#fff', fontWeight: '600' },
   modalCerrar: { padding: 8 },
@@ -943,7 +943,7 @@ const estilos = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: '#333'
   },
   inputMultiline: { minHeight: 80, textAlignVertical: 'top' },
   uploadRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginTop: 4 },
@@ -953,7 +953,7 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#00dc57',
+    borderColor: '#00dc57'
   },
   botonUploadTexto: { color: '#00dc57', fontSize: 14 },
   previewMini: { width: 56, height: 56, borderRadius: 8, overflow: 'hidden', backgroundColor: '#222' },
@@ -968,7 +968,7 @@ const estilos = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#252525',
     borderWidth: 1,
-    borderColor: '#444',
+    borderColor: '#444'
   },
   chipActivo: { borderColor: '#00dc57', backgroundColor: 'rgba(0,220,87,0.15)' },
   chipTexto: { color: '#aaa', fontSize: 13 },
@@ -979,7 +979,7 @@ const estilos = StyleSheet.create({
     marginTop: 20,
     padding: 14,
     borderRadius: 10,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   botonDeshabilitado: { opacity: 0.7 },
   botonSubirTexto: { color: '#000', fontWeight: '600', fontSize: 16 },
@@ -992,18 +992,18 @@ const estilos = StyleSheet.create({
     marginBottom: 14,
     borderWidth: 1,
     borderColor: '#2a2a2a',
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   workspaceHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 10
   },
   workspaceTitulo: { color: '#fff', fontSize: 16, fontWeight: '600', flex: 1 },
   workspaceHeaderAcciones: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 6
   },
   botonEditar: { padding: 6 },
   botonBorrar: { padding: 6 },
@@ -1014,7 +1014,7 @@ const estilos = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: '#252525',
     borderWidth: 1,
-    borderColor: '#00dc57',
+    borderColor: '#00dc57'
   },
   badgeTipoTexto: { color: '#00dc57', fontSize: 11, textTransform: 'capitalize' },
   badgeDestacado: {
@@ -1023,7 +1023,7 @@ const estilos = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: 'rgba(255,193,7,0.2)',
     borderWidth: 1,
-    borderColor: '#ffc107',
+    borderColor: '#ffc107'
   },
   badgeDestacadoTexto: { color: '#ffc107', fontSize: 11 },
   badgeOculto: {
@@ -1032,7 +1032,7 @@ const estilos = StyleSheet.create({
     borderRadius: 6,
     backgroundColor: 'rgba(244,67,54,0.2)',
     borderWidth: 1,
-    borderColor: '#f44336',
+    borderColor: '#f44336'
   },
   badgeOcultoTexto: { color: '#f44336', fontSize: 11 },
   workspacePreview: {
@@ -1043,7 +1043,7 @@ const estilos = StyleSheet.create({
     paddingVertical: 8,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: '#252525',
+    borderColor: '#252525'
   },
   workspaceThumb: { width: 80, height: 80, borderRadius: 8, overflow: 'hidden', backgroundColor: '#222' },
   workspaceThumbImg: { width: '100%', height: '100%' },
@@ -1053,7 +1053,7 @@ const estilos = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#222',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   workspacePreviewTexto: { flex: 1, color: '#aaa', fontSize: 13, lineHeight: 20 },
   workspaceMetricas: {
@@ -1062,7 +1062,7 @@ const estilos = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: '#151515',
     borderRadius: 8,
-    marginBottom: 10,
+    marginBottom: 10
   },
   metricaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   metricaNumero: { color: '#fff', fontSize: 14, fontWeight: '600' },
@@ -1074,7 +1074,7 @@ const estilos = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    alignSelf: 'flex-start',
+    alignSelf: 'flex-start'
   },
-  enlace: { color: '#00dc57', fontSize: 14 },
+  enlace: { color: '#00dc57', fontSize: 14 }
 });

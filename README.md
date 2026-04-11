@@ -28,7 +28,7 @@
    - `GOOGLE_MAPS_API_KEY=<api key server>`
    - `NODE_ENV=production`
    - `PORT` no se define manualmente (Render la inyecta).
-5. Tras el deploy, copia la URL pública (por ejemplo `https://somosthugs-api.onrender.com`) y colócala en:
+5. Tras el deploy, copia la URL pública (por ejemplo `https://somosthugs.onrender.com`) y colócala en:
    - `.env` (raíz): `EXPO_PUBLIC_API_PRODUCTION_URL=<url render>`
    - o directamente en `src/config/api.js` como valor por defecto.
 6. Verifica con `https://TU-URL-RENDER/health` y luego vuelve a generar web:

@@ -4,10 +4,10 @@ const Notificacion = require('../models/Notificacion');
 async function crearNotificacionParaTodos({ tipo, titulo, mensaje, entidadId = '' }) {
   const usuarios = await Usuario.find({
     activo: { $ne: false },
-    aceptaNotificaciones: { $ne: false },
-  })
-    .select('_id')
-    .lean();
+    aceptaNotificaciones: { $ne: false }
+  }).
+  select('_id').
+  lean();
 
   if (!Array.isArray(usuarios) || usuarios.length === 0) return 0;
 
@@ -17,7 +17,7 @@ async function crearNotificacionParaTodos({ tipo, titulo, mensaje, entidadId = '
     titulo,
     mensaje,
     entidadId: entidadId ? String(entidadId) : '',
-    leida: false,
+    leida: false
   }));
 
   await Notificacion.insertMany(docs, { ordered: false });
@@ -25,4 +25,3 @@ async function crearNotificacionParaTodos({ tipo, titulo, mensaje, entidadId = '
 }
 
 module.exports = { crearNotificacionParaTodos };
-

@@ -17,31 +17,31 @@ const flyersRoutes = require('./routes/flyers');
 const app = express();
 
 const ORIGEN_CORS_FIJOS = [
-  'https://somosthugs.com',
-  'https://www.somosthugs.com',
-  'https://rolandocalles.com',
-  'https://www.rolandocalles.com',
-];
+'https://somosthugs.com',
+'https://www.somosthugs.com',
+'https://rolandocalles.com',
+'https://www.rolandocalles.com'];
 
-/** Orígenes extra desde Render (coma-separados), sin espacios o con trim. */
+
+
 function origenesDesdeEnv() {
   const raw = process.env.CORS_ORIGINS || '';
-  return raw
-    .split(',')
-    .map((s) => s.trim().replace(/\/+$/, ''))
-    .filter(Boolean);
+  return raw.
+  split(',').
+  map((s) => s.trim().replace(/\/+$/, '')).
+  filter(Boolean);
 }
 
 const ORIGEN_CORS_REGEX = [
-  /^https:\/\/.*\.github\.io$/,
-  /^http:\/\/localhost(:\d+)?$/,
-  /^http:\/\/127\.0\.0\.1(:\d+)?$/,
-  /^http:\/\/\[::1\](:\d+)?$/,
-  // Expo web / Vite en red local (http://192.168.x.x:8081, etc.)
-  /^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/,
-  /^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/,
-  /^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/,
-];
+/^https:\/\/.*\.github\.io$/,
+/^http:\/\/localhost(:\d+)?$/,
+/^http:\/\/127\.0\.0\.1(:\d+)?$/,
+/^http:\/\/\[::1\](:\d+)?$/,
+
+/^http:\/\/192\.168\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+/^http:\/\/10\.\d{1,3}\.\d{1,3}\.\d{1,3}(:\d+)?$/,
+/^http:\/\/172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(:\d+)?$/];
+
 
 function normalizarOriginHeader(origin) {
   if (!origin || typeof origin !== 'string') return '';
@@ -56,7 +56,7 @@ function origenCorsPermitido(origin) {
   return ORIGEN_CORS_REGEX.some((re) => re.test(o));
 }
 
-// CORS: con credentials hay que devolver el origen explícito en el preflight (no basta con que falle silenciosamente).
+
 const corsOptions = {
   origin(origin, callback) {
     const o = normalizarOriginHeader(origin);
@@ -70,34 +70,26 @@ const corsOptions = {
     }
     callback(null, false);
   },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'Range',
-    'Accept',
-    'Accept-Language',
-    'X-Requested-With',
-    'Cache-Control',
-    'Pragma',
-  ],
+
+
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   exposedHeaders: ['Content-Length', 'Content-Range', 'Accept-Ranges'],
   credentials: true,
   optionsSuccessStatus: 204,
-  maxAge: 86400,
+  maxAge: 86400
 };
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '50mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Health check: el hosting y el navegador pueden comprobar que el servidor responde (evita 502)
+
 app.get('/health', (_, res) => res.status(200).json({ ok: true }));
 
-// Caché en memoria para avatares de Google (evita 429 y reduce peticiones)
-const avatarProxyCache = new Map();
-const AVATAR_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hora
 
-// Proxy de avatar para fotos de Google (evita bloqueo por CORS/referrer en web)
+const avatarProxyCache = new Map();
+const AVATAR_CACHE_TTL_MS = 60 * 60 * 1000;
+
+
 app.get('/avatar-proxy', async (req, res) => {
   const url = req.query.url;
   if (!url || typeof url !== 'string') return res.status(400).send('Falta url');
@@ -116,7 +108,7 @@ app.get('/avatar-proxy', async (req, res) => {
     const resp = await fetch(url, { headers: { 'User-Agent': 'SomosThugs-Avatar/1' } });
     if (!resp.ok) {
       if (resp.status === 404) return res.status(204).end();
-      if (resp.status === 429) return res.status(204).end(); // Too Many Requests → placeholder
+      if (resp.status === 429) return res.status(204).end();
       return res.status(resp.status).send('Error al obtener imagen');
     }
     const contentType = resp.headers.get('content-type') || 'image/jpeg';
@@ -142,9 +134,9 @@ app.use('/flyers', flyersRoutes);
 const PORT = process.env.PORT || 4000;
 const MONGO_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/somos-thugs';
 
-// Arrancar el servidor primero para que el hosting reciba respuesta (OPTIONS, health). Así no hay 502.
+
 app.listen(PORT, '0.0.0.0', () => console.log('Servidor en puerto', PORT));
 
-mongoose.connect(MONGO_URI)
-  .then(() => console.log('MongoDB conectado'))
-  .catch((e) => console.error('MongoDB error:', e.message));
+mongoose.connect(MONGO_URI).
+then(() => console.log('MongoDB conectado')).
+catch((e) => console.error('MongoDB error:', e.message));

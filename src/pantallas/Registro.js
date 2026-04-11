@@ -10,8 +10,8 @@ import {
   Image,
   ScrollView,
   Platform,
-  ImageBackground,
-} from 'react-native';
+  ImageBackground } from
+'react-native';
 
 const FONDO_IMAGEN = require('../../assets/fondo-thugs.png');
 import { Ionicons } from '@expo/vector-icons';
@@ -36,16 +36,16 @@ export default function Registro({ navigation }) {
   const [fotoUri, setFotoUri] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [cargandoGoogle, setCargandoGoogle] = useState(false);
-  const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined'
-    ? window.location.origin
-    : undefined;
+  const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined' ?
+  window.location.origin :
+  undefined;
 
-  const [request, , promptAsync] = Google.useIdTokenAuthRequest(
+  const [request,, promptAsync] = Google.useIdTokenAuthRequest(
     {
       webClientId: Platform.OS === 'web' ? GOOGLE_WEB_CLIENT_ID : undefined,
       redirectUri: webRedirectUri,
       iosClientId: Platform.OS === 'ios' ? GOOGLE_CLIENT_ID : undefined,
-      androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined,
+      androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined
     },
     { useProxy: false }
   );
@@ -60,7 +60,7 @@ export default function Registro({ navigation }) {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 0.8
     });
     if (!resultado.canceled && resultado.assets[0]) {
       setFotoUri(resultado.assets[0].uri);
@@ -76,7 +76,7 @@ export default function Registro({ navigation }) {
     const resultado = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 0.8
     });
     if (!resultado.canceled && resultado.assets[0]) {
       setFotoUri(resultado.assets[0].uri);
@@ -85,10 +85,10 @@ export default function Registro({ navigation }) {
 
   const elegirOrigenFoto = () => {
     Alert.alert('Foto de perfil', 'Elige el origen', [
-      { text: 'Galería', onPress: elegirDeGaleria },
-      { text: 'Tomar foto', onPress: tomarFoto },
-      { text: 'Cancelar', style: 'cancel' },
-    ]);
+    { text: 'Galería', onPress: elegirDeGaleria },
+    { text: 'Tomar foto', onPress: tomarFoto },
+    { text: 'Cancelar', style: 'cancel' }]
+    );
   };
 
   const enviar = async () => {
@@ -104,7 +104,7 @@ export default function Registro({ navigation }) {
     try {
       const perfil = await registrarEmail(email.trim(), password, {
         nombreCompleto: nombreCompleto.trim(),
-        fotoUrl: fotoUri || '',
+        fotoUrl: fotoUri || ''
       });
       establecerPerfil(perfil);
       navigation.replace(nombreRutaHomeApp(perfil));
@@ -147,8 +147,8 @@ export default function Registro({ navigation }) {
             style={estilos.contenedor}
             contentContainerStyle={estilos.scrollContenido}
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+            showsVerticalScrollIndicator={false}>
+            
             <View style={estilos.logoContenedor}>
               <Text style={estilos.logoPequeño}>LOS</Text>
               <Text style={estilos.logoGrande}>THUGS</Text>
@@ -157,74 +157,74 @@ export default function Registro({ navigation }) {
             <Text style={estilos.titulo}>registro</Text>
 
       <TouchableOpacity style={estilos.contenedorFoto} onPress={elegirOrigenFoto}>
-        {fotoUri ? (
-          <Image source={{ uri: fotoUri }} style={estilos.foto} />
-        ) : (
-          <Text style={estilos.textoPlaceholderFoto}>+ Imagen</Text>
-        )}
+        {fotoUri ?
+              <Image source={{ uri: fotoUri }} style={estilos.foto} /> :
+
+              <Text style={estilos.textoPlaceholderFoto}>+ Imagen</Text>
+              }
       </TouchableOpacity>
 
       <TextInput
-        style={estilos.input}
-        placeholder="nombre completo"
-        placeholderTextColor="#9ca3af"
-        value={nombreCompleto}
-        onChangeText={setNombreCompleto}
-        autoCapitalize="words"
-      />
+              style={estilos.input}
+              placeholder="nombre completo"
+              placeholderTextColor="#9ca3af"
+              value={nombreCompleto}
+              onChangeText={setNombreCompleto}
+              autoCapitalize="words" />
+            
       <TextInput
-        style={estilos.input}
-        placeholder="correo"
-        placeholderTextColor="#9ca3af"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
+              style={estilos.input}
+              placeholder="correo"
+              placeholderTextColor="#9ca3af"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none" />
+            
       <View style={estilos.inputContenedorPassword}>
         <TextInput
-          style={estilos.inputPassword}
-          placeholder="contraseña"
-          placeholderTextColor="#9ca3af"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={!mostrarPassword}
-        />
+                style={estilos.inputPassword}
+                placeholder="contraseña"
+                placeholderTextColor="#9ca3af"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!mostrarPassword} />
+              
         <TouchableOpacity
-          style={estilos.ojo}
-          onPress={() => setMostrarPassword((v) => !v)}
-        >
+                style={estilos.ojo}
+                onPress={() => setMostrarPassword((v) => !v)}>
+                
           <Ionicons
-            name={mostrarPassword ? 'eye-off-outline' : 'eye-outline'}
-            size={22}
-            color="#6b7280"
-          />
+                  name={mostrarPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={22}
+                  color="#6b7280" />
+                
         </TouchableOpacity>
       </View>
 
       <TouchableOpacity
-        style={[estilos.boton, cargando && estilos.botonDeshabilitado]}
-        onPress={enviar}
-        disabled={cargando}
-      >
-        {cargando ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={estilos.botonTexto}>registrarme</Text>
-        )}
+              style={[estilos.boton, cargando && estilos.botonDeshabilitado]}
+              onPress={enviar}
+              disabled={cargando}>
+              
+        {cargando ?
+              <ActivityIndicator color="#fff" /> :
+
+              <Text style={estilos.botonTexto}>registrarme</Text>
+              }
       </TouchableOpacity>
 
       <Text style={estilos.separador}>o</Text>
       <TouchableOpacity
-        style={[estilos.botonGoogle, cargandoGoogle && estilos.botonDeshabilitado]}
-        onPress={enviarGoogle}
-        disabled={!request || cargandoGoogle}
-      >
-        {cargandoGoogle ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={estilos.botonTexto}>Registrarme con Google</Text>
-        )}
+              style={[estilos.botonGoogle, cargandoGoogle && estilos.botonDeshabilitado]}
+              onPress={enviarGoogle}
+              disabled={!request || cargandoGoogle}>
+              
+        {cargandoGoogle ?
+              <ActivityIndicator color="#fff" /> :
+
+              <Text style={estilos.botonTexto}>Registrarme con Google</Text>
+              }
       </TouchableOpacity>
 
       <TouchableOpacity style={estilos.enlaceContenedor} onPress={() => navigation.goBack()}>
@@ -233,8 +233,8 @@ export default function Registro({ navigation }) {
           </ScrollView>
         </View>
       </View>
-    </ImageBackground>
-  );
+    </ImageBackground>);
+
 }
 
 const estilos = StyleSheet.create({
@@ -256,7 +256,7 @@ const estilos = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 24,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   foto: { width: 100, height: 100, borderRadius: 50 },
   textoPlaceholderFoto: { color: '#6b7280', fontSize: 14 },
@@ -266,7 +266,7 @@ const estilos = StyleSheet.create({
     padding: 16,
     color: '#111',
     marginBottom: 14,
-    fontSize: 16,
+    fontSize: 16
   },
   inputContenedorPassword: { position: 'relative', marginBottom: 14 },
   inputPassword: {
@@ -275,7 +275,7 @@ const estilos = StyleSheet.create({
     padding: 16,
     paddingRight: 48,
     color: '#111',
-    fontSize: 16,
+    fontSize: 16
   },
   ojo: { position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' },
   boton: {
@@ -283,7 +283,7 @@ const estilos = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 8
   },
   botonDeshabilitado: { opacity: 0.7 },
   botonTexto: { color: '#fff', fontWeight: '600', fontSize: 16 },
@@ -293,8 +293,8 @@ const estilos = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 12
   },
   enlaceContenedor: { marginTop: 24, alignItems: 'center' },
-  enlace: { color: '#22c55e', fontSize: 16, fontWeight: '600' },
+  enlace: { color: '#22c55e', fontSize: 16, fontWeight: '600' }
 });

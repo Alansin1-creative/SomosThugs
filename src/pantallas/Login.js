@@ -11,8 +11,8 @@ import {
   Linking,
   Platform,
   Image,
-  ImageBackground,
-} from 'react-native';
+  ImageBackground } from
+'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
@@ -25,7 +25,7 @@ WebBrowser.maybeCompleteAuthSession();
 const GOOGLE_CLIENT_ID = '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
 const GOOGLE_WEB_CLIENT_ID = '844963020835-b7pt28vp1upelsefhapf22qsksjecj3l.apps.googleusercontent.com';
 
-// Imagen de fondo (usa la que tengas en assets)
+
 const FONDO_IMAGEN = require('../../assets/fondo-thugs.png');
 
 export default function Login({ navigation }) {
@@ -35,16 +35,16 @@ export default function Login({ navigation }) {
   const [mostrarPassword, setMostrarPassword] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [cargandoGoogle, setCargandoGoogle] = useState(false);
-  const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined'
-    ? window.location.origin
-    : undefined;
+  const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined' ?
+  window.location.origin :
+  undefined;
 
-  const [request, , promptAsync] = Google.useIdTokenAuthRequest(
+  const [request,, promptAsync] = Google.useIdTokenAuthRequest(
     {
       webClientId: Platform.OS === 'web' ? GOOGLE_WEB_CLIENT_ID : undefined,
       redirectUri: webRedirectUri,
       iosClientId: Platform.OS === 'ios' ? GOOGLE_CLIENT_ID : undefined,
-      androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined,
+      androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined
     },
     { useProxy: false }
   );
@@ -74,8 +74,8 @@ export default function Login({ navigation }) {
     if (!request) {
       Alert.alert(
         'Google',
-        'Google no está listo. En web: entra desde el navegador (no Expo Go) y en Google Cloud Console añade esta URL en "Orígenes autorizados" y "URIs de redirección": ' +
-          (typeof window !== 'undefined' ? window.location.origin : 'tu origen')
+        'Google no está listo. En web: entra desde el navegador (no Expo Go) y en Google Cloud Console añade esta URL en "Orígenes autorizados" y "URIs de redirección": ' + (
+        typeof window !== 'undefined' ? window.location.origin : 'tu origen')
       );
       return;
     }
@@ -102,8 +102,8 @@ export default function Login({ navigation }) {
     <ImageBackground
       source={FONDO_IMAGEN}
       style={estilos.fondo}
-      resizeMode="cover"
-    >
+      resizeMode="cover">
+      
       <View style={estilos.mitades}>
         <View style={estilos.mitadIzquierda} />
         <View style={estilos.mitadDerecha}>
@@ -111,15 +111,15 @@ export default function Login({ navigation }) {
             style={estilos.contenedor}
             contentContainerStyle={estilos.scrollContenido}
             keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+            showsVerticalScrollIndicator={false}>
+            
             <View style={estilos.logoContenedor}>
               <Image
                 source={require('../../assets/logo.png')}
                 style={estilos.logoImagen}
                 resizeMode="contain"
-                accessibilityLabel="Logo Somos Thugs"
-              />
+                accessibilityLabel="Logo Somos Thugs" />
+              
               <Text style={estilos.logoPequeño}>LOS</Text>
               <Text style={estilos.logoGrande}>THUGS</Text>
             </View>
@@ -134,8 +134,8 @@ export default function Login({ navigation }) {
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
-                autoCapitalize="none"
-              />
+                autoCapitalize="none" />
+              
               <View style={estilos.inputContenedorPassword}>
                 <TextInput
                   style={estilos.inputPassword}
@@ -143,30 +143,30 @@ export default function Login({ navigation }) {
                   placeholderTextColor="#9ca3af"
                   value={password}
                   onChangeText={setPassword}
-                  secureTextEntry={!mostrarPassword}
-                />
+                  secureTextEntry={!mostrarPassword} />
+                
                 <TouchableOpacity
                   style={estilos.ojo}
-                  onPress={() => setMostrarPassword((v) => !v)}
-                >
+                  onPress={() => setMostrarPassword((v) => !v)}>
+                  
                   <Ionicons
                     name={mostrarPassword ? 'eye-off-outline' : 'eye-outline'}
                     size={22}
-                    color="#6b7280"
-                  />
+                    color="#6b7280" />
+                  
                 </TouchableOpacity>
               </View>
 
               <TouchableOpacity
                 style={[estilos.boton, cargando && estilos.botonDeshabilitado]}
                 onPress={enviarEmail}
-                disabled={cargando}
-              >
-                {cargando ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={estilos.botonTexto}>iniciar sesión</Text>
-                )}
+                disabled={cargando}>
+                
+                {cargando ?
+                <ActivityIndicator color="#fff" /> :
+
+                <Text style={estilos.botonTexto}>iniciar sesión</Text>
+                }
               </TouchableOpacity>
 
               <Text style={estilos.legal}>
@@ -188,13 +188,13 @@ export default function Login({ navigation }) {
               <TouchableOpacity
                 style={[estilos.botonGoogle, cargandoGoogle && estilos.botonDeshabilitado]}
                 onPress={enviarGoogle}
-                disabled={!request || cargandoGoogle}
-              >
-                {cargandoGoogle ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={estilos.botonTexto}>Entrar con Google</Text>
-                )}
+                disabled={!request || cargandoGoogle}>
+                
+                {cargandoGoogle ?
+                <ActivityIndicator color="#fff" /> :
+
+                <Text style={estilos.botonTexto}>Entrar con Google</Text>
+                }
               </TouchableOpacity>
 
               <TouchableOpacity style={estilos.registro} onPress={() => navigation.navigate('Registro')}>
@@ -204,8 +204,8 @@ export default function Login({ navigation }) {
           </ScrollView>
         </View>
       </View>
-    </ImageBackground>
-  );
+    </ImageBackground>);
+
 }
 
 const estilos = StyleSheet.create({
@@ -227,8 +227,8 @@ const estilos = StyleSheet.create({
     overflow: 'hidden',
     ...(Platform.OS === 'web' && {
       backdropFilter: 'blur(14px)',
-      WebkitBackdropFilter: 'blur(14px)',
-    }),
+      WebkitBackdropFilter: 'blur(14px)'
+    })
   },
   titulo: { fontSize: 20, color: '#fff', marginBottom: 20, textAlign: 'left' },
   input: {
@@ -237,7 +237,7 @@ const estilos = StyleSheet.create({
     padding: 16,
     color: '#111',
     marginBottom: 14,
-    fontSize: 16,
+    fontSize: 16
   },
   inputContenedorPassword: { position: 'relative', marginBottom: 14 },
   inputPassword: {
@@ -246,7 +246,7 @@ const estilos = StyleSheet.create({
     padding: 16,
     paddingRight: 48,
     color: '#111',
-    fontSize: 16,
+    fontSize: 16
   },
   ojo: { position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' },
   boton: {
@@ -254,14 +254,14 @@ const estilos = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 8
   },
   botonGoogle: {
     backgroundColor: '#4285f4',
     padding: 16,
     borderRadius: 12,
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 24
   },
   botonDeshabilitado: { opacity: 0.7 },
   botonTexto: { color: '#fff', fontWeight: '600', fontSize: 16 },
@@ -269,10 +269,10 @@ const estilos = StyleSheet.create({
     color: '#9ca3af',
     fontSize: 12,
     marginTop: 20,
-    lineHeight: 18,
+    lineHeight: 18
   },
   enlaceLegal: { color: '#3b82f6', textDecorationLine: 'underline' },
   olvidaste: { color: '#9ca3af', fontSize: 14, marginTop: 16, textAlign: 'center' },
   registro: { marginTop: 28, alignItems: 'center' },
-  registroTexto: { color: '#22c55e', fontSize: 16, fontWeight: '600' },
+  registroTexto: { color: '#22c55e', fontSize: 16, fontWeight: '600' }
 });

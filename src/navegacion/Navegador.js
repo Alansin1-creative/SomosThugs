@@ -20,7 +20,7 @@ const Stack = createNativeStackNavigator();
 
 const opcionesBase = {
   headerShown: false,
-  contentStyle: { backgroundColor: '#0d0d0d' },
+  contentStyle: { backgroundColor: '#0d0d0d' }
 };
 
 function obtenerRutaActiva(state) {
@@ -40,7 +40,7 @@ export default function Navegador() {
     return null;
   }
 
-  // Sin sesión → presskit. Con sesión → contenido general o panel admin.
+
   const rutaInicial = perfil ? nombreRutaHomeApp(perfil) : 'Inicio';
 
   return (
@@ -56,10 +56,10 @@ export default function Navegador() {
             onStateChange={(state) => {
               const activa = obtenerRutaActiva(state);
               setRutaActual(activa);
-            }}
-          >
+            }}>
+            
             <Stack.Navigator screenOptions={opcionesBase} initialRouteName={rutaInicial}>
-              <Stack.Screen name="Inicio" component={InicioPresskit} options={{ title: 'Presskit' }} />
+              <Stack.Screen name="Inicio" component={InicioPresskit} options={{ title: 'Somos Thugs' }} />
               <Stack.Screen name="Perfil" component={Perfil} options={{ title: 'Perfil' }} />
               <Stack.Screen name="MenuAdmin" component={MenuAdmin} options={{ title: 'Panel Admin' }} />
               <Stack.Screen name="ModoAdmin" component={ModoAdmin} options={{ title: 'Admin' }} />
@@ -74,6 +74,6 @@ export default function Navegador() {
           </NavigationContainer>
         </NavigationIndependentTree>
       </View>
-    </View>
-  );
+    </View>);
+
 }

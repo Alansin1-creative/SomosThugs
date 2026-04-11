@@ -21,7 +21,7 @@ const eventoSchema = new mongoose.Schema({
   hashtags: [String],
   notasInternas: String,
   nivelRequerido: { type: String, enum: ['libre', 'fan', 'thug'], default: 'libre' },
-  asistentes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' }],
+  asistentes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' }]
 }, { timestamps: true });
 
 eventoSchema.index({ esPublico: 1, fechaInicio: -1 });

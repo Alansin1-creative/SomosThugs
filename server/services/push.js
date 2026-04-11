@@ -11,8 +11,8 @@ function tokenExpoValido(t) {
 }
 
 async function enviarPush(tokens, { title, body, data }) {
-  const limpios = Array.from(new Set((Array.isArray(tokens) ? tokens : []).map((t) => String(t || '').trim())))
-    .filter(tokenExpoValido);
+  const limpios = Array.from(new Set((Array.isArray(tokens) ? tokens : []).map((t) => String(t || '').trim()))).
+  filter(tokenExpoValido);
   if (limpios.length === 0) return { enviados: 0, tickets: [] };
 
   const mensajes = limpios.map((to) => ({
@@ -20,7 +20,7 @@ async function enviarPush(tokens, { title, body, data }) {
     sound: 'default',
     title: String(title || 'Somos Thugs'),
     body: String(body || ''),
-    data: data && typeof data === 'object' ? data : {},
+    data: data && typeof data === 'object' ? data : {}
   }));
 
   const partes = chunk(mensajes, 100);
@@ -31,9 +31,9 @@ async function enviarPush(tokens, { title, body, data }) {
       headers: {
         Accept: 'application/json',
         'Accept-encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify(parte),
+      body: JSON.stringify(parte)
     });
     const json = await res.json().catch(() => ({}));
     if (Array.isArray(json?.data)) tickets.push(...json.data);
@@ -42,4 +42,3 @@ async function enviarPush(tokens, { title, body, data }) {
 }
 
 module.exports = { enviarPush, tokenExpoValido };
-

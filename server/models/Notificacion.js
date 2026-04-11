@@ -7,12 +7,12 @@ const notificacionSchema = new mongoose.Schema(
       type: String,
       enum: ['nuevo_contenido', 'nuevo_evento'],
       required: true,
-      index: true,
+      index: true
     },
     titulo: { type: String, required: true },
     mensaje: { type: String, required: true },
     leida: { type: Boolean, default: false, index: true },
-    entidadId: { type: String, default: '' },
+    entidadId: { type: String, default: '' }
   },
   { timestamps: true }
 );
@@ -20,4 +20,3 @@ const notificacionSchema = new mongoose.Schema(
 notificacionSchema.index({ usuarioId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Notificacion', notificacionSchema);
-

@@ -13,7 +13,7 @@ const UPLOADS_AVATAR = path.join(__dirname, '..', 'uploads', 'avatars');
 function guardarAvatarBase64(base64) {
   if (!base64) return undefined;
   const match = base64.match(/^data:image\/(\w+);base64,(.+)$/);
-  const ext = match ? (match[1] === 'jpeg' ? 'jpg' : match[1]) : 'jpg';
+  const ext = match ? match[1] === 'jpeg' ? 'jpg' : match[1] : 'jpg';
   const data = match ? match[2] : base64;
   const buffer = Buffer.from(data, 'base64');
   if (!fs.existsSync(UPLOADS_AVATAR)) fs.mkdirSync(UPLOADS_AVATAR, { recursive: true });
@@ -41,7 +41,7 @@ router.post('/register', async (req, res) => {
       username,
       telefono,
       fotoBase64,
-      aceptaNotificaciones,
+      aceptaNotificaciones
     } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email y contraseña son obligatorios' });
     const usernameTrim = (username || '').trim();
@@ -72,7 +72,7 @@ router.post('/register', async (req, res) => {
       proveedor: 'email',
       aceptaNotificaciones: aceptaNotificaciones !== false,
       activo: true,
-      rol: 'fan',
+      rol: 'fan'
     });
     await usuario.save();
     const perfil = toPerfil(usuario);
@@ -122,7 +122,7 @@ router.post('/login-google', async (req, res) => {
         aceptaNotificaciones: true,
         ultimaConexion: new Date(),
         activo: true,
-        rol: 'fan',
+        rol: 'fan'
       });
       await usuario.save();
       console.log('Usuario Google creado:', email);
@@ -152,7 +152,7 @@ router.get('/perfil', authMiddleware, async (req, res) => {
   }
 });
 
-// Actualizar datos del perfil (solo campos editables por el usuario)
+
 router.patch('/perfil', authMiddleware, async (req, res) => {
   try {
     const {
@@ -161,7 +161,7 @@ router.patch('/perfil', authMiddleware, async (req, res) => {
       telefono,
       biografia,
       aceptaNotificaciones,
-      fotoBase64,
+      fotoBase64
     } = req.body;
 
     const update = {};
@@ -198,7 +198,7 @@ router.patch('/perfil', authMiddleware, async (req, res) => {
       }
       const existenteUsername = await Usuario.findOne({
         username: usernameTrim,
-        _id: { $ne: req.userId },
+        _id: { $ne: req.userId }
       });
       if (existenteUsername) {
         return res.status(400).json({ error: 'Usuario ya está en uso' });

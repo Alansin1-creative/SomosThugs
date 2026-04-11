@@ -14,7 +14,7 @@ function guardarMediaBase64(base64, subdir = '') {
   if (!base64) return undefined;
   const dir = subdir ? path.join(UPLOADS_CONTENIDO, subdir) : UPLOADS_CONTENIDO;
   const match = base64.match(/^data:([^;]+);base64,(.+)$/);
-  const ext = match ? (match[1].indexOf('jpeg') !== -1 || match[1].indexOf('jpg') !== -1 ? 'jpg' : match[1].split('/')[1] || 'bin') : 'bin';
+  const ext = match ? match[1].indexOf('jpeg') !== -1 || match[1].indexOf('jpg') !== -1 ? 'jpg' : match[1].split('/')[1] || 'bin' : 'bin';
   const data = match ? match[2] : base64;
   const buffer = Buffer.from(data, 'base64');
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -49,7 +49,7 @@ function normalizarDocMedia(doc) {
     urlMedia: normalizarRutaMedia(doc.urlMedia),
     urlMediaCompleta: normalizarRutaMedia(doc.urlMediaCompleta),
     urlMediaPreview: normalizarRutaMedia(doc.urlMediaPreview),
-    urlImagen: normalizarRutaMedia(doc.urlImagen),
+    urlImagen: normalizarRutaMedia(doc.urlImagen)
   };
 }
 
@@ -85,57 +85,131 @@ function toDoc(doc) {
   return normalizarDocMedia(base);
 }
 
+function normalizarClaveUsuario(valor) {
+  return String(valor || '').trim().toLowerCase();
+}
+
+async function enriquecerComentariosAcceso(items) {
+  if (!Array.isArray(items) || items.length === 0) return items;
+  const ids = new Set();
+  const nombresRaw = new Set();
+
+  items.forEach((it) => {
+    const comentarios = Array.isArray(it?.comentarios) ? it.comentarios : [];
+    comentarios.forEach((c) => {
+      if (!c || typeof c !== 'object') return;
+      const id = c.usuarioId || c.userId || c.uid || '';
+      const nombre = c.usuario || c.username || '';
+      if (id) ids.add(String(id));
+      if (nombre) nombresRaw.add(String(nombre).trim());
+    });
+  });
+
+  if (ids.size === 0 && nombresRaw.size === 0) return items;
+
+  const usuarios = await Usuario.find({
+    $or: [
+    ...(ids.size > 0 ? [{ _id: { $in: Array.from(ids) } }] : []),
+    ...(nombresRaw.size > 0 ?
+    [{
+      $or: Array.from(nombresRaw).map((nombre) => ({
+        username: { $regex: `^${nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+      }))
+    }] :
+    [])]
+
+  }).
+  select('_id username rol nivelAcceso').
+  lean();
+
+  const porId = new Map();
+  const porUsername = new Map();
+  usuarios.forEach((u) => {
+    const id = String(u?._id || '');
+    const username = normalizarClaveUsuario(u?.username);
+    if (id) porId.set(id, u);
+    if (username) porUsername.set(username, u);
+  });
+
+  return items.map((it) => {
+    const comentarios = Array.isArray(it?.comentarios) ? it.comentarios : null;
+    if (!comentarios) return it;
+    const nuevos = comentarios.map((c) => {
+      if (!c || typeof c !== 'object') return c;
+      const id = String(c.usuarioId || c.userId || c.uid || '');
+      const username = normalizarClaveUsuario(c.usuario || c.username);
+      const usuario = id && porId.get(id) || username && porUsername.get(username);
+      if (!usuario) return c;
+      return {
+        ...c,
+
+        rol: usuario.rol || c.rol || 'fan',
+        nivelAcceso: usuario.nivelAcceso || c.nivelAcceso || 'fan'
+      };
+    });
+    return { ...it, comentarios: nuevos };
+  });
+}
+
 router.get('/', authMiddleware, requireThugOrAdmin, async (req, res) => {
   try {
     const lista = await ContenidoExclusivo.find().sort({ fechaPublicacion: -1 }).limit(50).lean();
-    res.json(lista.map((d) => normalizarDocMedia({ id: d._id.toString(), ...d, _id: undefined })));
+    const items = lista.map((d) => normalizarDocMedia({ id: d._id.toString(), ...d, _id: undefined }));
+    res.json(await enriquecerComentariosAcceso(items));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// Feed público: contenido con nivel requerido "fan" y visible (cualquier usuario autenticado)
+
 router.get('/feed', authMiddleware, async (req, res) => {
   try {
     const lista = await ContenidoExclusivo.find({
       nivelRequerido: 'fan',
-      visible: true,
-    })
-      .sort({ fechaPublicacion: -1 })
-      .limit(50)
-      .lean();
-    res.json(lista.map((d) => normalizarDocMedia({ id: d._id.toString(), ...d, _id: undefined })));
+      visible: true
+    }).
+    sort({ fechaPublicacion: -1 }).
+    limit(50).
+    lean();
+    const items = lista.map((d) => normalizarDocMedia({ id: d._id.toString(), ...d, _id: undefined }));
+    res.json(await enriquecerComentariosAcceso(items));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// Feed unificado: fan + thug en una lista; si el usuario es fan, el contenido thug se devuelve mínimo (solo para mostrar bloqueado)
+
 router.get('/feed-unificado', authMiddleware, async (req, res) => {
   try {
     const usuario = await Usuario.findById(req.userId).lean();
     const esThugOAdmin = usuario && (usuario.nivelAcceso === 'thug' || usuario.rol === 'admin');
-    const lista = await ContenidoExclusivo.find({ visible: true })
-      .sort({ fechaPublicacion: -1 })
-      .limit(80)
-      .lean();
+    const lista = await ContenidoExclusivo.find({ visible: true }).
+    sort({ fechaPublicacion: -1 }).
+    limit(80).
+    lean();
     const items = lista.map((d) => {
       const id = d._id.toString();
       const nivelRequerido = d.nivelRequerido || 'thug';
       const base = normalizarDocMedia({ id, ...d, _id: undefined });
       if (!esThugOAdmin && nivelRequerido === 'thug') {
+        const numeroComentarios = Array.isArray(base.comentarios) ?
+        base.comentarios.length :
+        base.numeroComentarios ?? 0;
         return {
           id: base.id,
           titulo: base.titulo,
           tipoContenido: base.tipoContenido || 'articulo',
           fechaPublicacion: base.fechaPublicacion,
+          numeroVistas: base.numeroVistas ?? 0,
+          numeroLikes: base.numeroLikes ?? 0,
+          numeroComentarios,
           nivelRequerido: 'thug',
-          bloqueado: true,
+          bloqueado: true
         };
       }
       return { ...base, nivelRequerido, bloqueado: false };
     });
-    res.json(items);
+    res.json(await enriquecerComentariosAcceso(items));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -144,13 +218,15 @@ router.get('/feed-unificado', authMiddleware, async (req, res) => {
 router.get('/:id', authMiddleware, requireThug, async (req, res) => {
   try {
     const doc = await ContenidoExclusivo.findById(req.params.id);
-    res.json(doc ? toDoc(doc) : null);
+    if (!doc) return res.json(null);
+    const [item] = await enriquecerComentariosAcceso([toDoc(doc)]);
+    res.json(item);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-// Vista en feed: como máximo +1 por usuario (vistasUsuarios). Apertura de modal: +1 en cada clic (body.desdeAperturaModal).
+
 router.post('/:id/vista', authMiddleware, async (req, res) => {
   try {
     const userId = req.userId || req.user?.id || req.user?._id?.toString?.();
@@ -168,7 +244,7 @@ router.post('/:id/vista', authMiddleware, async (req, res) => {
     }
 
     const actualizado = await ContenidoExclusivo.findByIdAndUpdate(req.params.id, update, {
-      new: true,
+      new: true
     });
     res.json({ numeroVistas: actualizado.numeroVistas });
   } catch (e) {
@@ -176,7 +252,7 @@ router.post('/:id/vista', authMiddleware, async (req, res) => {
   }
 });
 
-// Dar like (incrementa numeroLikes; sin control de doble like por ahora)
+
 router.post('/:id/like', authMiddleware, async (req, res) => {
   try {
     const doc = await ContenidoExclusivo.findByIdAndUpdate(
@@ -191,26 +267,33 @@ router.post('/:id/like', authMiddleware, async (req, res) => {
   }
 });
 
-// Añadir comentario (cualquier usuario autenticado)
+
 router.post('/:id/comentarios', authMiddleware, async (req, res) => {
   try {
     const texto = typeof req.body?.texto === 'string' ? req.body.texto.trim() : '';
     if (!texto) return res.status(400).json({ error: 'Falta el texto del comentario' });
 
     let usuarioNombre = 'Anónimo';
+    let usuarioRol = 'fan';
+    let usuarioNivelAcceso = 'fan';
     try {
       const usuario = await Usuario.findById(req.userId).lean();
       if (usuario) {
         usuarioNombre = usuario.username || usuario.nombreCompleto || usuario.email || usuarioNombre;
+        usuarioRol = usuario.rol || 'fan';
+        usuarioNivelAcceso = usuario.nivelAcceso || 'fan';
       }
     } catch {
-      // si falla, dejamos "Anónimo"
+
     }
 
     const nuevoComentario = {
+      usuarioId: req.userId,
       usuario: usuarioNombre,
+      rol: usuarioRol,
+      nivelAcceso: usuarioNivelAcceso,
       texto,
-      fecha: new Date(),
+      fecha: new Date()
     };
 
     const doc = await ContenidoExclusivo.findByIdAndUpdate(
@@ -221,7 +304,7 @@ router.post('/:id/comentarios', authMiddleware, async (req, res) => {
     if (!doc) return res.status(404).json({ error: 'No encontrado' });
     res.json({
       comentarios: doc.comentarios || [],
-      numeroComentarios: (doc.comentarios || []).length,
+      numeroComentarios: (doc.comentarios || []).length
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -230,9 +313,9 @@ router.post('/:id/comentarios', authMiddleware, async (req, res) => {
 
 router.post('/', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const b = req.body && typeof req.body === 'object' && req.body.data && typeof req.body.data === 'object'
-      ? req.body.data
-      : (req.body || {});
+    const b = req.body && typeof req.body === 'object' && req.body.data && typeof req.body.data === 'object' ?
+    req.body.data :
+    req.body || {};
     const creadoPor = req.user?.id || req.user?.sub || '';
     const bodyKeys = Object.keys(b);
     console.log('[contenido-exclusivo POST] body keys:', bodyKeys.join(', '));
@@ -247,9 +330,9 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     const etiquetas = Array.isArray(b.etiquetas) ? b.etiquetas : [];
     const visible = b.visible !== false;
     const destacado = Boolean(b.destacado);
-    // Solo trabajamos con los campos nuevos:
-    // - urlMedia: preview principal (imagen/video)
-    // - urlMediaCompleta: archivo principal (PDF, video, etc.)
+
+
+
     let urlMedia = normalizarRutaMedia(typeof b.urlMedia === 'string' ? b.urlMedia : '');
     let urlMediaCompleta = normalizarRutaMedia(typeof b.urlMediaCompleta === 'string' ? b.urlMediaCompleta : '');
     if (b.mediaPreviewBase64) {
@@ -278,7 +361,7 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
       comentarios: [],
       creadoPor: b.creadoPor || creadoPor,
       fechaPublicacion: new Date(),
-      fechaActualizacion: new Date(),
+      fechaActualizacion: new Date()
     };
     const [item] = await ContenidoExclusivo.create([payload]);
     console.log('[contenido-exclusivo POST] guardado keys:', Object.keys(item.toObject ? item.toObject() : item));
@@ -287,21 +370,21 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
         tipo: 'nuevo_contenido',
         titulo: 'Nuevo contenido publicado',
         mensaje: item?.titulo ? `Se publicó: ${item.titulo}` : 'Hay nuevo contenido disponible.',
-        entidadId: item?._id?.toString?.(),
+        entidadId: item?._id?.toString?.()
       });
       const usuarios = await Usuario.find({
         activo: { $ne: false },
         aceptaNotificaciones: { $ne: false },
-        expoPushTokens: { $exists: true, $ne: [] },
-      })
-        .select('expoPushTokens')
-        .lean();
-      const tokens = usuarios.flatMap((u) => (Array.isArray(u.expoPushTokens) ? u.expoPushTokens : []));
+        expoPushTokens: { $exists: true, $ne: [] }
+      }).
+      select('expoPushTokens').
+      lean();
+      const tokens = usuarios.flatMap((u) => Array.isArray(u.expoPushTokens) ? u.expoPushTokens : []);
       if (tokens.length > 0) {
         await enviarPush(tokens, {
           title: 'Nuevo contenido publicado',
           body: item?.titulo ? `Se publicó: ${item.titulo}` : 'Hay nuevo contenido disponible.',
-          data: { tipo: 'nuevo_contenido', entidadId: item?._id?.toString?.() || '' },
+          data: { tipo: 'nuevo_contenido', entidadId: item?._id?.toString?.() || '' }
         });
       }
     } catch (notifErr) {
@@ -316,18 +399,18 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
 
 router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
-    const b = req.body && typeof req.body === 'object' && req.body.data && typeof req.body.data === 'object'
-      ? req.body.data
-      : (req.body || {});
+    const b = req.body && typeof req.body === 'object' && req.body.data && typeof req.body.data === 'object' ?
+    req.body.data :
+    req.body || {};
     console.log('[contenido-exclusivo PUT] body keys:', Object.keys(b).join(', '));
     const existing = await ContenidoExclusivo.findById(req.params.id).lean();
     if (!existing) return res.status(404).json({ error: 'No encontrado' });
 
-    // Siempre partimos de los valores actuales
+
     let urlMedia = normalizarRutaMedia(existing.urlMedia ?? '');
     let urlMediaCompleta = normalizarRutaMedia(existing.urlMediaCompleta ?? '');
 
-    // Si llegan nuevos archivos en base64, generamos nuevas URLs
+
     if (b.mediaPreviewBase64) {
       urlMedia = guardarMediaBase64(b.mediaPreviewBase64, 'preview') || urlMedia;
     }
@@ -341,7 +424,7 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
       urlMediaCompleta = normalizarRutaMedia(b.urlMediaCompleta);
     }
 
-    // Limpiar explícitamente cuando se pide desde el frontend
+
     if (b.clearPreview) {
       urlMedia = '';
     }
@@ -350,30 +433,30 @@ router.put('/:id', authMiddleware, requireAdmin, async (req, res) => {
     }
 
     const tipoContenidoFinal =
-      typeof b.tipoContenido === 'string' && b.tipoContenido.trim()
-        ? b.tipoContenido.trim()
-        : existing.tipoContenido;
+    typeof b.tipoContenido === 'string' && b.tipoContenido.trim() ?
+    b.tipoContenido.trim() :
+    existing.tipoContenido;
     const mediaFinal = reconciliarUrlsMedia(tipoContenidoFinal, urlMedia, urlMediaCompleta);
     const $set = {
       titulo: typeof b.titulo === 'string' ? b.titulo.trim() : existing.titulo,
       descripcion: typeof b.descripcion === 'string' ? b.descripcion.trim() : existing.descripcion,
       previewTexto: typeof b.previewTexto === 'string' ? b.previewTexto.trim() : existing.previewTexto,
       contenidoCompleto:
-        typeof b.contenidoCompleto === 'string' ? b.contenidoCompleto.trim() : existing.contenidoCompleto,
+      typeof b.contenidoCompleto === 'string' ? b.contenidoCompleto.trim() : existing.contenidoCompleto,
       complementario:
-        typeof b.complementario === 'string' ? b.complementario.trim() : existing.complementario,
+      typeof b.complementario === 'string' ? b.complementario.trim() : existing.complementario,
       urlMedia: mediaFinal.urlMedia,
       urlMediaCompleta: mediaFinal.urlMediaCompleta,
       tipoContenido: tipoContenidoFinal,
       nivelRequerido:
-        typeof b.nivelRequerido === 'string' && b.nivelRequerido.trim()
-          ? b.nivelRequerido.trim()
-          : existing.nivelRequerido,
+      typeof b.nivelRequerido === 'string' && b.nivelRequerido.trim() ?
+      b.nivelRequerido.trim() :
+      existing.nivelRequerido,
       categoria: typeof b.categoria === 'string' ? b.categoria.trim() : existing.categoria,
       etiquetas: Array.isArray(b.etiquetas) ? b.etiquetas : existing.etiquetas,
       visible: b.visible !== undefined ? b.visible !== false : existing.visible !== false,
       destacado: b.destacado !== undefined ? Boolean(b.destacado) : Boolean(existing.destacado),
-      fechaActualizacion: new Date(),
+      fechaActualizacion: new Date()
     };
 
     await ContenidoExclusivo.updateOne({ _id: req.params.id }, { $set });

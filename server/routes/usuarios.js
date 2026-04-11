@@ -11,7 +11,7 @@ function toUsuarioPublico(doc) {
   return { id: o._id.toString(), ...rest, _id: undefined };
 }
 
-// Listar todos los usuarios (solo admin)
+
 router.get('/', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const usuarios = await Usuario.find({}).sort({ createdAt: -1 });
@@ -21,7 +21,7 @@ router.get('/', authMiddleware, requireAdmin, async (req, res) => {
   }
 });
 
-// Actualizar usuario: nivelAcceso (thug/fan), rol, o datos editables (solo admin)
+
 router.patch('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -38,12 +38,17 @@ router.patch('/:id', authMiddleware, requireAdmin, async (req, res) => {
       activo,
       aceptaNotificaciones,
       notificacionesPushActivas,
-      nivelAcceso,
+      nivelAcceso
     } = req.body;
     const update = {};
     if (typeof premium === 'boolean') update.nivelAcceso = premium ? 'thug' : 'fan';
     if (nivelAcceso !== undefined) update.nivelAcceso = nivelAcceso;
-    if (rol !== undefined) update.rol = rol;
+    if (rol !== undefined) {
+      if (String(id) === String(req.userId) && rol !== 'admin') {
+        return res.status(400).json({ error: 'No puedes quitarte el rol admin a ti mismo' });
+      }
+      update.rol = rol;
+    }
     if (nombreCompleto !== undefined) update.nombreCompleto = nombreCompleto;
     if (username !== undefined) update.username = username;
     if (email !== undefined) update.email = email;
@@ -62,7 +67,7 @@ router.patch('/:id', authMiddleware, requireAdmin, async (req, res) => {
   }
 });
 
-// Eliminar usuario (solo admin)
+
 router.delete('/:id', authMiddleware, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;

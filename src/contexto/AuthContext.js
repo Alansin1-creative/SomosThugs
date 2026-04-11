@@ -12,7 +12,7 @@ export const AuthContext = createContext({
   nivelAcceso: NIVEL_LIBRE,
   cargando: true,
   cerrarSesion: async () => {},
-  establecerPerfil: () => {},
+  establecerPerfil: () => {}
 });
 
 export function AuthProvider({ children }) {
@@ -20,13 +20,13 @@ export function AuthProvider({ children }) {
   const [cargando, setCargando] = useState(true);
 
   const intentarRegistrarPush = async () => {
-    // Evitar cualquier dependencia nativa de notificaciones en web.
+
     if (Platform.OS === 'web') return;
     try {
       const mod = await import('../servicios/push');
       await mod?.registrarPushUsuario?.();
     } catch (_) {
-      // noop
+
     }
   };
 
@@ -55,7 +55,7 @@ export function AuthProvider({ children }) {
         if (!cancel) setCargando(false);
       }
     })();
-    return () => { cancel = true; };
+    return () => {cancel = true;};
   }, []);
 
   const cerrarSesion = async () => {
@@ -74,7 +74,7 @@ export function AuthProvider({ children }) {
     nivelAcceso,
     cargando,
     cerrarSesion,
-    establecerPerfil,
+    establecerPerfil
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

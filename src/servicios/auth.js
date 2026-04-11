@@ -7,7 +7,7 @@ export async function registrarEmail(email, password, datosExtra = {}) {
     nombreCompleto: datosExtra.nombreCompleto ?? '',
     username: datosExtra.username ?? '',
     telefono: datosExtra.telefono ?? '',
-    aceptaNotificaciones: datosExtra.aceptaNotificaciones !== false,
+    aceptaNotificaciones: datosExtra.aceptaNotificaciones !== false
   };
   if (datosExtra.fotoBase64) body.fotoBase64 = datosExtra.fotoBase64;
   const { perfil, token } = await apiRegister(body);

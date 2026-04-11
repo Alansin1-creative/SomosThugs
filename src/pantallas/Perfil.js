@@ -10,8 +10,8 @@ import {
   Image,
   KeyboardAvoidingView,
   ActivityIndicator,
-  Dimensions,
-} from 'react-native';
+  Dimensions } from
+'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -21,7 +21,7 @@ import { getBaseUrl } from '../config/api';
 import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
-const LOGO_THUGS = require('../../assets/logothugs.png');
+const LOGO_HEADER_BANNER = require('../../assets/logo-somos-thugs-banner.png');
 
 export default function Perfil({ navigation }) {
   const insets = useSafeAreaInsets();
@@ -37,12 +37,12 @@ export default function Perfil({ navigation }) {
   const [fotoPreviewUri, setFotoPreviewUri] = useState(null);
   const [subiendoFoto, setSubiendoFoto] = useState(false);
 
-  const avatarUri = fotoPreviewUri
-    ? fotoPreviewUri
-    : perfil?.fotoUrl
-      ? (perfil.fotoUrl.startsWith('http') ? perfil.fotoUrl : getBaseUrl() + perfil.fotoUrl)
-      : null;
-  // Igual que en el header: si es foto de Google, usar la URL directa en web/app.
+  const avatarUri = fotoPreviewUri ?
+  fotoPreviewUri :
+  perfil?.fotoUrl ?
+  perfil.fotoUrl.startsWith('http') ? perfil.fotoUrl : getBaseUrl() + perfil.fotoUrl :
+  null;
+
   const avatarUriDisplay = avatarUri;
 
   useEffect(() => {
@@ -52,9 +52,9 @@ export default function Perfil({ navigation }) {
     setTelefono(perfil.telefono || '');
     setBiografia(perfil.biografia || '');
     setAceptaNotificaciones(
-      typeof perfil.aceptaNotificaciones === 'boolean'
-        ? perfil.aceptaNotificaciones
-        : true
+      typeof perfil.aceptaNotificaciones === 'boolean' ?
+      perfil.aceptaNotificaciones :
+      true
     );
   }, [perfil]);
 
@@ -71,7 +71,7 @@ export default function Perfil({ navigation }) {
         username,
         telefono,
         biografia,
-        aceptaNotificaciones,
+        aceptaNotificaciones
       };
       const nuevoPerfil = await actualizarPerfil(body);
       establecerPerfil(nuevoPerfil);
@@ -85,16 +85,16 @@ export default function Perfil({ navigation }) {
   };
 
   const elegirOrigenFoto = () => {
-    // En web el Alert nativo no soporta bien múltiples botones, así que vamos directo a la galería.
+
     if (Platform.OS === 'web') {
       elegirDeGaleria();
       return;
     }
     Alert.alert('Foto de perfil', 'Elige el origen', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Galería', onPress: elegirDeGaleria },
-      { text: 'Tomar foto', onPress: tomarFoto },
-    ]);
+    { text: 'Cancelar', style: 'cancel' },
+    { text: 'Galería', onPress: elegirDeGaleria },
+    { text: 'Tomar foto', onPress: tomarFoto }]
+    );
   };
 
   const elegirDeGaleria = async () => {
@@ -108,7 +108,7 @@ export default function Perfil({ navigation }) {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.6,
-      base64: true,
+      base64: true
     });
     if (!resultado.canceled && resultado.assets[0]) {
       const base64 = resultado.assets[0].base64;
@@ -139,7 +139,7 @@ export default function Perfil({ navigation }) {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.6,
-      base64: true,
+      base64: true
     });
     if (!resultado.canceled && resultado.assets[0]) {
       const base64 = resultado.assets[0].base64;
@@ -162,11 +162,11 @@ export default function Perfil({ navigation }) {
 
   const titulo = 'Perfil';
   const alturaFondoNativo =
-    Platform.OS !== 'web'
-      ? Dimensions.get('window').height -
-        (insets.top + 8 + 48) +
-        insets.bottom
-      : null;
+  Platform.OS !== 'web' ?
+  Dimensions.get('window').height - (
+  insets.top + 8 + 48) +
+  insets.bottom :
+  null;
 
   return (
     <View style={[estilos.contenedor, { paddingTop: insets.top + 8 }]}>
@@ -175,133 +175,135 @@ export default function Perfil({ navigation }) {
           onPress={() => navigation.navigate(rutaHomeHeader)}
           style={estilos.headerBack}
           hitSlop={10}
-          activeOpacity={0.8}
-        >
+          activeOpacity={0.8}>
+          
           <Ionicons name="arrow-back" size={20} color="#fff" />
-          <Image source={LOGO_THUGS} style={estilos.headerLogoImg} resizeMode="contain" />
+          <Image source={LOGO_HEADER_BANNER} style={estilos.headerLogoAlLado} resizeMode="contain" />
         </TouchableOpacity>
-        <Text style={estilos.headerTitulo} pointerEvents="none">{titulo}</Text>
+        <Text style={estilos.headerTitulo} pointerEvents="none" numberOfLines={1} ellipsizeMode="tail">
+          {titulo}
+        </Text>
         <View style={estilos.headerEspacioDer} />
       </View>
       <View style={estilos.areaContenido}>
         <View
           style={[
-            estilos.fondoAbsoluto,
-            alturaFondoNativo != null && {
-              top: 0,
-              bottom: undefined,
-              height: alturaFondoNativo,
-            },
-          ]}
-          pointerEvents="none"
-        >
+          estilos.fondoAbsoluto,
+          alturaFondoNativo != null && {
+            top: 0,
+            bottom: undefined,
+            height: alturaFondoNativo
+          }]
+          }
+          pointerEvents="none">
+          
           <Image
             source={FONDO_THUGS}
             style={[
-              estilos.fondoImagen,
-              alturaFondoNativo != null && {
-                bottom: undefined,
-                height: alturaFondoNativo,
-              },
-            ]}
-            resizeMode="repeat"
-          />
+            estilos.fondoImagen,
+            alturaFondoNativo != null && {
+              bottom: undefined,
+              height: alturaFondoNativo
+            }]
+            }
+            resizeMode="repeat" />
+          
         </View>
         <View style={estilos.scrollContenidoConPadding}>
         <View style={estilos.contenidoSobreFondo}>
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={estilos.cuadroGlass}
-          >
+              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+              style={estilos.cuadroGlass}>
+              
             <View style={estilos.formularioUnico}>
               <Text style={estilos.tituloMitad}>Editar perfil</Text>
               <TouchableOpacity
-                style={estilos.filaFoto}
-                onPress={subiendoFoto ? undefined : elegirOrigenFoto}
-                disabled={subiendoFoto}
-                activeOpacity={0.8}
-              >
+                  style={estilos.filaFoto}
+                  onPress={subiendoFoto ? undefined : elegirOrigenFoto}
+                  disabled={subiendoFoto}
+                  activeOpacity={0.8}>
+                  
                 <View style={estilos.avatarContenedor}>
-                  {avatarUriDisplay ? (
-                    <Image source={{ uri: avatarUriDisplay }} style={estilos.avatarImg} />
-                  ) : (
+                  {avatarUriDisplay ?
+                    <Image source={{ uri: avatarUriDisplay }} style={estilos.avatarImg} /> :
+
                     <View style={estilos.avatarPlaceholder}>
                       <Ionicons name="person" size={40} color="#00dc57" />
                     </View>
-                  )}
+                    }
                   <View style={estilos.avatarLapiz}>
-                    {subiendoFoto ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
+                    {subiendoFoto ?
+                      <ActivityIndicator color="#fff" size="small" /> :
+
                       <Ionicons name="pencil" size={18} color="#fff" />
-                    )}
+                      }
                   </View>
                 </View>
               </TouchableOpacity>
               <TextInput
-                style={estilos.input}
-                placeholder="Nombre completo"
-                placeholderTextColor="#9ca3af"
-                value={nombreCompleto}
-                onChangeText={setNombreCompleto}
-                autoCapitalize="words"
-              />
+                  style={estilos.input}
+                  placeholder="Nombre completo"
+                  placeholderTextColor="#9ca3af"
+                  value={nombreCompleto}
+                  onChangeText={setNombreCompleto}
+                  autoCapitalize="words" />
+                
               <TextInput
-                style={estilos.input}
-                placeholder="Usuario *"
-                placeholderTextColor="#9ca3af"
-                value={username}
-                onChangeText={setUsername}
-                autoCapitalize="none"
-              />
+                  style={estilos.input}
+                  placeholder="Usuario *"
+                  placeholderTextColor="#9ca3af"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none" />
+                
               <TextInput
-                style={estilos.input}
-                placeholder="Teléfono (opcional)"
-                placeholderTextColor="#9ca3af"
-                value={telefono}
-                onChangeText={setTelefono}
-                keyboardType="phone-pad"
-              />
+                  style={estilos.input}
+                  placeholder="Teléfono (opcional)"
+                  placeholderTextColor="#9ca3af"
+                  value={telefono}
+                  onChangeText={setTelefono}
+                  keyboardType="phone-pad" />
+                
               <TextInput
-                style={[estilos.input, estilos.inputMultiline]}
-                placeholder="Biografía"
-                placeholderTextColor="#9ca3af"
-                value={biografia}
-                onChangeText={setBiografia}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-              />
+                  style={[estilos.input, estilos.inputMultiline]}
+                  placeholder="Biografía"
+                  placeholderTextColor="#9ca3af"
+                  value={biografia}
+                  onChangeText={setBiografia}
+                  multiline
+                  numberOfLines={4}
+                  textAlignVertical="top" />
+                
               <TouchableOpacity
-                style={estilos.filaCheckbox}
-                onPress={() => setAceptaNotificaciones((v) => !v)}
-                activeOpacity={0.7}
-              >
+                  style={estilos.filaCheckbox}
+                  onPress={() => setAceptaNotificaciones((v) => !v)}
+                  activeOpacity={0.7}>
+                  
                 <Ionicons
-                  name={aceptaNotificaciones ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={aceptaNotificaciones ? '#00dc57' : '#6b7280'}
-                />
+                    name={aceptaNotificaciones ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={aceptaNotificaciones ? '#00dc57' : '#6b7280'} />
+                  
                 <Text style={estilos.checkboxTexto}>Acepto notificaciones</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[estilos.boton, guardando && estilos.botonDeshabilitado]}
-                onPress={onGuardar}
-                disabled={guardando}
-              >
-                {guardando ? (
-                  <ActivityIndicator color="#000" size="small" />
-                ) : (
+                  style={[estilos.boton, guardando && estilos.botonDeshabilitado]}
+                  onPress={onGuardar}
+                  disabled={guardando}>
+                  
+                {guardando ?
+                  <ActivityIndicator color="#000" size="small" /> :
+
                   <Text style={estilos.botonTexto}>Guardar cambios</Text>
-                )}
+                  }
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
         </View>
         </View>
       </View>
-    </View>
-  );
+    </View>);
+
 }
 
 
@@ -309,7 +311,7 @@ const estilos = StyleSheet.create({
   contenedor: {
     flex: 1,
     backgroundColor: '#0d0d0d',
-    ...(Platform.OS !== 'web' && { overflow: 'visible' }),
+    ...(Platform.OS !== 'web' && { overflow: 'visible' })
   },
   header: {
     flexDirection: 'row',
@@ -319,17 +321,23 @@ const estilos = StyleSheet.create({
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0d0d0d',
+    backgroundColor: '#0d0d0d'
   },
   headerBack: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     padding: 4,
-    width: 80,
-    zIndex: 1,
+    flex: 1,
+    minWidth: 0,
+    zIndex: 1
   },
-  headerLogoImg: { width: 36, height: 36 },
+  headerLogoAlLado: {
+    height: 36,
+    width: 118,
+    flexShrink: 1,
+    maxWidth: 140
+  },
   headerTitulo: {
     position: 'absolute',
     left: 0,
@@ -339,10 +347,12 @@ const estilos = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     zIndex: 0,
+    pointerEvents: 'none',
+    paddingHorizontal: 128
   },
-  headerEspacioDer: { width: 80, zIndex: 1 },
+  headerEspacioDer: { flex: 1, minWidth: 0, zIndex: 1 },
   areaContenido: {
-    flex: 1,
+    flex: 1
   },
   fondoAbsoluto: {
     position: 'absolute',
@@ -350,23 +360,23 @@ const estilos = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    zIndex: 0,
+    zIndex: 0
   },
   scroll: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   scrollSinScroll: {
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   scrollContenidoConPadding: {
     flex: 1,
     padding: 32,
     paddingBottom: 40,
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   scrollContenido: {
-    // sin uso ahora; se mantiene por compatibilidad si se reutiliza
+
   },
   fondoImagen: {
     position: 'absolute',
@@ -375,13 +385,13 @@ const estilos = StyleSheet.create({
     right: 0,
     bottom: 0,
     width: '100%',
-    zIndex: 0,
+    zIndex: 0
   },
   contenidoSobreFondo: {
     zIndex: 1,
     alignSelf: 'center',
     maxWidth: 420,
-    width: '100%',
+    width: '100%'
   },
   cuadroGlass: {
     marginBottom: 24,
@@ -390,7 +400,7 @@ const estilos = StyleSheet.create({
     backgroundColor: Platform.OS === 'web' ? 'rgba(26,26,26,0.7)' : 'rgba(26,26,26,0.85)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
-    ...(Platform.OS === 'web' && { backdropFilter: 'blur(12px)' }),
+    ...(Platform.OS === 'web' && { backdropFilter: 'blur(12px)' })
   },
   formularioUnico: { padding: 20 },
   tituloMitad: { fontSize: 16, fontWeight: '600', color: '#fff', marginBottom: 12 },
@@ -400,12 +410,12 @@ const estilos = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: 'hidden'
   },
   avatarImg: {
     width: '100%',
     height: '100%',
-    borderRadius: 16,
+    borderRadius: 16
   },
   avatarPlaceholder: {
     width: '100%',
@@ -413,7 +423,7 @@ const estilos = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: 'rgba(255,255,255,0.1)',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   avatarLapiz: {
     position: 'absolute',
@@ -424,7 +434,7 @@ const estilos = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: '#00dc57',
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   input: {
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -433,10 +443,10 @@ const estilos = StyleSheet.create({
     paddingVertical: 10,
     color: '#fff',
     fontSize: 14,
-    marginBottom: 10,
+    marginBottom: 10
   },
   inputMultiline: {
-    minHeight: 96,
+    minHeight: 96
   },
   filaCheckbox: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
   checkboxTexto: { color: '#ccc', fontSize: 14 },
@@ -445,9 +455,8 @@ const estilos = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 12,
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 4
   },
   botonDeshabilitado: { opacity: 0.7 },
-  botonTexto: { color: '#000', fontWeight: '600', fontSize: 14 },
+  botonTexto: { color: '#000', fontWeight: '600', fontSize: 14 }
 });
-

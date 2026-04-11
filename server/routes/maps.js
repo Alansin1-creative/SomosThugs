@@ -35,12 +35,12 @@ router.get('/places-autocomplete', authMiddleware, requireAdmin, async (req, res
     if (data.status && data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
       return res.status(400).json({ error: data.error_message || data.status || 'Error Google' });
     }
-    const predictions = Array.isArray(data.predictions)
-      ? data.predictions.map((p) => ({
-          placeId: p.place_id,
-          description: p.description,
-        }))
-      : [];
+    const predictions = Array.isArray(data.predictions) ?
+    data.predictions.map((p) => ({
+      placeId: p.place_id,
+      description: p.description
+    })) :
+    [];
     res.json({ predictions });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -73,7 +73,7 @@ router.get('/place-details', authMiddleware, requireAdmin, async (req, res) => {
       nombre: r.name || '',
       direccion: r.formatted_address || '',
       latitud: typeof loc.lat === 'number' ? loc.lat : null,
-      longitud: typeof loc.lng === 'number' ? loc.lng : null,
+      longitud: typeof loc.lng === 'number' ? loc.lng : null
     });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -81,4 +81,3 @@ router.get('/place-details', authMiddleware, requireAdmin, async (req, res) => {
 });
 
 module.exports = router;
-

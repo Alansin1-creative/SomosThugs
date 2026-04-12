@@ -87,11 +87,14 @@ export async function activarNotificacionesEscritorioWeb() {
   try {
     vapidKey = await obtenerClavePublicaVapid();
   } catch (e) {
+    const raw = String(e?.message || '').trim();
+    const corto =
+      raw === 'Web push no configurado' || /^HTTP\s*503\b/i.test(raw)
+        ? 'Avisos del navegador no disponibles en este sitio.'
+        : '';
     return {
       ok: false,
-      mensaje:
-      e?.message ||
-      'El servidor no tiene configuradas las claves Web Push (VAPID). Revisá la documentación en server/.env.example.'
+      mensaje: corto || raw || 'No se pudo conectar con el servidor para avisos del navegador.'
     };
   }
 

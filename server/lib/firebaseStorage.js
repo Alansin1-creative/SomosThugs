@@ -264,8 +264,12 @@ function logFirebaseStorageBoot() {
     return;
   }
   if (!b64Len && !jsonLen) {
+    const b64Def = Object.prototype.hasOwnProperty.call(process.env, 'FIREBASE_SERVICE_ACCOUNT_BASE64');
+    const jsonDef = Object.prototype.hasOwnProperty.call(process.env, 'FIREBASE_SERVICE_ACCOUNT_JSON');
     console.warn(
-      '[firebaseStorage] Sin FIREBASE_SERVICE_ACCOUNT_BASE64 ni JSON → subidas van a disco (uploads/). En Render: agregá la variable en Environment.'
+      '[firebaseStorage] Sin credencial Firebase (BASE64 o JSON) → subidas van a disco (uploads/).',
+      'En Render: la variable tiene que estar en **este** Web Service (el que corre este Docker), no solo en otro servicio o grupo sin enlazar.',
+      { claveB64Definida: b64Def, claveJsonDefinida: jsonDef, b64Len, jsonLen }
     );
     return;
   }

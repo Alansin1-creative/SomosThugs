@@ -1,5 +1,4 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
 import { getBaseUrl } from '../config/api';
 
 const TOKEN_KEY = 'somos_thugs_token';
@@ -45,6 +44,10 @@ export async function apiPerfil() {
 
 export async function registrarPushToken(token) {
   return request('/auth/push-token', { method: 'PATCH', body: JSON.stringify({ token }) });
+}
+
+export async function registrarWebPushSubscription(subscription) {
+  return request('/auth/web-push/subscribe', { method: 'PATCH', body: JSON.stringify({ subscription }) });
 }
 
 export async function actualizarPerfil(body) {
@@ -146,26 +149,7 @@ export async function crearEvento(body) {
 export async function placesAutocomplete(q) {
   const qq = String(q ?? '').trim();
   if (!qq) return { predictions: [] };
-  const googleKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-
-  if (Platform.OS === 'web' && googleKey) {
-    const url = new URL('https://maps.googleapis.com/maps/api/place/autocomplete/json');
-    url.searchParams.set('input', qq);
-    url.searchParams.set('key', googleKey);
-    url.searchParams.set('language', 'es');
-    const res = await fetch(url.toString());
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error_message || res.statusText);
-    const status = data?.status;
-    if (status && status !== 'OK' && status !== 'ZERO_RESULTS') {
-      throw new Error(data?.error_message || status);
-    }
-    const predictions = Array.isArray(data?.predictions) ?
-    data.predictions.map((p) => ({ placeId: p.place_id, description: p.description })) :
-    [];
-    return { predictions };
-  }
-
+  /** Siempre vía backend (admin + JWT): la clave queda en el server y no se carga el JS de Maps en el navegador. */
   const qs = new URLSearchParams({ q: qq }).toString();
   return request(`/maps/places-autocomplete?${qs}`);
 }
@@ -173,29 +157,6 @@ export async function placesAutocomplete(q) {
 export async function placeDetails(placeId) {
   const pid = String(placeId ?? '').trim();
   if (!pid) throw new Error('Falta placeId');
-  const googleKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-  if (Platform.OS === 'web' && googleKey) {
-    const url = new URL('https://maps.googleapis.com/maps/api/place/details/json');
-    url.searchParams.set('place_id', pid);
-    url.searchParams.set('fields', 'formatted_address,geometry,name,place_id');
-    url.searchParams.set('key', googleKey);
-    url.searchParams.set('language', 'es');
-    const res = await fetch(url.toString());
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error_message || res.statusText);
-    const status = data?.status;
-    if (status && status !== 'OK') throw new Error(data?.error_message || status);
-    const r = data?.result || {};
-    const loc = r?.geometry?.location || {};
-    return {
-      placeId: r.place_id || pid,
-      nombre: r.name || '',
-      direccion: r.formatted_address || '',
-      latitud: typeof loc.lat === 'number' ? loc.lat : null,
-      longitud: typeof loc.lng === 'number' ? loc.lng : null
-    };
-  }
-
   const qs = new URLSearchParams({ placeId: pid }).toString();
   return request(`/maps/place-details?${qs}`);
 }

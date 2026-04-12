@@ -5,7 +5,7 @@ const ContenidoExclusivo = require('../models/ContenidoExclusivo');
 const Usuario = require('../models/Usuario');
 const { authMiddleware, requireAdmin, requireThugOrAdmin } = require('../middleware/auth');
 const { crearNotificacionParaTodos } = require('../services/notificaciones');
-const { enviarPush } = require('../services/push');
+const { enviarPush, flattenWebPushSubscriptions, debeLoguearPush } = require('../services/push');
 
 const router = express.Router();
 const UPLOADS_CONTENIDO = path.join(__dirname, '..', 'uploads', 'contenido');
@@ -404,29 +404,50 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     const [item] = await ContenidoExclusivo.create([payload]);
     console.log('[contenido-exclusivo POST] guardado keys:', Object.keys(item.toObject ? item.toObject() : item));
     try {
-      await crearNotificacionParaTodos({
+      const nInApp = await crearNotificacionParaTodos({
         tipo: 'nuevo_contenido',
         titulo: 'Nuevo contenido publicado',
         mensaje: item?.titulo ? `Se publicó: ${item.titulo}` : 'Hay nuevo contenido disponible.',
         entidadId: item?._id?.toString?.()
       });
+      if (debeLoguearPush()) {
+        console.log('[notificaciones][contenido] in-app filas:', nInApp);
+      }
+    } catch (inAppErr) {
+      console.warn('[notificaciones][contenido] in-app:', inAppErr?.message || inAppErr);
+    }
+    try {
       const usuarios = await Usuario.find({
         activo: { $ne: false },
         aceptaNotificaciones: { $ne: false },
-        expoPushTokens: { $exists: true, $ne: [] }
+        $or: [{ 'expoPushTokens.0': { $exists: true } }, { 'webPushSubscriptions.0': { $exists: true } }]
       }).
-      select('expoPushTokens').
+      select('expoPushTokens webPushSubscriptions').
       lean();
       const tokens = usuarios.flatMap((u) => Array.isArray(u.expoPushTokens) ? u.expoPushTokens : []);
-      if (tokens.length > 0) {
-        await enviarPush(tokens, {
-          title: 'Nuevo contenido publicado',
-          body: item?.titulo ? `Se publicó: ${item.titulo}` : 'Hay nuevo contenido disponible.',
-          data: { tipo: 'nuevo_contenido', entidadId: item?._id?.toString?.() || '' }
+      const webSubs = flattenWebPushSubscriptions(usuarios);
+      if (debeLoguearPush()) {
+        console.log('[notificaciones][contenido] push destinos', {
+          usuariosConTokenOWeb: usuarios.length,
+          tokensExpo: tokens.length,
+          subsWeb: webSubs.length
         });
       }
-    } catch (notifErr) {
-      console.warn('[notificaciones][contenido]', notifErr?.message || notifErr);
+      if (tokens.length > 0 || webSubs.length > 0) {
+        await enviarPush(
+          tokens,
+          {
+            title: 'Nuevo contenido publicado',
+            body: item?.titulo ? `Se publicó: ${item.titulo}` : 'Hay nuevo contenido disponible.',
+            data: { tipo: 'nuevo_contenido', entidadId: item?._id?.toString?.() || '' }
+          },
+          webSubs
+        );
+      } else if (debeLoguearPush()) {
+        console.log('[notificaciones][contenido] push omitido: sin tokens Expo ni suscripciones web');
+      }
+    } catch (pushErr) {
+      console.warn('[notificaciones][contenido] push:', pushErr?.message || pushErr);
     }
     res.json(toDoc(item));
   } catch (e) {

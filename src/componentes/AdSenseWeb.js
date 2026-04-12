@@ -1,9 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { Platform, View, StyleSheet } from 'react-native';
+import { Platform, View, StyleSheet, Text } from 'react-native';
 import { aplicarMetaCuentaAdSense } from '../servicios/seoWeb';
 
 const CLIENT = typeof process !== 'undefined' ? (process.env.EXPO_PUBLIC_ADSENSE_CLIENT || '').trim() : '';
 const SLOT = typeof process !== 'undefined' ? (process.env.EXPO_PUBLIC_ADSENSE_SLOT || '').trim() : '';
+
+export function puedeMostrarAnunciosFeedEnWeb() {
+  return Platform.OS === 'web' && Boolean(CLIENT && SLOT);
+}
 
 /**
  * Carga el script global de AdSense (necesario para anuncios automáticos y para unidades display).
@@ -55,6 +59,48 @@ export function AdSenseBanner() {
 
 }
 
+/**
+ * Unidad display dentro del feed (web). Cada instancia = un <ins> + un push.
+ * @param {{ instanceKey: string }} props
+ */
+export function AdSenseFeedCard({ instanceKey }) {
+  const pushed = useRef(false);
+  const activo = Platform.OS === 'web' && Boolean(CLIENT && SLOT);
+
+  useEffect(() => {
+    pushed.current = false;
+  }, [instanceKey]);
+
+  useEffect(() => {
+    if (!activo || typeof document === 'undefined') return;
+    ensureAdSenseScript(CLIENT, () => {
+      if (pushed.current) return;
+      pushed.current = true;
+      try {
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+      } catch (_) {
+        pushed.current = false;
+      }
+    });
+  }, [instanceKey, activo]);
+
+  if (!activo) return null;
+
+  return (
+    <View style={styles.feedCard}>
+      <Text style={styles.feedLabel}>Publicidad</Text>
+      {React.createElement('ins', {
+        className: 'adsbygoogle',
+        style: { display: 'block', width: '100%', minHeight: 90 },
+        'data-ad-client': CLIENT,
+        'data-ad-slot': SLOT,
+        'data-ad-format': 'auto',
+        'data-full-width-responsive': 'true'
+      })}
+    </View>);
+
+}
+
 const styles = StyleSheet.create({
   wrap: {
     width: '100%',
@@ -62,6 +108,27 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     minHeight: 100,
     overflow: 'hidden'
+  },
+  feedCard: {
+    width: '100%',
+    maxWidth: 720,
+    alignSelf: 'center',
+    marginBottom: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,220,87,0.25)',
+    backgroundColor: 'rgba(20,20,20,0.95)',
+    overflow: 'hidden'
+  },
+  feedLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    color: '#888',
+    marginBottom: 8,
+    textTransform: 'uppercase'
   }
 });
 

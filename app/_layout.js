@@ -22,6 +22,14 @@ if (Platform.OS === 'web' && typeof console !== 'undefined') {
 
 export default function RootLayout() {
   useEffect(() => {
+    if (Platform.OS !== 'web') return undefined;
+    import('../src/servicios/webPush').
+    then((m) => m.asegurarServiceWorkerNotificaciones()).
+    catch(() => {});
+    return undefined;
+  }, []);
+
+  useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
     document.documentElement.lang = 'es';
     let meta = document.querySelector('meta[http-equiv="content-language"]');

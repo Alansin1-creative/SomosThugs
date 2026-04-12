@@ -723,44 +723,62 @@ export default function InicioPresskit({ navigation }) {
 
   return (
     <View style={estilos.contenedor}>
-      <View style={[estilos.header, Platform.OS !== 'web' && { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity
-          onPress={() => {
-            if (estaAutenticado) {
+      <View
+        style={[
+        estilos.header,
+        !estaAutenticado && estilos.headerInvitado,
+        Platform.OS !== 'web' && { paddingTop: insets.top + 8 }]
+        }>
+        {estaAutenticado ?
+        <>
+            <TouchableOpacity
+            onPress={() => {
               navigation.navigate(rutaHomeHeader);
-            } else {
-              scrollRef.current?.scrollTo({ y: 0, animated: true });
-            }
-          }}
-          style={[estilos.headerBack, !estaAutenticado && estilos.headerBackInvitado]}
-          hitSlop={10}
-          activeOpacity={0.8}>
-          
-          {estaAutenticado ?
-          <Ionicons name="arrow-back" size={22} color="#fff" style={estilos.headerFlechaAtras} /> :
-          null}
-          <Image
-            source={LOGO_HEADER_INVITADO}
-            style={[estilos.headerLogoAlLado, estaAutenticado && estilos.headerLogoJuntoFlecha]}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-        <Text style={estilos.headerTituloPresskit} pointerEvents="none" numberOfLines={2}>
-          {TITULO_HEADER_PRESSKIT}
-        </Text>
-        <View style={estilos.headerDerPresskit}>
-          {!estaAutenticado ?
-          <TouchableOpacity
-            style={estilos.headerRegistrarBtn}
-            onPress={abrirModalRegistro}
+            }}
+            style={estilos.headerBack}
+            hitSlop={10}
             activeOpacity={0.8}>
             
-              <Text style={estilos.headerRegistrarBtnTexto}>Registrar</Text>
-            </TouchableOpacity> :
+              <Ionicons name="arrow-back" size={22} color="#fff" style={estilos.headerFlechaAtras} />
+              <Image
+              source={LOGO_HEADER_INVITADO}
+              style={[estilos.headerLogoAlLado, estilos.headerLogoJuntoFlecha]}
+              resizeMode="contain" />
+              
+            </TouchableOpacity>
+            <Text style={estilos.headerTituloPresskit} pointerEvents="none" numberOfLines={2}>
+              {TITULO_HEADER_PRESSKIT}
+            </Text>
+            <View style={estilos.headerDerPresskit}>
+              <View style={estilos.headerEspacioPresskit} />
+            </View>
+          </> :
 
-          <View style={estilos.headerEspacioPresskit} />
-          }
-        </View>
+        <>
+            <TouchableOpacity
+            onPress={() => scrollRef.current?.scrollTo({ y: 0, animated: true })}
+            style={estilos.headerBackInvitadoWrap}
+            hitSlop={10}
+            activeOpacity={0.8}>
+            
+              <Image source={LOGO_HEADER_INVITADO} style={estilos.headerLogoInvitado} resizeMode="contain" />
+            </TouchableOpacity>
+            <View style={estilos.headerTituloInvitadoCentro} pointerEvents="none">
+              <Text style={estilos.headerTituloInvitado} numberOfLines={2}>
+                {TITULO_HEADER_PRESSKIT}
+              </Text>
+            </View>
+            <View style={estilos.headerDerPresskitInvitado}>
+              <TouchableOpacity
+              style={estilos.headerRegistrarBtn}
+              onPress={abrirModalRegistro}
+              activeOpacity={0.8}>
+              
+                <Text style={estilos.headerRegistrarBtnTexto}>Registrar</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        }
       </View>
       <ScrollView
         ref={scrollRef}
@@ -1304,6 +1322,45 @@ const estilos = StyleSheet.create({
     borderBottomColor: '#2a2a2a',
     backgroundColor: '#0d0d0d'
   },
+  /** Invitado: pegado al borde izquierdo (el scroll ya lleva su propio padding). */
+  headerInvitado: {
+    paddingHorizontal: 0,
+    ...(Platform.OS === 'web' && { paddingLeft: 4, paddingRight: 8 }),
+    ...(Platform.OS !== 'web' && { paddingLeft: 6, paddingRight: 10 })
+  },
+  headerBackInvitadoWrap: {
+    flexShrink: 0,
+    alignSelf: 'center',
+    paddingVertical: 2,
+    marginLeft: Platform.OS === 'web' ? -2 : 0
+  },
+  headerLogoInvitado: {
+    height: 40,
+    width: 118,
+    flexShrink: 0
+  },
+  /** Título centrado en el hueco entre logo y «Registrar». */
+  headerTituloInvitadoCentro: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6
+  },
+  headerTituloInvitado: {
+    width: '100%',
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textAlign: 'center',
+    ...(Platform.OS === 'web' && { maxWidth: '100%', boxSizing: 'border-box' })
+  },
+  headerDerPresskitInvitado: {
+    flexShrink: 0,
+    justifyContent: 'center',
+    marginLeft: 4
+  },
   headerFlechaAtras: { marginRight: -18 },
   headerLogoJuntoFlecha: { marginLeft: -28 },
   headerBack: {
@@ -1320,7 +1377,6 @@ const estilos = StyleSheet.create({
     minWidth: 0
   },
 
-  headerBackInvitado: { gap: 0 },
   headerLogoAlLado: {
     height: 44,
     width: 176,

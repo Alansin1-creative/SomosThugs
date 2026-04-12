@@ -99,3 +99,12 @@ if (fs.existsSync(htaccessSrc)) {
 } else {
   console.warn('[prepare-static-web] No existe hostinger/.htaccess');
 }
+
+const swSrc = path.join(root, 'public', 'sw.js');
+const swDest = path.join(distDir, 'sw.js');
+if (fs.existsSync(swSrc) && fs.existsSync(distDir)) {
+  fs.copyFileSync(swSrc, swDest);
+  console.log('[prepare-static-web] Copiado sw.js (notificaciones Web Push)');
+} else if (!fs.existsSync(swSrc)) {
+  console.warn('[prepare-static-web] Falta public/sw.js (notificaciones escritorio web)');
+}

@@ -3,7 +3,7 @@ const Evento = require('../models/Evento');
 const Usuario = require('../models/Usuario');
 const { authMiddleware, requireAdmin } = require('../middleware/auth');
 const { crearNotificacionParaTodos } = require('../services/notificaciones');
-const { enviarPush } = require('../services/push');
+const { enviarPush, flattenWebPushSubscriptions, debeLoguearPush } = require('../services/push');
 const fs = require('fs');
 const path = require('path');
 const firebaseStorage = require('../lib/firebaseStorage');
@@ -14,13 +14,9 @@ const UPLOADS_EVENTOS = path.join(__dirname, '..', 'uploads', 'eventos');
 
 function guardarImagenBase64Disco(base64) {
   if (!base64) return undefined;
-  const s = String(base64);
-  const match = s.match(/^data:([^;]+);base64,(.+)$/);
-  const mime = match ? match[1] : 'image/jpeg';
-  const data = match ? match[2] : s;
-  const buffer = Buffer.from(data, 'base64');
+  const { buffer, ext } = firebaseStorage.parseBase64Image(base64);
+  if (!buffer || buffer.length === 0) return undefined;
   if (!fs.existsSync(UPLOADS_EVENTOS)) fs.mkdirSync(UPLOADS_EVENTOS, { recursive: true });
-  const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
   const nombre = `evento_${Date.now()}_${Math.random().toString(16).slice(2)}.${ext}`;
   const ruta = path.join(UPLOADS_EVENTOS, nombre);
   fs.writeFileSync(ruta, buffer);
@@ -173,29 +169,50 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     const evento = new Evento(doc);
     await evento.save();
     try {
-      await crearNotificacionParaTodos({
+      const nInApp = await crearNotificacionParaTodos({
         tipo: 'nuevo_evento',
         titulo: 'Nuevo evento creado',
         mensaje: evento?.titulo ? `Se publicó: ${evento.titulo}` : 'Hay un nuevo evento disponible.',
         entidadId: evento?._id?.toString?.()
       });
+      if (debeLoguearPush()) {
+        console.log('[notificaciones][evento] in-app filas:', nInApp);
+      }
+    } catch (inAppErr) {
+      console.warn('[notificaciones][evento] in-app:', inAppErr?.message || inAppErr);
+    }
+    try {
       const usuarios = await Usuario.find({
         activo: { $ne: false },
         aceptaNotificaciones: { $ne: false },
-        expoPushTokens: { $exists: true, $ne: [] }
+        $or: [{ 'expoPushTokens.0': { $exists: true } }, { 'webPushSubscriptions.0': { $exists: true } }]
       }).
-      select('expoPushTokens').
+      select('expoPushTokens webPushSubscriptions').
       lean();
       const tokens = usuarios.flatMap((u) => Array.isArray(u.expoPushTokens) ? u.expoPushTokens : []);
-      if (tokens.length > 0) {
-        await enviarPush(tokens, {
-          title: 'Nuevo evento creado',
-          body: evento?.titulo ? `Se publicó: ${evento.titulo}` : 'Hay un nuevo evento disponible.',
-          data: { tipo: 'nuevo_evento', entidadId: evento?._id?.toString?.() || '' }
+      const webSubs = flattenWebPushSubscriptions(usuarios);
+      if (debeLoguearPush()) {
+        console.log('[notificaciones][evento] push destinos', {
+          usuariosConTokenOWeb: usuarios.length,
+          tokensExpo: tokens.length,
+          subsWeb: webSubs.length
         });
       }
-    } catch (notifErr) {
-      console.warn('[notificaciones][evento]', notifErr?.message || notifErr);
+      if (tokens.length > 0 || webSubs.length > 0) {
+        await enviarPush(
+          tokens,
+          {
+            title: 'Nuevo evento creado',
+            body: evento?.titulo ? `Se publicó: ${evento.titulo}` : 'Hay un nuevo evento disponible.',
+            data: { tipo: 'nuevo_evento', entidadId: evento?._id?.toString?.() || '' }
+          },
+          webSubs
+        );
+      } else if (debeLoguearPush()) {
+        console.log('[notificaciones][evento] push omitido: sin tokens Expo ni suscripciones web');
+      }
+    } catch (pushErr) {
+      console.warn('[notificaciones][evento] push:', pushErr?.message || pushErr);
     }
     res.json(toDoc(evento));
   } catch (e) {

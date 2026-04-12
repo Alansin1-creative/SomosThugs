@@ -156,13 +156,17 @@ function ensureApp() {
 }
 
 function parseBase64Image(base64) {
-  const s = String(base64 || '');
-  const match = s.match(/^data:([^;]+);base64,(.+)$/);
-  const mime = match ? match[1] : 'image/jpeg';
-  const data = match ? match[2] : s;
-  const ext = mime.includes('png') ? 'png' :
-    mime.includes('webp') ? 'webp' :
-    mime.includes('gif') ? 'gif' :
+  const s = String(base64 || '').trim();
+  const match = s.match(/^data:([^;]+);base64,(.*)$/s);
+  const mime = match ? String(match[1]).trim() : 'image/jpeg';
+  const raw = match ? match[2] : s.replace(/^data:[^;]+;base64,/i, '');
+  const data = String(raw).replace(/\s/g, '');
+  const m = mime.toLowerCase();
+  const ext =
+    m.includes('png') ? 'png' :
+    m.includes('webp') ? 'webp' :
+    m.includes('gif') ? 'gif' :
+    m.includes('heic') || m.includes('heif') ? 'heic' :
     'jpg';
   const buffer = Buffer.from(data, 'base64');
   return { buffer, mime, ext };
@@ -201,10 +205,11 @@ async function uploadFlyerImageFromBase64(base64) {
 
 /** Misma lógica de extensión que tenía disco en contenidoExclusivo (imagen, vídeo, audio). */
 function parseBase64Media(base64) {
-  const s = String(base64 || '');
-  const match = s.match(/^data:([^;]+);base64,(.+)$/);
-  const mime = match ? match[1] : 'application/octet-stream';
-  const data = match ? match[2] : s;
+  const s = String(base64 || '').trim();
+  const match = s.match(/^data:([^;]+);base64,(.*)$/s);
+  const mime = match ? String(match[1]).trim() : 'application/octet-stream';
+  const raw = match ? match[2] : s.replace(/^data:[^;]+;base64,/i, '');
+  const data = String(raw).replace(/\s/g, '');
   let ext = 'bin';
   if (match) {
     const m = mime.toLowerCase();
@@ -226,11 +231,7 @@ function parseBase64Media(base64) {
 }
 
 async function uploadAvatarFromBase64(base64) {
-  const match = String(base64 || '').match(/^data:image\/(\w+);base64,(.+)$/);
-  const ext = match ? (match[1] === 'jpeg' ? 'jpg' : match[1]) : 'jpg';
-  const data = match ? match[2] : String(base64 || '').replace(/^data:[^;]+;base64,/, '');
-  const buffer = Buffer.from(data, 'base64');
-  const mime = match ? `image/${match[1] === 'jpg' ? 'jpeg' : match[1]}` : 'image/jpeg';
+  const { buffer, mime, ext } = parseBase64Image(base64);
   const nombre = `avatars/${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
   return uploadBuffer(nombre, buffer, mime);
 }

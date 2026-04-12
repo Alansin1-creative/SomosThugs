@@ -17,6 +17,8 @@ const usuarioSchema = new mongoose.Schema(
     aceptaNotificaciones: { type: Boolean, default: true },
     notificacionesPushActivas: Boolean,
     expoPushTokens: [String],
+    /** Suscripciones estándar Web Push (navegador); formato PushSubscription.toJSON() */
+    webPushSubscriptions: { type: [mongoose.Schema.Types.Mixed], default: [] },
 
     passwordHash: String,
     uid: String,

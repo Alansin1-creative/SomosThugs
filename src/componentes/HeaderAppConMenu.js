@@ -8,7 +8,8 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Platform } from
+  Platform,
+  Alert } from
 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,8 +22,21 @@ import {
   marcarNotificacionLeida,
   marcarTodasNotificacionesLeidas } from
 '../servicios/api';
+import { activarNotificacionesEscritorioWeb } from '../servicios/webPush';
 
 const LOGO_CENTRO_HEADER = require('../../assets/logo-somos-thugs-banner.png');
+
+if (typeof document !== 'undefined' && Platform.OS === 'web') {
+  const id = 'st-notif-scroll-scrollbar-none';
+  if (!document.getElementById(id)) {
+    const s = document.createElement('style');
+    s.id = id;
+    s.textContent =
+    '[data-st-notif-scroll="1"]{scrollbar-width:none;-ms-overflow-style:none;}' +
+    '[data-st-notif-scroll="1"]::-webkit-scrollbar{width:0!important;height:0!important;display:none!important;}';
+    document.head.appendChild(s);
+  }
+}
 
 
 
@@ -36,7 +50,7 @@ export default function HeaderAppConMenu({
   esVistaContenidoFeed = false
 }) {
   const insets = useSafeAreaInsets();
-  const { perfil, cerrarSesion } = useAuth();
+  const { perfil, cerrarSesion, cargando: authCargando } = useAuth();
   const [menuVisible, setMenuVisible] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
   const [avatarDirectFailed, setAvatarDirectFailed] = useState(false);
@@ -46,6 +60,8 @@ export default function HeaderAppConMenu({
   const [notifCargando, setNotifCargando] = useState(false);
   const [toastMensaje, setToastMensaje] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
+  const [webPushDialogVisible, setWebPushDialogVisible] = useState(false);
+  const [webPushActivando, setWebPushActivando] = useState(false);
   const toastTimerRef = useRef(null);
   const previoNoLeidasRef = useRef(null);
 
@@ -158,6 +174,82 @@ export default function HeaderAppConMenu({
     await cargarNotificaciones();
   };
 
+  const onPressCampanaNotificaciones = async () => {
+    try {
+      if (Platform.OS !== 'web' || typeof window === 'undefined') {
+        await abrirNotificaciones();
+        return;
+      }
+      if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) {
+        await abrirNotificaciones();
+        return;
+      }
+      if (Notification.permission === 'denied') {
+        await abrirNotificaciones();
+        return;
+      }
+      let faltaSuscripcion = false;
+      if (Notification.permission === 'granted') {
+        try {
+          const reg = await navigator.serviceWorker.getRegistration();
+          const sub = reg ? await reg.pushManager.getSubscription() : null;
+          if (!sub) faltaSuscripcion = true;
+        } catch (_) {
+          faltaSuscripcion = true;
+        }
+      }
+      const convienePreguntarWebPush = Notification.permission === 'default' || faltaSuscripcion;
+      if (!convienePreguntarWebPush) {
+        await abrirNotificaciones();
+        return;
+      }
+      setWebPushDialogVisible(true);
+      return;
+    } catch (e) {
+      console.warn('[campana notificaciones]', e);
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert(e?.message || 'No se pudo completar la acción.');
+      }
+      await abrirNotificaciones();
+    }
+  };
+
+  const onWebPushDialogAhoraNo = async () => {
+    setWebPushDialogVisible(false);
+    await abrirNotificaciones();
+  };
+
+  const onWebPushDialogBackdrop = async () => {
+    if (webPushActivando) return;
+    setWebPushDialogVisible(false);
+    await abrirNotificaciones();
+  };
+
+  const onWebPushDialogActivar = async () => {
+    setWebPushActivando(true);
+    try {
+      const r = await activarNotificacionesEscritorioWeb();
+      setWebPushDialogVisible(false);
+      setWebPushActivando(false);
+      const msg = r.mensaje || (r.ok ? 'Listo.' : 'No se pudo activar.');
+      if (Platform.OS === 'web' && typeof window.alert === 'function') {
+        window.alert(msg);
+      } else {
+        Alert.alert(r.ok ? 'Listo' : 'Notificaciones', msg);
+      }
+    } catch (e) {
+      setWebPushDialogVisible(false);
+      setWebPushActivando(false);
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert(e?.message || 'Error al activar notificaciones.');
+      } else {
+        Alert.alert('Error', e?.message || 'Error desconocido');
+      }
+    } finally {
+      await abrirNotificaciones();
+    }
+  };
+
   const onAbrirNotificacion = async (item) => {
     const id = item?.id;
     if (!id) return;
@@ -169,6 +261,16 @@ export default function HeaderAppConMenu({
       }
       setNotificaciones((prev) => prev.map((n) => n.id === id ? { ...n, leida: true } : n));
       setNotificacionesNoLeidas((prev) => Math.max(0, Number(prev || 0) - 1));
+    }
+    const tipo = item?.tipo;
+    const entidadId = item?.entidadId != null ? String(item.entidadId).trim() : '';
+    setNotifVisible(false);
+    if (tipo === 'nuevo_evento' && entidadId) {
+      navigation.navigate('EventosGeneral', { eventoId: entidadId });
+      return;
+    }
+    if (tipo === 'nuevo_contenido' && entidadId) {
+      navigation.navigate('ContenidoGeneral', { contenidoId: entidadId });
     }
   };
 
@@ -183,6 +285,11 @@ export default function HeaderAppConMenu({
   };
 
   useEffect(() => {
+    if (authCargando || !perfil?.id) {
+      setNotificacionesNoLeidas(0);
+      previoNoLeidasRef.current = null;
+      return undefined;
+    }
     let cancel = false;
     let timer = null;
     const revisar = async () => {
@@ -212,7 +319,7 @@ export default function HeaderAppConMenu({
       cancel = true;
       if (timer) clearInterval(timer);
     };
-  }, [perfil?.id]);
+  }, [perfil?.id, authCargando]);
 
   if (!perfil) return null;
 
@@ -240,17 +347,23 @@ export default function HeaderAppConMenu({
         </TouchableOpacity>
       }
       {tituloCentro ?
-      <Text
-        style={styles.headerTituloCentro}
-        pointerEvents="none"
-        numberOfLines={1}
-        ellipsizeMode="tail">
-        
-          {tituloCentro}
-        </Text> :
+      <View style={styles.headerTituloCentroWrap} pointerEvents="box-none">
+          <Text
+          style={styles.headerTituloCentro}
+          pointerEvents="none"
+          numberOfLines={1}
+          ellipsizeMode="tail">
+          
+            {tituloCentro}
+          </Text>
+        </View> :
       null}
       <View style={styles.headerDerecha}>
-        <TouchableOpacity style={styles.notifWrap} activeOpacity={0.8} onPress={abrirNotificaciones}>
+        <TouchableOpacity
+          style={styles.notifWrap}
+          activeOpacity={0.8}
+          onPress={onPressCampanaNotificaciones}
+          {...Platform.OS === 'web' ? { accessibilityRole: 'button', accessibilityLabel: 'Notificaciones' } : {}}>
           <Ionicons name="notifications-outline" size={20} color="#fff" />
           {notificacionesNoLeidas > 0 ?
           <View style={styles.notifBadge}>
@@ -381,7 +494,19 @@ export default function HeaderAppConMenu({
             {notifCargando ?
             <Text style={styles.notifVacio}>Cargando…</Text> :
 
-            <ScrollView style={styles.notifScroll} nestedScrollEnabled>
+            <ScrollView
+              style={styles.notifScroll}
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={false}
+              ref={(r) => {
+                if (Platform.OS !== 'web' || !r || typeof r.getScrollableNode !== 'function') return;
+                try {
+                  const node = r.getScrollableNode();
+                  if (node && node.setAttribute) node.setAttribute('data-st-notif-scroll', '1');
+                } catch (_) {
+
+                }
+              }}>
                 {notificaciones.length === 0 ?
               <Text style={styles.notifVacio}>Sin notificaciones.</Text> :
 
@@ -404,6 +529,40 @@ export default function HeaderAppConMenu({
           </View>
         </View>
       </Modal>
+      <Modal
+        visible={webPushDialogVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!webPushActivando) void onWebPushDialogBackdrop();
+        }}>
+        
+        <View style={styles.webPushDialogOverlay}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={onWebPushDialogBackdrop} />
+          <View style={styles.webPushDialogCaja} pointerEvents="box-none">
+            <Text style={styles.webPushDialogTitulo}>Activar avisos</Text>
+            <Text style={styles.webPushDialogTexto}>El navegador te pedirá permiso.</Text>
+            <View style={styles.webPushDialogBotones}>
+              <TouchableOpacity
+                style={[styles.webPushBtnSec, webPushActivando && styles.botonDeshabilitado]}
+                onPress={onWebPushDialogAhoraNo}
+                disabled={webPushActivando}
+                activeOpacity={0.85}>
+                
+                <Text style={styles.webPushBtnSecTexto}>Ahora no</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.webPushBtnPri, webPushActivando && styles.botonDeshabilitado]}
+                onPress={onWebPushDialogActivar}
+                disabled={webPushActivando}
+                activeOpacity={0.85}>
+                
+                <Text style={styles.webPushBtnPriTexto}>{webPushActivando ? 'Activando…' : 'Activar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       {toastVisible ?
       <View style={styles.toastInApp} pointerEvents="none">
           <Ionicons name="notifications" size={16} color="#00dc57" />
@@ -418,6 +577,7 @@ export default function HeaderAppConMenu({
 
 const styles = StyleSheet.create({
   header: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -460,15 +620,18 @@ const styles = StyleSheet.create({
     maxWidth: 200,
     marginLeft: -28
   },
+  headerTituloCentroWrap: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    pointerEvents: 'box-none',
+    zIndex: 0
+  },
   headerTituloCentro: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
     textAlign: 'center',
     color: '#fff',
     fontSize: 17,
     fontWeight: '600',
-    zIndex: 0,
     pointerEvents: 'none',
     paddingHorizontal: 128
   },
@@ -487,7 +650,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    marginRight: 2
+    marginRight: 2,
+    zIndex: 2,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : null)
   },
   notifBadge: {
     position: 'absolute',
@@ -600,6 +765,44 @@ const styles = StyleSheet.create({
   },
   menuItemTexto: { color: '#fff', fontSize: 15, fontWeight: '500' },
   menuItemCerrar: { borderTopWidth: 1, borderTopColor: '#333' },
+  webPushDialogOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)'
+  },
+  webPushDialogCaja: {
+    zIndex: 2,
+    width: 300,
+    maxWidth: '90%',
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: '#1a1a1a',
+    borderWidth: 1,
+    borderColor: 'rgba(0,220,87,0.35)',
+    ...(Platform.OS === 'web' && { boxShadow: '0 12px 40px rgba(0,0,0,0.55)' })
+  },
+  webPushDialogTitulo: { color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  webPushDialogTexto: { color: '#bbb', fontSize: 13, lineHeight: 19, marginBottom: 16 },
+  webPushDialogBotones: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
+  webPushBtnSec: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#444',
+    backgroundColor: 'transparent'
+  },
+  webPushBtnSecTexto: { color: '#ccc', fontSize: 14, fontWeight: '600' },
+  webPushBtnPri: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#00dc57'
+  },
+  webPushBtnPriTexto: { color: '#000', fontSize: 14, fontWeight: '700' },
+  botonDeshabilitado: { opacity: 0.55 },
   toastInApp: {
     position: 'absolute',
     left: 12,

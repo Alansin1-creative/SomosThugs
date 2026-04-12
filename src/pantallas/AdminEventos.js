@@ -14,6 +14,7 @@ import {
 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { listarEventos, crearEvento, actualizarEvento, eliminarEvento, placesAutocomplete, placeDetails } from '../servicios/api';
 import { useAuth } from '../contexto/AuthContext';
 import { esAdmin } from '../constantes/nivelesAcceso';
@@ -62,8 +63,6 @@ export default function AdminEventos({ navigation }) {
   const [eventoEditandoId, setEventoEditandoId] = useState(null);
 
   const esWeb = Platform.OS === 'web';
-  const googleKeyWeb = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-  const [googlePlacesReady, setGooglePlacesReady] = useState(false);
 
   const fmtFecha = (d) => {
     if (!(d instanceof Date)) return '';
@@ -120,26 +119,6 @@ export default function AdminEventos({ navigation }) {
 
     setTimeout(cleanup, 15000);
   };
-
-  useEffect(() => {
-    if (!esWeb) return;
-    if (!googleKeyWeb) return;
-    if (typeof document === 'undefined') return;
-    if (typeof window !== 'undefined' && window.google?.maps?.places) {
-      setGooglePlacesReady(true);
-      return;
-    }
-    const existing = document.querySelector('script[data-somos-thugs-google-places="1"]');
-    if (existing) return;
-    const script = document.createElement('script');
-    script.setAttribute('data-somos-thugs-google-places', '1');
-    script.async = true;
-    script.defer = true;
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(googleKeyWeb)}&libraries=places&language=es`;
-    script.onload = () => setGooglePlacesReady(true);
-    script.onerror = () => setGooglePlacesReady(false);
-    document.head.appendChild(script);
-  }, [esWeb, googleKeyWeb]);
 
   useEffect(() => {
     if (perfil && !esAdmin(perfil)) {
@@ -367,43 +346,19 @@ export default function AdminEventos({ navigation }) {
     debounceRef.current = setTimeout(async () => {
       try {
         setBuscandoLugar(true);
-
-        if (esWeb && googleKeyWeb && googlePlacesReady && typeof window !== 'undefined' && window.google?.maps?.places) {
-          const service = new window.google.maps.places.AutocompleteService();
-          service.getPlacePredictions(
-            { input: lugar, language: 'es' },
-            (preds, status) => {
-              if (status !== window.google.maps.places.PlacesServiceStatus.OK || !Array.isArray(preds)) {
-                setSugerenciasLugar([]);
-              } else {
-                setSugerenciasLugar(
-                  preds.slice(0, 6).map((p) => ({
-                    placeId: p.place_id,
-                    description: p.description
-                  }))
-                );
-              }
-              setBuscandoLugar(false);
-            }
-          );
-          return;
-        }
-
-
         const res = await placesAutocomplete(lugar);
         const preds = Array.isArray(res?.predictions) ? res.predictions : [];
         setSugerenciasLugar(preds.slice(0, 6));
       } catch (_) {
         setSugerenciasLugar([]);
-        setBuscandoLugar(false);
       } finally {
-
+        setBuscandoLugar(false);
       }
     }, 250);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [lugar, mostrarForm, lugarSeleccionado, esWeb, googleKeyWeb, googlePlacesReady]);
+  }, [lugar, mostrarForm, lugarSeleccionado]);
 
   const seleccionarLugar = async (sug) => {
     try {
@@ -412,41 +367,13 @@ export default function AdminEventos({ navigation }) {
       setSugerenciasLugar([]);
       setBuscandoLugar(true);
 
-      if (esWeb && googleKeyWeb && googlePlacesReady && typeof window !== 'undefined' && window.google?.maps?.places) {
-        const div = document.createElement('div');
-        const svc = new window.google.maps.places.PlacesService(div);
-        const det = await new Promise((resolve, reject) => {
-          svc.getDetails(
-            {
-              placeId: sug.placeId,
-              fields: ['formatted_address', 'geometry', 'name', 'place_id'],
-              language: 'es'
-            },
-            (place, status) => {
-              if (status !== window.google.maps.places.PlacesServiceStatus.OK || !place) {
-                reject(new Error(String(status || 'Error Google')));
-              } else {
-                resolve(place);
-              }
-            }
-          );
-        });
-        const direccion = det.formatted_address || sug.description || '';
-        const lat = det.geometry?.location?.lat?.();
-        const lng = det.geometry?.location?.lng?.();
-        setLugar(direccion);
-        if (typeof lat === 'number') setLatitud(String(lat));
-        if (typeof lng === 'number') setLongitud(String(lng));
-      } else {
-
-        const det = await placeDetails(sug.placeId);
-        const direccion = det?.direccion || sug.description || '';
-        const lat = det?.latitud;
-        const lng = det?.longitud;
-        setLugar(direccion);
-        if (typeof lat === 'number') setLatitud(String(lat));
-        if (typeof lng === 'number') setLongitud(String(lng));
-      }
+      const det = await placeDetails(sug.placeId);
+      const direccion = det?.direccion || sug.description || '';
+      const lat = det?.latitud;
+      const lng = det?.longitud;
+      setLugar(direccion);
+      if (typeof lat === 'number') setLatitud(String(lat));
+      if (typeof lng === 'number') setLongitud(String(lng));
     } catch (e) {
       Alert.alert('Ubicación', e?.message || 'No se pudo obtener la ubicación.');
     } finally {
@@ -532,6 +459,16 @@ export default function AdminEventos({ navigation }) {
               resolve(m ? m[1] : '');
             };
             reader.readAsDataURL(blob);
+          });
+        } catch (_) {
+
+        }
+      }
+
+      if (!b64 && asset?.uri && Platform.OS !== 'web') {
+        try {
+          b64 = await FileSystem.readAsStringAsync(asset.uri, {
+            encoding: FileSystem.EncodingType.Base64
           });
         } catch (_) {
 

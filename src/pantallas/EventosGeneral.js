@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -30,21 +30,46 @@ function normalizarUrlMedia(raw) {
   return getBaseUrl() + s;
 }
 
+function eventoWebTeaserImgWrapStyle() {
+  return {
+    width: '100%',
+    overflow: 'hidden',
+    borderRadius: 10,
+    backgroundColor: '#0a0a0a',
+    lineHeight: 0
+  };
+}
+
 /**
- * Teaser Thug en web: ancho 100 %, alto intrínseco de la imagen (`height: auto`) + `filter: blur`.
+ * Teaser Thug en web: `<img>` DOM (misma capa que el velo con `backdrop-filter` en el padre).
+ * Sin `filter` en la imagen: el desenfoque lo hace `eventoBloqueadoVeloSobreTeaserMedia` como en ContenidoGeneral.
+ */
+function EventoCardImagenWebTeaserSharpDom({ uri, onLoadError }) {
+  return React.createElement(
+    'div',
+    { style: eventoWebTeaserImgWrapStyle() },
+    React.createElement('img', {
+      src: uri,
+      alt: '',
+      draggable: false,
+      onError: onLoadError,
+      style: {
+        width: '100%',
+        height: 'auto',
+        display: 'block',
+        verticalAlign: 'top'
+      }
+    })
+  );
+}
+
+/**
+ * Teaser Thug en web (solo blur en la propia imagen, sin depender del velo).
  */
 function EventoCardImagenWebTeaserVelado({ uri, onLoadError }) {
   return React.createElement(
     'div',
-    {
-      style: {
-        width: '100%',
-        overflow: 'hidden',
-        borderRadius: 10,
-        backgroundColor: '#0a0a0a',
-        lineHeight: 0
-      }
-    },
+    { style: eventoWebTeaserImgWrapStyle() },
     React.createElement('img', {
       src: uri,
       alt: '',
@@ -123,11 +148,13 @@ function EventoCardImagen({ uri, onLoadError, previewVelado = false }) {
 
 }
 
-export default function EventosGeneral({ navigation }) {
+export default function EventosGeneral({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { perfil } = useAuth();
   const [eventos, setEventos] = useState([]);
   const [cargando, setCargando] = useState(true);
+  const scrollEventosRef = useRef(null);
+  const contenidoCentradoTopRef = useRef(0);
   const [refrescando, setRefrescando] = useState(false);
   const [ubicacion, setUbicacion] = useState(null);
   const [etaPorEvento, setEtaPorEvento] = useState({});
@@ -162,6 +189,29 @@ export default function EventosGeneral({ navigation }) {
     cargar();
     pedirUbicacion();
   }, []);
+
+  const onEventoCardLayout = (idStr, e) => {
+    if (!idStr || !e?.nativeEvent?.layout) return;
+    const yCard = e.nativeEvent.layout.y;
+    const dest = route.params?.eventoId != null ? String(route.params.eventoId).trim() : '';
+    if (!dest || dest !== idStr || !scrollEventosRef.current) return;
+    const y = contenidoCentradoTopRef.current + yCard;
+    requestAnimationFrame(() => {
+      try {
+        scrollEventosRef.current.scrollTo?.({ y: Math.max(0, y - 16), animated: true });
+      } catch (_) {
+
+      }
+    });
+    navigation.setParams({ eventoId: undefined });
+  };
+
+  useEffect(() => {
+    const dest = route.params?.eventoId != null ? String(route.params.eventoId).trim() : '';
+    if (!dest || cargando) return;
+    const existe = eventos.some((ev) => String(ev.id || ev._id || '') === dest);
+    if (!existe) navigation.setParams({ eventoId: undefined });
+  }, [eventos, cargando, route.params?.eventoId, navigation]);
 
   const onRefresh = async () => {
     setRefrescando(true);
@@ -290,6 +340,7 @@ export default function EventosGeneral({ navigation }) {
         </View>
 
         <ScrollView
+          ref={scrollEventosRef}
           style={estilos.scroll}
           contentContainerStyle={[
           estilos.scrollContenido,
@@ -301,7 +352,11 @@ export default function EventosGeneral({ navigation }) {
           showsVerticalScrollIndicator={false}>
           
           <View style={estilos.contenidoSobreFondo}>
-            <View style={[estilos.contenidoCentrado, esWebMovil && estilos.contenidoCentradoWebMovil]}>
+            <View
+            style={[estilos.contenidoCentrado, esWebMovil && estilos.contenidoCentradoWebMovil]}
+            onLayout={(e) => {
+              contenidoCentradoTopRef.current = e?.nativeEvent?.layout?.y ?? 0;
+            }}>
               {cargando ?
               <Text style={estilos.vacio}>Cargando…</Text> :
               eventos.length === 0 ?
@@ -339,7 +394,10 @@ export default function EventosGeneral({ navigation }) {
                 const descTrim = String(ev.descripcion || '').trim();
 
                 return (
-                  <View key={ev.id || ev._id} style={estilos.cardContenedor}>
+                  <View
+                  key={ev.id || ev._id}
+                  style={estilos.cardContenedor}
+                  onLayout={(e) => onEventoCardLayout(id, e)}>
                     <View style={estilos.card}>
                       <View style={estilos.cardHeader}>
                         <Text style={estilos.cardTitulo}>{ev.titulo || '(sin título)'}</Text>
@@ -352,18 +410,32 @@ export default function EventosGeneral({ navigation }) {
                       <View style={estilos.eventoBloqueadoStack}>
                           {img ?
                         <View style={[estilos.cardImgWrap, estilos.eventoBloqueadoImgWrap]}>
-                              <EventoCardImagen
-                            key={`${id}-${imgIdx}-${img}`}
-                            uri={img}
-                            previewVelado
-                            onLoadError={() => {
-                              if (!id) return;
-                              setImgIdxPorEvento((prev) => {
-                                const nextIdx = (prev[id] ?? 0) + 1;
-                                if (nextIdx >= candidatos.length) return { ...prev, [id]: Number.MAX_SAFE_INTEGER };
-                                return { ...prev, [id]: nextIdx };
-                              });
-                            }} />
+                              {Platform.OS === 'web' ?
+                            <EventoCardImagenWebTeaserSharpDom
+                              key={`${id}-${imgIdx}-${img}`}
+                              uri={img}
+                              onLoadError={() => {
+                                if (!id) return;
+                                setImgIdxPorEvento((prev) => {
+                                  const nextIdx = (prev[id] ?? 0) + 1;
+                                  if (nextIdx >= candidatos.length) return { ...prev, [id]: Number.MAX_SAFE_INTEGER };
+                                  return { ...prev, [id]: nextIdx };
+                                });
+                              }} /> :
+
+                            <EventoCardImagen
+                              key={`${id}-${imgIdx}-${img}`}
+                              uri={img}
+                              previewVelado
+                              onLoadError={() => {
+                                if (!id) return;
+                                setImgIdxPorEvento((prev) => {
+                                  const nextIdx = (prev[id] ?? 0) + 1;
+                                  if (nextIdx >= candidatos.length) return { ...prev, [id]: Number.MAX_SAFE_INTEGER };
+                                  return { ...prev, [id]: nextIdx };
+                                });
+                              }} />
+                            }
                             </View> :
                         null}
                           {!img && descTrim ?
@@ -686,14 +758,25 @@ const estilos = StyleSheet.create({
   },
   eventoBloqueadoTextoPreview: { color: '#c4c4c4', fontSize: 14, lineHeight: 22 },
   eventoBloqueadoFondoPlaceholder: { width: '100%', height: 180, minHeight: 160 },
-  /** Sobre imagen teaser: solo tinte (el blur va en la propia imagen / filtro CSS en web). */
+  /**
+   * Sobre imagen teaser Thug: mismo criterio que contenido en ContenidoGeneral (`cardPreviewObfuscador`):
+   * imagen nítida en web y desenfoque con backdrop-filter; en nativo tinte + blur en la propia `Image`.
+   */
   eventoBloqueadoVeloSobreTeaserMedia: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 14,
-    backgroundColor: 'rgba(0,0,0,0.38)'
+    ...(Platform.OS === 'web' ?
+    {
+      backgroundColor: 'rgba(0,0,0,0.24)',
+      backdropFilter: 'blur(14px)',
+      WebkitBackdropFilter: 'blur(14px)'
+    } :
+    {
+      backgroundColor: 'rgba(0,0,0,0.38)'
+    })
   },
   eventoBloqueadoVelo: {
     ...StyleSheet.absoluteFillObject,

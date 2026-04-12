@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ import {
   listarPublicaciones,
   listarFeedUnificado,
   listarContenidoExclusivoFeed,
+  leerContenidoExclusivo,
   registrarVistaContenido,
   darLikeContenido,
   agregarComentarioContenido } from
@@ -37,6 +38,7 @@ import { puedeVerContenidoExclusivo } from '../constantes/nivelesAcceso';
 import { useAuth } from '../contexto/AuthContext';
 import { getBaseUrl } from '../config/api';
 import HeaderAppConMenu from '../componentes/HeaderAppConMenu';
+import { AdSenseFeedCard, puedeMostrarAnunciosFeedEnWeb } from '../componentes/AdSenseWeb';
 
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
 
@@ -565,7 +567,7 @@ const feedAudioPreviewEstilos = StyleSheet.create({
   }
 });
 
-export default function ContenidoGeneral({ navigation }) {
+export default function ContenidoGeneral({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { perfil, cerrarSesion, cargando: authCargando } = useAuth();
   const { height: ventanaAlto, width: ventanaAncho } = useWindowDimensions();
@@ -605,8 +607,29 @@ export default function ContenidoGeneral({ navigation }) {
   const vistasGuardandoRef = useRef(new Set());
   const rafScrollRef = useRef(null);
   const regresarAMediaRef = useRef(null);
+  const abrirMediaEnModalRef = useRef(null);
 
   const getId = (obj) => obj?.id ?? obj?._id?.toString?.() ?? obj?._id;
+
+  const firmaIdsFeed = useMemo(
+    () => contenidoUnificado.map((x) => String(getId(x) ?? '')).join(','),
+    [contenidoUnificado]
+  );
+
+  const indicesAnuncioTrasTarjeta = useMemo(() => {
+    const set = new Set();
+    if (!puedeMostrarAnunciosFeedEnWeb()) return set;
+    const n = contenidoUnificado.length;
+    if (n < 2) return set;
+    let i = -1;
+    while (i < n - 1) {
+      const gap = 3 + Math.floor(Math.random() * 6);
+      i += gap;
+      if (i < n - 1) set.add(i);
+    }
+    return set;
+  }, [firmaIdsFeed]);
+
   const getUsuarioKey = () => String(getId(perfil) ?? perfil?.email ?? perfil?.nombreUsuario ?? 'anon');
   const getLikesStorageKey = () => `somos_thugs_likes_${getUsuarioKey()}`;
   const getVistasStorageKey = () => `somos_thugs_vistas_${getUsuarioKey()}`;
@@ -832,6 +855,31 @@ export default function ContenidoGeneral({ navigation }) {
     );
     setMediaUrlSeleccionada(null);
   };
+
+  abrirMediaEnModalRef.current = abrirMediaEnModal;
+
+  useEffect(() => {
+    const raw = route.params?.contenidoId;
+    if (!raw || authCargando || cargando) return undefined;
+    const idStr = String(raw).trim();
+    if (!idStr) return undefined;
+    navigation.setParams({ contenidoId: undefined });
+    let cancelled = false;
+    (async () => {
+      try {
+        const inFeed = contenidoUnificado.find((x) => String(getId(x)) === idStr);
+        let item = inFeed || null;
+        if (!item) {
+          item = await leerContenidoExclusivo(idStr);
+        }
+        if (cancelled || !item) return;
+        await abrirMediaEnModalRef.current?.(item);
+      } catch (_) {
+
+      }
+    })();
+    return () => {cancelled = true;};
+  }, [route.params?.contenidoId, authCargando, cargando, navigation, contenidoUnificado]);
 
   const cerrarMediaModal = () => {
     if (Platform.OS === 'web' && webVideoRef.current) {
@@ -1235,7 +1283,7 @@ export default function ContenidoGeneral({ navigation }) {
                 </Text>
               </View>
               }
-            {contenidoUnificado.map((item, idx) => {
+            {contenidoUnificado.flatMap((item, idx) => {
                 const itemId = getId(item) || `${item?.titulo || 'item'}-${idx}`;
                 const bloqueado =
                 item.bloqueado === true ||
@@ -1288,7 +1336,7 @@ export default function ContenidoGeneral({ navigation }) {
                 const textoFecha = fechaPub ? tiempoRelativo(fechaPub) : '';
                 const abrirModalDesdeTexto =
                 !bloqueado && itemPuedeAbrirModalDesdeTituloODesc(item);
-                return (
+                const tarjeta = (
                   <View
                     key={itemId}
                     style={estilos.cardContenedor}
@@ -1464,6 +1512,13 @@ export default function ContenidoGeneral({ navigation }) {
                     </View>
                   </View>
                 </View>);
+
+                if (!indicesAnuncioTrasTarjeta.has(idx)) return [tarjeta];
+                return [
+                tarjeta,
+                <View key={`ad-${itemId}-${idx}`} style={estilos.cardContenedor}>
+                    <AdSenseFeedCard instanceKey={`feed-${String(itemId)}-${idx}`} />
+                  </View>];
 
               })}
             </View>

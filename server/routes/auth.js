@@ -13,10 +13,8 @@ const firebaseStorage = require('../lib/firebaseStorage');
 
 function guardarAvatarBase64Disco(base64) {
   if (!base64) return undefined;
-  const match = base64.match(/^data:image\/(\w+);base64,(.+)$/);
-  const ext = match ? match[1] === 'jpeg' ? 'jpg' : match[1] : 'jpg';
-  const data = match ? match[2] : base64;
-  const buffer = Buffer.from(data, 'base64');
+  const { buffer, ext } = firebaseStorage.parseBase64Image(base64);
+  if (!buffer || buffer.length === 0) return undefined;
   if (!fs.existsSync(UPLOADS_AVATAR)) fs.mkdirSync(UPLOADS_AVATAR, { recursive: true });
   const nombre = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext}`;
   const ruta = path.join(UPLOADS_AVATAR, nombre);
@@ -42,7 +40,7 @@ const clientGoogle = googleClientIds.length ? new OAuth2Client(googleClientIds[0
 function toPerfil(doc) {
   if (!doc) return null;
   const o = doc.toObject ? doc.toObject() : doc;
-  const { passwordHash, uid, __v, ...rest } = o;
+  const { passwordHash, uid, __v, webPushSubscriptions, ...rest } = o;
   return { id: o._id.toString(), ...rest, _id: undefined };
 }
 
@@ -185,7 +183,8 @@ router.patch('/perfil', authMiddleware, async (req, res) => {
       try {
         const prev = await Usuario.findById(req.userId).select('fotoUrl').lean();
         fotoUrlAnterior = String(prev?.fotoUrl || '').trim();
-        update.fotoUrl = await guardarAvatarBase64(fotoBase64);
+        const nueva = await guardarAvatarBase64(fotoBase64);
+        if (nueva) update.fotoUrl = nueva;
       } catch (e) {
         console.error('Avatar perfil:', e.message);
       }
@@ -240,6 +239,52 @@ router.patch('/perfil', authMiddleware, async (req, res) => {
     if (e.code === 11000 && e.keyPattern?.username) {
       return res.status(400).json({ error: 'Usuario ya está en uso' });
     }
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get('/web-push/public-key', (req, res) => {
+  const k = String(process.env.WEB_PUSH_PUBLIC_KEY || '').trim();
+  if (!k) return res.status(503).json({ error: 'Web push no configurado' });
+  res.json({ publicKey: k });
+});
+
+router.patch('/web-push/subscribe', authMiddleware, async (req, res) => {
+  try {
+    const sub = req.body && req.body.subscription;
+    if (!sub || typeof sub.endpoint !== 'string' || !sub.keys || typeof sub.keys !== 'object') {
+      return res.status(400).json({ error: 'Suscripción inválida' });
+    }
+    const p256dh = String(sub.keys.p256dh || '').trim();
+    const auth = String(sub.keys.auth || '').trim();
+    const endpoint = String(sub.endpoint || '').trim();
+    if (!endpoint || !p256dh || !auth) {
+      return res.status(400).json({ error: 'Suscripción incompleta' });
+    }
+    const clean = { endpoint, keys: { p256dh, auth } };
+    await Usuario.updateOne({ _id: req.userId }, { $pull: { webPushSubscriptions: { endpoint: clean.endpoint } } });
+    await Usuario.updateOne(
+      { _id: req.userId },
+      {
+        $push: { webPushSubscriptions: clean },
+        $set: { notificacionesPushActivas: true, aceptaNotificaciones: true }
+      }
+    );
+    const u = await Usuario.findById(req.userId).select('webPushSubscriptions').lean();
+    const total = Array.isArray(u?.webPushSubscriptions) ? u.webPushSubscriptions.length : 0;
+    res.json({ ok: true, total });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.patch('/web-push/unsubscribe', authMiddleware, async (req, res) => {
+  try {
+    const ep = String(req.body?.endpoint || '').trim();
+    if (!ep) return res.status(400).json({ error: 'Falta endpoint' });
+    await Usuario.updateOne({ _id: req.userId }, { $pull: { webPushSubscriptions: { endpoint: ep } } });
+    res.json({ ok: true });
+  } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });

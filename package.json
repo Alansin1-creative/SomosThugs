@@ -10,7 +10,8 @@
     "ios": "expo start --ios",
     "export:web": "npx expo export --platform web --output-dir dist-web",
     "prepare:static-web": "node scripts/prepare-static-web.js",
-    "build:web:production": "npm run export:web && npm run prepare:static-web"
+    "build:web:production": "npm run export:web && npm run prepare:static-web",
+    "eas:prep": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/eas-prep-windows.ps1"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

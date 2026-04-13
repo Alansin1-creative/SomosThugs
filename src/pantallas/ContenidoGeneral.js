@@ -496,7 +496,7 @@ function CardFeedVideoPreviewNative({ uri }) {
 }
 
 /** Imagen del feed: ancho completo, alto intrínseco (sin caja fija 220). */
-function ContenidoFeedImgWeb({ uri }) {
+function ContenidoFeedImgWeb({ uri, velado }) {
   return React.createElement('img', {
     src: uri,
     alt: '',
@@ -506,12 +506,13 @@ function ContenidoFeedImgWeb({ uri }) {
       height: 'auto',
       display: 'block',
       verticalAlign: 'top',
-      borderRadius: 10
+      borderRadius: 10,
+      ...(velado ? { filter: 'blur(14px)', transform: 'scale(1.04)' } : null)
     }
   });
 }
 
-function ContenidoFeedImgNative({ uri }) {
+function ContenidoFeedImgNative({ uri, velado }) {
   const [ratio, setRatio] = useState(null);
 
   useEffect(() => {
@@ -530,6 +531,8 @@ function ContenidoFeedImgNative({ uri }) {
     };
   }, [uri]);
 
+  const blur = velado ? (Platform.OS === 'ios' ? 20 : 28) : 0;
+
   return (
     <View
       style={
@@ -541,7 +544,8 @@ function ContenidoFeedImgNative({ uri }) {
       <Image
         source={{ uri }}
         style={{ width: '100%', height: '100%' }}
-        resizeMode="contain" />
+        resizeMode={velado ? 'cover' : 'contain'}
+        blurRadius={blur} />
       
     </View>
   );
@@ -1441,8 +1445,8 @@ export default function ContenidoGeneral({ navigation, route }) {
                           <CardFeedAudioPreviewTarjeta /> :
                           thumbImagenFeed ?
                           Platform.OS === 'web' ?
-                          <ContenidoFeedImgWeb uri={urlCompleta} /> :
-                          <ContenidoFeedImgNative uri={urlCompleta} /> :
+                          <ContenidoFeedImgWeb uri={urlCompleta} velado={bloqueado} /> :
+                          <ContenidoFeedImgNative uri={urlCompleta} velado={bloqueado} /> :
 
                           <Image
                             source={FONDO_THUGS}

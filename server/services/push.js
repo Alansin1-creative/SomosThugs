@@ -136,7 +136,8 @@ async function enviarPush(tokens, opts, webSubscriptions) {
       sound: 'default',
       title: String(opts?.title || 'Somos Thugs'),
       body: String(opts?.body || ''),
-      data: opts?.data && typeof opts.data === 'object' ? opts.data : {}
+      data: opts?.data && typeof opts.data === 'object' ? opts.data : {},
+      channelId: 'default'
     }));
 
     const partes = chunk(mensajes, 100);

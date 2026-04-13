@@ -51,10 +51,21 @@ export async function registrarPushUsuario() {
         '[push] Falta EAS project id: definí extra.eas.projectId (tras `eas init`) o EXPO_PUBLIC_EAS_PROJECT_ID en .env'
       );
     }
-    const tok = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : {});
+    let tok;
+    try {
+      tok = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : {});
+    } catch (e1) {
+      await new Promise((r) => setTimeout(r, 1200));
+      tok = await Notifications.getExpoPushTokenAsync(projectId ? { projectId } : {});
+    }
     const token = tok?.data || null;
     if (!token) return null;
-    await registrarPushToken(token);
+    try {
+      await registrarPushToken(token);
+    } catch (e2) {
+      await new Promise((r) => setTimeout(r, 800));
+      await registrarPushToken(token);
+    }
     return token;
   } catch (e) {
     if (typeof __DEV__ !== 'undefined' && __DEV__) {

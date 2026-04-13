@@ -42,7 +42,7 @@ export default function Registro({ navigation }) {
 
   const [request,, promptAsync] = Google.useIdTokenAuthRequest(
     {
-      webClientId: Platform.OS === 'web' ? GOOGLE_WEB_CLIENT_ID : undefined,
+      webClientId: GOOGLE_WEB_CLIENT_ID,
       redirectUri: webRedirectUri,
       iosClientId: Platform.OS === 'ios' ? GOOGLE_CLIENT_ID : undefined,
       androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined

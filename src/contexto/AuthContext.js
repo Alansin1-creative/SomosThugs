@@ -1,5 +1,5 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import { Platform } from 'react-native';
+import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
+import { Platform, AppState } from 'react-native';
 import { obtenerPerfil, signOut as authSignOut } from '../servicios/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NIVEL_LIBRE } from '../constantes/nivelesAcceso';
@@ -18,6 +18,8 @@ export const AuthContext = createContext({
 export function AuthProvider({ children }) {
   const [perfil, setPerfil] = useState(null);
   const [cargando, setCargando] = useState(true);
+  const perfilRef = useRef(null);
+  perfilRef.current = perfil;
 
   const intentarRegistrarPush = async () => {
 
@@ -29,6 +31,14 @@ export function AuthProvider({ children }) {
 
     }
   };
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return undefined;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && perfilRef.current) intentarRegistrarPush();
+    });
+    return () => sub.remove();
+  }, []);
 
   const nivelAcceso = perfil?.nivelAcceso ?? NIVEL_LIBRE;
 

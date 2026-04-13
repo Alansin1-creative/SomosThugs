@@ -19,7 +19,6 @@ import * as FileSystem from 'expo-file-system';
 import { useAuth } from '../contexto/AuthContext';
 import { actualizarPerfil } from '../servicios/api';
 import { getBaseUrl } from '../config/api';
-import { activarNotificacionesEscritorioWeb, alertResultadoWebPush } from '../servicios/webPush';
 import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 const FONDO_THUGS = require('../../assets/fondo-thugs.png');
@@ -137,7 +136,7 @@ export default function Perfil({ navigation }) {
       if (!dataUrl) {
         Alert.alert(
           'Imagen',
-          'No se pudo leer la foto desde el dispositivo. Probá otra imagen o volvé a intentar.'
+          'No se pudo leer la foto desde el dispositivo. Prueba con otra imagen o vuelve a intentar.'
         );
         return;
       }
@@ -173,7 +172,7 @@ export default function Perfil({ navigation }) {
       if (!dataUrl) {
         Alert.alert(
           'Imagen',
-          'No se pudo leer la foto desde el dispositivo. Probá otra imagen o volvé a intentar.'
+          'No se pudo leer la foto desde el dispositivo. Prueba con otra imagen o vuelve a intentar.'
         );
         return;
       }
@@ -317,33 +316,6 @@ export default function Perfil({ navigation }) {
                   
                 <Text style={estilos.checkboxTexto}>Acepto notificaciones</Text>
               </TouchableOpacity>
-              {Platform.OS === 'web' ?
-              <View style={estilos.cajaNotifWeb}>
-                  <Text style={estilos.notifWebTitulo}>Avisos en el escritorio</Text>
-                  <Text style={estilos.notifWebTexto}>
-                    Si el navegador lo permite, podés recibir avisos del sistema (sonido y globo) aunque cierres esta
-                    pestaña. Hacé clic y aceptá el permiso cuando lo pida el navegador.
-                  </Text>
-                  <TouchableOpacity
-                  style={[estilos.botonSecundario, activandoNotifWeb && estilos.botonDeshabilitado]}
-                  onPress={async () => {
-                    setActivandoNotifWeb(true);
-                    try {
-                      const r = await activarNotificacionesEscritorioWeb();
-                      alertResultadoWebPush(r);
-                    } finally {
-                      setActivandoNotifWeb(false);
-                    }
-                  }}
-                  disabled={activandoNotifWeb}
-                  activeOpacity={0.85}>
-                  
-                    <Text style={estilos.botonSecundarioTexto}>
-                      {activandoNotifWeb ? 'Activando…' : 'Quiero recibir notificaciones en este navegador'}
-                    </Text>
-                  </TouchableOpacity>
-                </View> :
-              null}
               <TouchableOpacity
                   style={[estilos.boton, guardando && estilos.botonDeshabilitado]}
                   onPress={onGuardar}
@@ -512,27 +484,6 @@ const estilos = StyleSheet.create({
   },
   filaCheckbox: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 },
   checkboxTexto: { color: '#ccc', fontSize: 14 },
-  cajaNotifWeb: {
-    marginTop: 8,
-    marginBottom: 14,
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,220,87,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(0,220,87,0.22)'
-  },
-  notifWebTitulo: { color: '#00dc57', fontSize: 14, fontWeight: '700', marginBottom: 6 },
-  notifWebTexto: { color: '#aaa', fontSize: 12, lineHeight: 18, marginBottom: 10 },
-  botonSecundario: {
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0,220,87,0.55)',
-    backgroundColor: 'rgba(0,0,0,0.25)'
-  },
-  botonSecundarioTexto: { color: '#00dc57', fontWeight: '700', fontSize: 13, textAlign: 'center' },
   boton: {
     backgroundColor: '#00dc57',
     borderRadius: 8,

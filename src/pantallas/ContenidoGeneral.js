@@ -2265,7 +2265,7 @@ export default function ContenidoGeneral({ navigation, route }) {
             <Text style={estilos.modalTitulo}>Nuevo comentario</Text>
             <TextInput
               style={estilos.modalInput}
-              placeholder="Escribe tu comentario..."
+              placeholder="Escribe tu comentario…"
               placeholderTextColor="#666"
               value={comentarioTexto}
               onChangeText={setComentarioTexto}

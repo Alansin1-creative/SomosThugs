@@ -67,7 +67,7 @@ export default function ContenidoExclusivo({ navigation }) {
               <Text style={estilos.heroTitulo}>Contenido exclusivo</Text>
               <Text style={estilos.heroSubtitulo}>Solo para la banda Thug</Text>
               <Text style={estilos.heroTexto}>
-                Aquí pronto vas a encontrar sesiones, contenido detrás de cámaras,
+                Aquí pronto vas a encontrar sesiones, contenido detrás de las cámaras,
                 material inédito y sorpresas solo para quienes apoyan el proyecto.
               </Text>
               {esAdmin(perfil) &&

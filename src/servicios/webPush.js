@@ -71,7 +71,7 @@ export async function activarNotificacionesEscritorioWeb() {
   if (!reg || !reg.pushManager) {
     return {
       ok: false,
-      mensaje: 'No se pudo registrar el trabajador en segundo plano. Probá recargar la página (HTTPS o localhost).'
+      mensaje: 'No se pudo registrar el trabajador en segundo plano. Prueba a recargar la página (HTTPS o localhost).'
     };
   }
 
@@ -80,7 +80,7 @@ export async function activarNotificacionesEscritorioWeb() {
     perm = await Notification.requestPermission();
   }
   if (perm !== 'granted') {
-    return { ok: false, mensaje: 'Permiso denegado. Activá notificaciones en la configuración del sitio (ícono del candado).' };
+    return { ok: false, mensaje: 'Permiso denegado. Activa las notificaciones en la configuración del sitio (icono del candado).' };
   }
 
   let vapidKey;

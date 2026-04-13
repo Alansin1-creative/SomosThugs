@@ -1,7 +1,9 @@
 node_modules/
+assets/node_modules/
 .expo/
 _expo/
 dist/
+dist-web.zip
 build/
 *.log
 .env

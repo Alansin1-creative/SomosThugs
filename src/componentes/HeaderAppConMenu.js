@@ -181,7 +181,7 @@ export default function HeaderAppConMenu({
       if (permisos.status !== 'granted') {
         Alert.alert(
           'Suscribirte a notificaciones',
-          'Quieres activar notificaciones en este dispositivo?',
+          '¿Quieres activar las notificaciones en este dispositivo?',
           [
           { text: 'Ahora no', style: 'cancel' },
           {
@@ -564,7 +564,7 @@ export default function HeaderAppConMenu({
                 onPress={() => onAbrirNotificacion(n)}
                 activeOpacity={0.8}>
                 
-                      <Text style={styles.notifItemTitulo}>{n.titulo || 'Notificacion'}</Text>
+                      <Text style={styles.notifItemTitulo}>{n.titulo || 'Notificación'}</Text>
                       <Text style={styles.notifItemMsg} numberOfLines={2}>
                         {n.mensaje || ''}
                       </Text>

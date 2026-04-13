@@ -25,6 +25,13 @@ import { useAuth } from '../contexto/AuthContext';
 import { iniciarSesionEmail, registrarEmail, iniciarSesionConTokenGoogle } from '../servicios/auth';
 import { listarFlyersPublicos } from '../servicios/api';
 import { getBaseUrl } from '../config/api';
+import { googleWebClientIdForExpoHook } from '../config/googleOAuth';
+import {
+  inputPropsLoginEmail,
+  inputPropsLoginPassword,
+  inputPropsRegistroPassword,
+  inputPropsRegistroSinAutofill
+} from '../config/inputAutofill';
 import { esAdmin, nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 import { useFocusEffect } from '@react-navigation/native';
 import { aplicarSeoWeb } from '../servicios/seoWeb';
@@ -61,6 +68,11 @@ const VIDEOS_TRAYECTORIA = [
   titulo: 'Thugs Sessionz Cap 1',
   subtitulo: 'Segunda sesión programada de consumo cannábico',
   youtubeUrl: 'https://www.youtube.com/watch?v=DqncmZCz8oQ'
+},
+{
+  titulo: 'One Last Time Party',
+  subtitulo: 'CDF CUU',
+  youtubeUrl: 'https://www.youtube.com/watch?v=TsOn_0loiOM'
 }];
 
 const REDES_SOCIALES = [
@@ -94,7 +106,7 @@ const INTEGRANTES = [
   foto: FOTO_INTEGRANTE_OMEGA_MORALES
 },
 {
-  nombre: 'Pablito Tattos',
+  nombre: 'Pablito Tattoos',
   ig: '@pablito.tattoos',
   url: 'https://www.instagram.com/pablito.tattoos/',
   foto: FOTO_INTEGRANTE_PABLITO_TATTOOS
@@ -115,12 +127,12 @@ const LINKS_PRENSA = [
 
 
 const FRASES_BLOQUES = [
-{ titulo: 'SI SE SIENTE BIEN', subtitulo: 'YEAH SE SIENTE' },
-{ titulo: 'EXOTICAS CARRETERAS', subtitulo: 'EFECTO LCD' },
-{ titulo: 'ENERGIA POSITIVA QUE DETONE', subtitulo: 'Y QUE REVIENTE' },
+{ titulo: 'SÍ SE SIENTE BIEN', subtitulo: 'YEAH SE SIENTE' },
+{ titulo: 'EXÓTICAS CARRETERAS', subtitulo: 'EFECTO LCD' },
+{ titulo: 'ENERGÍA POSITIVA QUE DETONE', subtitulo: 'Y QUE REVIENTE' },
 { titulo: 'LA DJ VA A MEZCLARLO', subtitulo: 'HASTA EL AMANECER' },
-{ titulo: 'TINTA DE MI MENTE', subtitulo: 'DEMENTE CONCIENTE' },
-{ titulo: 'DENUEVO EN EL JUEGO', subtitulo: 'LOS LOCOS DEL WEST' },
+{ titulo: 'TINTA DE MI MENTE', subtitulo: 'DEMENTE CONSCIENTE' },
+{ titulo: 'DE NUEVO EN EL JUEGO', subtitulo: 'LOS LOCOS DEL WEST' },
 { titulo: 'CHECK CHECK', subtitulo: 'CHEQUELE MUY BIEN' }];
 
 
@@ -143,7 +155,7 @@ const COMUNIDAD_TEXTO_PRINCIPAL =
 'Somos una comunidad de artistas urbanos independientes en México, enfocada en rap, freestyle y cultura callejera, donde los sueños raros se convierten en realidad.';
 
 const COMUNIDAD_TEXTO_SECUNDARIO =
-'Accede a episodios completos, contenido exclusivo y conecta con una comunidad de artistas urbanos.';
+'Accede a contenido exclusivo, canciones inéditas, eventos privados y conecta con una comunidad de artistas urbanos.';
 
 
 const COMUNIDAD_CTA_TEXTO = '¿Somos thugs o qué?';
@@ -432,7 +444,7 @@ export default function InicioPresskit({ navigation }) {
   const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : undefined;
   const [request,, promptAsync] = Google.useIdTokenAuthRequest(
     {
-      webClientId: Platform.OS === 'web' ? GOOGLE_WEB_CLIENT_ID : undefined,
+      webClientId: googleWebClientIdForExpoHook(GOOGLE_WEB_CLIENT_ID),
       redirectUri: webRedirectUri,
       iosClientId: Platform.OS === 'ios' ? GOOGLE_IOS_CLIENT_ID : undefined,
       androidClientId: Platform.OS === 'android' ? GOOGLE_ANDROID_CLIENT_ID : undefined
@@ -441,6 +453,13 @@ export default function InicioPresskit({ navigation }) {
   );
 
   const onGoogle = async () => {
+    if (Platform.OS === 'web' && !GOOGLE_WEB_CLIENT_ID) {
+      Alert.alert(
+        'Google',
+        'Falta EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID en .env (cliente OAuth tipo Web). Reinicia el servidor de desarrollo tras guardar el archivo.'
+      );
+      return;
+    }
     if (!request) {
       const faltaAndroid = Platform.OS === 'android' && !GOOGLE_ANDROID_CLIENT_ID;
       const faltaWeb = Platform.OS === 'web' && !GOOGLE_WEB_CLIENT_ID;
@@ -524,7 +543,7 @@ export default function InicioPresskit({ navigation }) {
 
   const onLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('', 'Email y contraseña.');
+      Alert.alert('', 'Indica correo y contraseña.');
       return;
     }
     setLoginCargando(true);
@@ -542,15 +561,15 @@ export default function InicioPresskit({ navigation }) {
 
   const onRegister = async () => {
     if (!username.trim()) {
-      Alert.alert('', 'Usuario es obligatorio.');
+      Alert.alert('', 'El usuario es obligatorio.');
       return;
     }
     if (!email.trim() || !password.trim()) {
-      Alert.alert('', 'Email y contraseña.');
+      Alert.alert('', 'Indica correo y contraseña.');
       return;
     }
     if (password.length < 6) {
-      Alert.alert('', 'Mín. 6 caracteres.');
+      Alert.alert('', 'La contraseña debe tener al menos 6 caracteres.');
       return;
     }
     setRegCargando(true);
@@ -603,7 +622,8 @@ export default function InicioPresskit({ navigation }) {
             placeholderTextColor="#9ca3af"
             value={nombre}
             onChangeText={setNombre}
-            autoCapitalize="words" />
+            autoCapitalize="words"
+            {...inputPropsRegistroSinAutofill} />
           
               <TextInput
             style={estilos.input}
@@ -611,7 +631,8 @@ export default function InicioPresskit({ navigation }) {
             placeholderTextColor="#9ca3af"
             value={username}
             onChangeText={setUsername}
-            autoCapitalize="none" />
+            autoCapitalize="none"
+            {...inputPropsRegistroSinAutofill} />
           
             </>
         }
@@ -622,7 +643,8 @@ export default function InicioPresskit({ navigation }) {
           value={email}
           onChangeText={setEmail}
           keyboardType="email-address"
-          autoCapitalize="none" />
+          autoCapitalize="none"
+          {...modo === 'registro' ? inputPropsRegistroSinAutofill : inputPropsLoginEmail} />
         
           {modo === 'registro' &&
         <TextInput
@@ -631,7 +653,8 @@ export default function InicioPresskit({ navigation }) {
           placeholderTextColor="#9ca3af"
           value={telefono}
           onChangeText={setTelefono}
-          keyboardType="phone-pad" />
+          keyboardType="phone-pad"
+          {...inputPropsRegistroSinAutofill} />
 
         }
           <View style={estilos.inputContenedorPassword}>
@@ -641,7 +664,8 @@ export default function InicioPresskit({ navigation }) {
             placeholderTextColor="#9ca3af"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry={!mostrarPass} />
+            secureTextEntry={!mostrarPass}
+            {...modo === 'registro' ? inputPropsRegistroPassword : inputPropsLoginPassword} />
           
             <TouchableOpacity style={estilos.ojo} onPress={() => setMostrarPass((v) => !v)}>
               <Ionicons name={mostrarPass ? 'eye-off-outline' : 'eye-outline'} size={20} color="#6b7280" />
@@ -694,7 +718,7 @@ export default function InicioPresskit({ navigation }) {
         <TouchableOpacity
         style={[estilos.botonGoogle, cargandoGoogle && estilos.botonDeshabilitado]}
         onPress={onGoogle}
-        disabled={!request || cargandoGoogle}>
+        disabled={!request || cargandoGoogle || (Platform.OS === 'web' && !GOOGLE_WEB_CLIENT_ID)}>
         
           {cargandoGoogle ? <ActivityIndicator color="#fff" size="small" /> : <Text style={estilos.botonGoogleTexto}>Entrar con Google</Text>}
         </TouchableOpacity>
@@ -831,10 +855,10 @@ export default function InicioPresskit({ navigation }) {
               <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
             </View>
             <Text style={[estilos.bioTexto, estilos.bioTextoBlock]}>
-              <Text style={estilos.bioDestacado}>Los Thugs</Text> es un proyecto de hip hop estilero chihuahuense formado por un dueto de viejos amigos (Chards y Omega) a mediados del 2019.
+              <Text style={estilos.bioDestacado}>Los Thugs</Text> son un proyecto de hip hop estilero chihuahuense formado por un dueto de viejos amigos (Chards y Omega) a mediados del 2019.
             </Text>
             <Text style={[estilos.bioTexto, estilos.bioTextoBlock]}>
-              Cruzando la pandemia del COVID-19 la creatividad llegó y creamos 5 canciones con las cuales comenzamos a ensayar y en el año 2021… salimos a la luz.
+              Cruzando la pandemia del COVID-19, la creatividad llegó y creamos 5 canciones con las cuales comenzamos a ensayar y en el año 2021… salimos a la luz.
             </Text>
 
             <View style={[estilos.filaRedes, estilos.filaRedesCentrada]}>
@@ -911,13 +935,13 @@ export default function InicioPresskit({ navigation }) {
                 )}
             </ScrollView>
             <Text style={estilos.bioTexto}>
-              Hemos tenido presentaciones en el foro cultural más importante de Chihuahua "Don Burro", también estuvimos en el Bazar Libertad en la Plaza del Ángel, colaboraciones con el "Movimiento Cannábico de Chihuahua." Tuvimos la oportunidad de tocar fuera de nuestra ciudad. Visitamos Meoqui, Cd. Aldama, Cd. Delicias y Cd. Juárez.
+              Hemos tenido presentaciones en el foro cultural más importante de Chihuahua &quot;Don Burro&quot;, también estuvimos en el Bazar Libertad en la Plaza del Ángel, colaboraciones con el &quot;Movimiento Cannábico de Chihuahua&quot;. Tuvimos la oportunidad de tocar fuera de nuestra ciudad. Visitamos Meoqui, Cd. Aldama, Cd. Delicias y Cd. Juárez.
             </Text>
             <Text style={estilos.bioTextoVerde}>
-              Hicimos un evento en la ciudad de Zapopan y fuimos artistas invitados en la Cd. de Guadalajara Jalisco en Marzo del 2022.
+              Hicimos un evento en la ciudad de Zapopan y fuimos artistas invitados en la Cd. de Guadalajara Jalisco en marzo del 2022.
             </Text>
             <Text style={estilos.bioTextoVerdeDestacado}>
-              Además hemos tenido intervenciones en la Radio local Chihuahuense. En "Métrica Radio" y "Radio Universidad Chihuahua".
+              Además, hemos tenido intervenciones en la radio local chihuahuense, en &quot;Métrica Radio&quot; y &quot;Radio Universidad Chihuahua&quot;.
             </Text>
             <View style={[estilos.fraseBloque, estilos.fraseBloqueDer]}>
               <Text style={[estilos.fraseTitulo, estilos.fraseTituloDer]}>{FRASES_BLOQUES[1].titulo}</Text>
@@ -934,7 +958,7 @@ export default function InicioPresskit({ navigation }) {
               <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
             </View>
             <Text style={estilos.bioTexto}>
-              En Abril del 2023 presentamos nuestro primer álbum llamado "Rolando Calles" en un show privado monitoreado en circuito cerrado y show de fuegos artificiales.
+              En abril del 2023 presentamos nuestro primer álbum llamado &quot;Rolando Calles&quot; en un show privado monitoreado en circuito cerrado y show de fuegos artificiales.
             </Text>
             <View style={estilos.listaAlbums}>
               {ALBUMS.map((album) => {
@@ -971,10 +995,10 @@ export default function InicioPresskit({ navigation }) {
                 })}
             </View>
             <Text style={estilos.bioTexto}>
-              El contenido de canciones abordan aventuras por los caminos de la república, patinando desde las calles hasta las galaxias, multiversos de graffiti y hierbas, creando negocios de los sueños que cada uno moldea con sus talentos y reviviendo las historias de este par de callejeros.
+              El contenido de canciones aborda aventuras por los caminos de la república, patinando desde las calles hasta las galaxias, multiversos de grafiti y hierbas, creando negocios de los sueños que cada uno moldea con sus talentos y reviviendo las historias de este par de callejeros.
             </Text>
             <Text style={estilos.bioTexto}>
-              Te sumergirás a este universo llamado: <Text style={estilos.bioDestacado}>LOS THUGS</Text>.
+              Te sumergirás en este universo llamado: <Text style={estilos.bioDestacado}>LOS THUGS</Text>.
             </Text>
             <View style={[estilos.fraseBloque, estilos.fraseBloqueIzq]}>
               <Text style={[estilos.fraseTitulo, estilos.fraseTituloIzq]}>{FRASES_BLOQUES[2].titulo}</Text>
@@ -1049,14 +1073,14 @@ export default function InicioPresskit({ navigation }) {
         <View style={[estilos.bloqueAncho, estilos.bloqueArtistInfoCard, { width: contentWidth }]}>
           <View style={estilos.bloqueArtistInfoContenido}>
             <View style={estilos.filaArtistInfo}>
-              <Text style={estilos.artistInfoTitulo}>TRAYECTORIA</Text>
+              <Text style={estilos.artistInfoTitulo}>TRAYECTORÍA</Text>
               <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
             </View>
             <Text style={estilos.bioTexto}>
-              Fuimos nominados en los Monsters Music Awards como mejor artista de rap, cuya premiación se llevó a cabo en el Teatro Metropolitan en Ciudad de México.
+              Fuimos nominados en los Monster Music Awards como mejor artista de rap, cuya premiación se llevó a cabo en el Teatro Metropólitan en Ciudad de México.
             </Text>
             <Text style={estilos.bioTexto}>
-              Hemos compartido escenario con artistas nacionales e internacionales tales como: Desplantes Cuu, Delay Castillo Cuu, Vickingos del Norte Cuu, Koko Yamasaki Xalapa, Kion Bajosuelo de Cd. Juárez, Real Stylo de San Luis, Pedro Mo de Perú y algunos más.
+              Hemos compartido escenario con artistas nacionales e internacionales tales como: Desplantes Cuu, Delay Castillo Cuu, Vikingos del Norte Cuu, Koko Yamasaki Xalapa, Kion Bajosuelo de Cd. Juárez, Real Stylo de San Luis, Pedro Mo de Perú y algunos más.
             </Text>
             <Text style={estilos.bioTexto}>
               Producimos el álbum Rolando Calles, que cuenta con 11 canciones, en colaboración con Amazonas Music Group.
@@ -1194,8 +1218,9 @@ export default function InicioPresskit({ navigation }) {
               <Text style={estilos.flechas}>&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;&gt;</Text>
             </View>
             <Text style={estilos.bioTexto}>
-              ¿Quieres trabajar con Los Thugs? Shows en vivo, colaboraciones, producción de eventos o proyectos
-              especiales.
+              ¿Quieres trabajar con Los Thugs?{'\n\n'}
+              Shows en vivo, colaboraciones, producción de eventos o proyectos especiales.{'\n\n'}
+              Estamos listos para llevarlo a otro nivel.
             </Text>
             <View style={estilos.bookingGrid}>
               <TouchableOpacity
@@ -1209,8 +1234,8 @@ Banda/Proyecto:
 Nombre de contacto:
 Integrantes:
 Ciudad:
-Enlace de musica/redes:
-Tipo de colaboracion:`
+Enlace de música/redes:
+Tipo de colaboración:`
                     )}`
                   )
                   }
@@ -1235,7 +1260,6 @@ Tipo de colaboracion:`
                 <Text style={estilos.bookingBtnSecundarioTexto}>Booking</Text>
               </TouchableOpacity>
             </View>
-            <Text style={estilos.bookingNota}>Estamos listos para llevarlo a otro nivel.</Text>
           </View>
         </View>
 
@@ -1265,7 +1289,7 @@ Tipo de colaboracion:`
             </TouchableOpacity>
           </View>
           <Text style={estilos.footerContactoTexto}>© 2026 SomosThugs</Text>
-          <Text style={estilos.footerContactoTagline}>"SomosThugs es una plataforma exclusiva para la comunidad que apoya el movimiento."</Text>
+          <Text style={estilos.footerContactoTagline}>&quot;Somos Thugs es una plataforma exclusiva para la comunidad que apoya el movimiento.&quot;</Text>
         </View>
         </View>
       </ScrollView>
@@ -1304,8 +1328,12 @@ Tipo de colaboracion:`
         animationType="fade"
         onRequestClose={() => setAuthModalVisible(false)}>
         
-          <Pressable style={estilos.authModalOverlay} onPress={() => setAuthModalVisible(false)}>
-            <Pressable style={estilos.authModalCaja} onPress={(e) => e.stopPropagation()}>
+          <Pressable
+            style={[estilos.authModalOverlay, Platform.OS === 'web' && esWebDesktop && estilos.authModalOverlayEscritorio]}
+            onPress={() => setAuthModalVisible(false)}>
+            <Pressable
+              style={[estilos.authModalCaja, Platform.OS === 'web' && esWebDesktop && estilos.authModalCajaEscritorio]}
+              onPress={(e) => e.stopPropagation()}>
               {renderAuthForm()}
             </Pressable>
           </Pressable>
@@ -2233,7 +2261,16 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 20
   },
+  /** Evita que el modal se estire a todo el ancho en pantallas anchas. */
+  authModalOverlayEscritorio: {
+    alignItems: 'center'
+  },
   authModalCaja: {
-    maxHeight: '92%'
+    maxHeight: '92%',
+    width: '100%'
+  },
+  authModalCajaEscritorio: {
+    maxWidth: 420,
+    width: '100%'
   }
 });

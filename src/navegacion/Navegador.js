@@ -61,7 +61,7 @@ export default function Navegador() {
             <Stack.Navigator screenOptions={opcionesBase} initialRouteName={rutaInicial}>
               <Stack.Screen name="Inicio" component={InicioPresskit} options={{ title: 'Somos Thugs' }} />
               <Stack.Screen name="Perfil" component={Perfil} options={{ title: 'Perfil' }} />
-              <Stack.Screen name="MenuAdmin" component={MenuAdmin} options={{ title: 'Panel Admin' }} />
+              <Stack.Screen name="MenuAdmin" component={MenuAdmin} options={{ title: 'Panel de administración' }} />
               <Stack.Screen name="ModoAdmin" component={ModoAdmin} options={{ title: 'Admin' }} />
               <Stack.Screen name="AdminUsuarios" component={AdminUsuarios} options={{ title: 'Admin Usuarios' }} />
               <Stack.Screen name="AdminContenidoExclusivo" component={AdminContenidoExclusivo} options={{ title: 'Admin Contenido' }} />

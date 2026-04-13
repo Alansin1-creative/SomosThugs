@@ -812,7 +812,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   style={[estilos.input, estilos.inputMultiline]}
                   value={complementario}
                   onChangeText={setComplementario}
-                  placeholder="Opcional: nota en cursiva (no es enlace). Si pegás una URL, se verá como enlace verde. El archivo (PDF, etc.) tiene su propio enlace debajo."
+                  placeholder="Opcional: nota en cursiva (no es enlace). Si pegas una URL, se verá como enlace verde. El archivo (PDF, etc.) tiene su propio enlace debajo."
                   placeholderTextColor="#666"
                   multiline />
                 
@@ -890,7 +890,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   style={estilos.input}
                   value={etiquetasStr}
                   onChangeText={setEtiquetasStr}
-                  placeholder="ej: sesion, inedito"
+                  placeholder="ej.: sesión, inédito"
                   placeholderTextColor="#666" />
                 
           <View style={estilos.filaSwitch}>
@@ -966,7 +966,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   style={[estilos.input, estilos.inputMultiline]}
                   value={editComplementario}
                   onChangeText={setEditComplementario}
-                  placeholder="Opcional: nota en cursiva (no es enlace). Si pegás una URL, enlace verde. El archivo tiene enlace aparte."
+                  placeholder="Opcional: nota en cursiva (no es enlace). Si pegas una URL, enlace verde. El archivo tiene enlace aparte."
                   placeholderTextColor="#666"
                   multiline />
                 
@@ -1043,7 +1043,7 @@ export default function AdminContenidoExclusivo({ navigation }) {
                   style={estilos.input}
                   value={editEtiquetasStr}
                   onChangeText={setEditEtiquetasStr}
-                  placeholder="ej: sesion, inedito"
+                  placeholder="ej.: sesión, inédito"
                   placeholderTextColor="#666" />
                 
                 <View style={estilos.filaSwitch}>

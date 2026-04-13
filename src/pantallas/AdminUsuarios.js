@@ -129,7 +129,7 @@ export default function AdminUsuarios({ navigation }) {
       )
       );
     } catch (e) {
-      Alert.alert('Error', e?.message || 'No se pudo actualizar');
+      Alert.alert('Error', e?.message || 'No se pudo actualizar.');
     } finally {
       setAccionandoId(null);
     }
@@ -190,7 +190,7 @@ export default function AdminUsuarios({ navigation }) {
     if (user.rol !== 'admin') return;
     const id = getId(user);
     if (!id || id === perfilId) return;
-    const mensaje = `¿Quitar rol admin a ${user.email || user.nombreCompleto || 'este usuario'}? Pasará a usuario fan.`;
+    const mensaje = `¿Quitar rol admin a ${user.email || user.nombreCompleto || 'este usuario'}? Pasará a ser usuario fan.`;
     if (isWeb) {
       if (window.confirm(mensaje)) ejecutarRevocarAdmin(id);
       return;

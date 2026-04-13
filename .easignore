@@ -1,0 +1,14 @@
+# Local Expo cache — do not upload (tar on EAS failed with Permission denied under .expo/web).
+.expo/
+**/.expo/
+
+# Web export and bundles — not used by native EAS Build; was inflating archive (~100MB+).
+dist-web/
+dist-web.zip
+*.zip
+
+# API runs on Render; app does not import server code. Excludes server/node_modules from upload.
+server/
+
+# Accidental nested installs under assets
+assets/node_modules/

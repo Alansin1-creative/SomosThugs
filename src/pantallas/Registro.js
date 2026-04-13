@@ -24,8 +24,9 @@ import { nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const GOOGLE_CLIENT_ID = '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
-const GOOGLE_WEB_CLIENT_ID = '844963020835-b7pt28vp1upelsefhapf22qsksjecj3l.apps.googleusercontent.com';
+const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '844963020835-b7pt28vp1upelsefhapf22qsksjecj3l.apps.googleusercontent.com';
 
 export default function Registro({ navigation }) {
   const { establecerPerfil } = useAuth();
@@ -44,8 +45,8 @@ export default function Registro({ navigation }) {
     {
       webClientId: Platform.OS === 'web' ? GOOGLE_WEB_CLIENT_ID : undefined,
       redirectUri: webRedirectUri,
-      iosClientId: Platform.OS === 'ios' ? GOOGLE_CLIENT_ID : undefined,
-      androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined
+      iosClientId: Platform.OS === 'ios' ? GOOGLE_IOS_CLIENT_ID : undefined,
+      androidClientId: Platform.OS === 'android' ? GOOGLE_ANDROID_CLIENT_ID : undefined
     },
     { useProxy: false }
   );

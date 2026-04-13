@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEventListener } from 'expo';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -444,7 +445,7 @@ const modalAudioEstilos = StyleSheet.create({
 });
 
 /** Tarjeta del feed: vídeo en silencio; altura según el vídeo (web: height auto). */
-function CardFeedVideoPreviewWeb({ uri }) {
+function CardFeedVideoPreviewWeb({ uri, velado }) {
   return React.createElement('video', {
     src: uri,
     muted: true,
@@ -461,12 +462,13 @@ function CardFeedVideoPreviewWeb({ uri }) {
       objectFit: 'contain',
       backgroundColor: '#000',
       pointerEvents: 'none',
-      borderRadius: 10
+      borderRadius: 10,
+      ...(velado ? { filter: 'blur(14px)', transform: 'scale(1.04)' } : null)
     }
   });
 }
 
-function CardFeedVideoPreviewNative({ uri }) {
+function CardFeedVideoPreviewNative({ uri, velado }) {
   const [ar, setAr] = useState(16 / 9);
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
@@ -491,6 +493,12 @@ function CardFeedVideoPreviewNative({ uri }) {
         contentFit="cover"
         {...Platform.OS === 'android' ? { surfaceType: 'textureView' } : {}}
       />
+      {velado ?
+      <BlurView
+        intensity={70}
+        tint="dark"
+        style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' }} /> :
+      null}
     </View>
   );
 }
@@ -1457,10 +1465,10 @@ export default function ContenidoGeneral({ navigation, route }) {
                           activeOpacity={bloqueado ? 1 : 0.9}
                           disabled={bloqueado}>
                           
-                          {videoPreviewAbs && !bloqueado ?
+                          {videoPreviewAbs ?
                           Platform.OS === 'web' ?
-                          <CardFeedVideoPreviewWeb uri={videoPreviewAbs} /> :
-                          <CardFeedVideoPreviewNative uri={videoPreviewAbs} /> :
+                          <CardFeedVideoPreviewWeb uri={videoPreviewAbs} velado={bloqueado} /> :
+                          <CardFeedVideoPreviewNative uri={videoPreviewAbs} velado={bloqueado} /> :
                           tipo === 'audio' && !bloqueado ?
                           <CardFeedAudioPreviewTarjeta /> :
                           usarImagenTarjetaFeed && !!uriImagenTarjetaFeed ?

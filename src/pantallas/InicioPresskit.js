@@ -31,9 +31,9 @@ import { aplicarSeoWeb } from '../servicios/seoWeb';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
-const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
-const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '844963020835-b7pt28vp1upelsefhapf22qsksjecj3l.apps.googleusercontent.com';
+const GOOGLE_ANDROID_CLIENT_ID = String(process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '').trim() || undefined;
+const GOOGLE_IOS_CLIENT_ID = String(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim() || undefined;
+const GOOGLE_WEB_CLIENT_ID = String(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '').trim() || undefined;
 
 const LOGO_TEXTO = 'Somos Thugs';
 
@@ -442,7 +442,15 @@ export default function InicioPresskit({ navigation }) {
 
   const onGoogle = async () => {
     if (!request) {
-      Alert.alert('Google', 'Google no está listo. En web añade esta URL en Google Cloud Console.');
+      const faltaAndroid = Platform.OS === 'android' && !GOOGLE_ANDROID_CLIENT_ID;
+      const faltaWeb = Platform.OS === 'web' && !GOOGLE_WEB_CLIENT_ID;
+      const msg =
+      faltaAndroid ?
+      'Falta EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID en .env (cliente OAuth tipo Android).' :
+      faltaWeb ?
+      'Falta EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID en .env (cliente OAuth tipo Web).' :
+      'Google no está listo. En web añade esta URL en Google Cloud Console.';
+      Alert.alert('Google', msg);
       return;
     }
     setCargandoGoogle(true);
@@ -784,7 +792,7 @@ export default function InicioPresskit({ navigation }) {
       <ScrollView
         ref={scrollRef}
         style={estilos.scroll}
-        contentContainerStyle={[estilos.scrollContenido, estilos.scrollContenidoFondo, estaAutenticado && { paddingTop: 0 }, Platform.OS === 'web' && estilos.scrollContenidoRelative]}
+        contentContainerStyle={[estilos.scrollContenido, estilos.scrollContenidoFondo, estilos.scrollContenidoRelative, estaAutenticado && { paddingTop: 0 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         onScroll={onPresskitScroll}

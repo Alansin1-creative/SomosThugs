@@ -495,9 +495,11 @@ function CardFeedVideoPreviewNative({ uri, velado }) {
       />
       {velado ?
       <BlurView
-        intensity={70}
+        intensity={100}
         tint="dark"
-        style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)' }} /> :
+        experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
+        pointerEvents="none"
+        style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.28)' }} /> :
       null}
     </View>
   );

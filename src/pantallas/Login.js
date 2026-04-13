@@ -22,9 +22,9 @@ import { nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
-const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
-const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '844963020835-b7pt28vp1upelsefhapf22qsksjecj3l.apps.googleusercontent.com';
+const GOOGLE_ANDROID_CLIENT_ID = String(process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '').trim() || undefined;
+const GOOGLE_IOS_CLIENT_ID = String(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim() || undefined;
+const GOOGLE_WEB_CLIENT_ID = String(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '').trim() || undefined;
 
 
 const FONDO_IMAGEN = require('../../assets/fondo-thugs.png');
@@ -74,9 +74,17 @@ export default function Login({ navigation }) {
 
   const enviarGoogle = async () => {
     if (!request) {
+      const faltaAndroid = Platform.OS === 'android' && !GOOGLE_ANDROID_CLIENT_ID;
+      const faltaWeb = Platform.OS === 'web' && !GOOGLE_WEB_CLIENT_ID;
+      const msgConfig =
+      faltaAndroid ?
+      'Falta EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID en .env (debe ser cliente OAuth tipo Android).' :
+      faltaWeb ?
+      'Falta EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID en .env (cliente OAuth tipo Web).' :
+      null;
       Alert.alert(
         'Google',
-        'Google no está listo. En web: entra desde el navegador (no Expo Go) y en Google Cloud Console añade esta URL en "Orígenes autorizados" y "URIs de redirección": ' + (
+        (msgConfig || 'Google no está listo. En web: entra desde el navegador (no Expo Go) y en Google Cloud Console añade esta URL en "Orígenes autorizados" y "URIs de redirección": ') + (
         typeof window !== 'undefined' ? window.location.origin : 'tu origen')
       );
       return;

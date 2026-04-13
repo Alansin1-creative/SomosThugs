@@ -24,9 +24,9 @@ import { nombreRutaHomeApp } from '../constantes/nivelesAcceso';
 
 WebBrowser.maybeCompleteAuthSession();
 
-const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
-const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '711635271834-r316qrd5p19oh8mcn1n1qg1o00209nav.apps.googleusercontent.com';
-const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '844963020835-b7pt28vp1upelsefhapf22qsksjecj3l.apps.googleusercontent.com';
+const GOOGLE_ANDROID_CLIENT_ID = String(process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '').trim() || undefined;
+const GOOGLE_IOS_CLIENT_ID = String(process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '').trim() || undefined;
+const GOOGLE_WEB_CLIENT_ID = String(process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '').trim() || undefined;
 
 export default function Registro({ navigation }) {
   const { establecerPerfil } = useAuth();
@@ -118,7 +118,15 @@ export default function Registro({ navigation }) {
 
   const enviarGoogle = async () => {
     if (!request) {
-      Alert.alert('Google', 'Google no está listo. Prueba desde el navegador.');
+      const faltaAndroid = Platform.OS === 'android' && !GOOGLE_ANDROID_CLIENT_ID;
+      const faltaWeb = Platform.OS === 'web' && !GOOGLE_WEB_CLIENT_ID;
+      const msg =
+      faltaAndroid ?
+      'Falta EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID en .env (cliente OAuth tipo Android).' :
+      faltaWeb ?
+      'Falta EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID en .env (cliente OAuth tipo Web).' :
+      'Google no está listo. Prueba desde el navegador.';
+      Alert.alert('Google', msg);
       return;
     }
     setCargandoGoogle(true);

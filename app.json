@@ -12,6 +12,20 @@
       "resizeMode": "contain",
       "backgroundColor": "#1a1a1a"
     },
+    "android": {
+      "package": "com.somosthugs.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#1a1a1a"
+      },
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
+    },
+    "ios": {
+      "bundleIdentifier": "com.somosthugs.app",
+      "supportsTablet": true
+    },
     "plugins": [
       "expo-router",
       [
@@ -26,7 +40,14 @@
           "locationWhenInUsePermission": "Ubicación para el mapa de eventos."
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#00dc57",
+          "defaultChannel": "default"
+        }
+      ],
       "expo-asset",
       "expo-web-browser",
       "expo-video",
@@ -39,6 +60,13 @@
       "lang": "es",
       "themeColor": "#0d0d0d",
       "backgroundColor": "#0d0d0d"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4febf8d7-ad14-4d48-9641-974ccded68a3"
+      },
+      "router": {}
+    },
+    "owner": "alan2869"
   }
 }

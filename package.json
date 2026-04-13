@@ -26,13 +26,13 @@
     "expo-camera": "~17.0.10",
     "expo-constants": "~18.0.13",
     "expo-crypto": "~15.0.8",
-    "expo-device": "^55.0.10",
+    "expo-device": "~8.0.10",
     "expo-document-picker": "~14.0.4",
     "expo-file-system": "~19.0.21",
     "expo-image-picker": "~17.0.10",
     "expo-linking": "~8.0.11",
     "expo-location": "~19.0.8",
-    "expo-notifications": "^55.0.13",
+    "expo-notifications": "~0.32.16",
     "expo-router": "~6.0.23",
     "expo-status-bar": "~3.0.9",
     "expo-video": "~3.0.16",
@@ -48,7 +48,8 @@
     "@babel/core": "^7.25.0",
     "@babel/generator": "^7.29.1",
     "@babel/parser": "^7.29.2",
-    "@babel/traverse": "^7.29.0"
+    "@babel/traverse": "^7.29.0",
+    "sharp": "^0.34.5"
   },
   "private": true
 }

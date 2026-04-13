@@ -2,7 +2,13 @@
 .expo/
 **/.expo/
 
-# Web export and bundles — not used by native EAS Build; was inflating archive (~100MB+).
+# Web export / Metro output at repo root (not needed for native build; often OneDrive reparse + read-only).
+_expo/
+
+# Never bundle dependencies (EAS runs npm ci on the server).
+node_modules/
+
+# Web export and bundles — not used for native EAS Build; was inflating archive (~100MB+).
 dist-web/
 dist-web.zip
 *.zip

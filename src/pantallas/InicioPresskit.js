@@ -718,7 +718,7 @@ export default function InicioPresskit({ navigation }) {
         <TouchableOpacity
         style={[estilos.botonGoogle, cargandoGoogle && estilos.botonDeshabilitado]}
         onPress={onGoogle}
-        disabled={!request || cargandoGoogle || (Platform.OS === 'web' && !GOOGLE_WEB_CLIENT_ID)}>
+        disabled={cargandoGoogle}>
         
           {cargandoGoogle ? <ActivityIndicator color="#fff" size="small" /> : <Text style={estilos.botonGoogleTexto}>Entrar con Google</Text>}
         </TouchableOpacity>

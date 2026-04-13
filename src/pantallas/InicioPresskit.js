@@ -431,7 +431,7 @@ export default function InicioPresskit({ navigation }) {
   const webRedirectUri = Platform.OS === 'web' && typeof window !== 'undefined' ? window.location.origin : undefined;
   const [request,, promptAsync] = Google.useIdTokenAuthRequest(
     {
-      webClientId: GOOGLE_WEB_CLIENT_ID,
+      webClientId: Platform.OS === 'web' ? GOOGLE_WEB_CLIENT_ID : undefined,
       redirectUri: webRedirectUri,
       iosClientId: Platform.OS === 'ios' ? GOOGLE_CLIENT_ID : undefined,
       androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined

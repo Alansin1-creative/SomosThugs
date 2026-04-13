@@ -174,10 +174,57 @@ export default function HeaderAppConMenu({
     await cargarNotificaciones();
   };
 
+  const activarPushNativoDesdeCampana = async () => {
+    try {
+      const Notifications = await import('expo-notifications');
+      const permisos = await Notifications.getPermissionsAsync();
+      if (permisos.status !== 'granted') {
+        Alert.alert(
+          'Suscribirte a notificaciones',
+          'Quieres activar notificaciones en este dispositivo?',
+          [
+          { text: 'Ahora no', style: 'cancel' },
+          {
+            text: 'Activar',
+            onPress: async () => {
+              try {
+                const mod = await import('../servicios/push');
+                const token = await mod?.registrarPushUsuario?.();
+                if (token) {
+                  Alert.alert('Listo', 'Notificaciones activadas en este dispositivo.');
+                } else {
+                  Alert.alert('Notificaciones', 'No se pudo activar. Revisa permisos del sistema.');
+                }
+              } catch (e) {
+                Alert.alert('Error', e?.message || 'No se pudo activar notificaciones.');
+              } finally {
+                await abrirNotificaciones();
+              }
+            }
+          }]
+        );
+        return;
+      }
+
+      const mod = await import('../servicios/push');
+      const token = await mod?.registrarPushUsuario?.();
+      if (!token) {
+        Alert.alert(
+          'Notificaciones',
+          'Tienes permisos activos, pero no se pudo registrar el token push. Intenta de nuevo en unos segundos.'
+        );
+      }
+    } catch (e) {
+      Alert.alert('Error', e?.message || 'No se pudo comprobar notificaciones.');
+    } finally {
+      await abrirNotificaciones();
+    }
+  };
+
   const onPressCampanaNotificaciones = async () => {
     try {
       if (Platform.OS !== 'web' || typeof window === 'undefined') {
-        await abrirNotificaciones();
+        await activarPushNativoDesdeCampana();
         return;
       }
       if (typeof Notification === 'undefined' || !('serviceWorker' in navigator)) {

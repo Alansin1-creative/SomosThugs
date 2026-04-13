@@ -1331,6 +1331,26 @@ export default function ContenidoGeneral({ navigation, route }) {
                 tipo !== 'audio' &&
                 !!urlCompleta &&
                 urlPareceArchivoImagen(previewUrlStr);
+                const imagenPreviewBloqueadaAbs =
+                bloqueado ?
+                (() => {
+                  const candidates = [
+                  previewUrl,
+                  String(item.imagenUrl || item.urlImagen || '').trim(),
+                  String(item.urlMediaPreview || '').trim(),
+                  String(item.urlMedia || '').trim()].
+                  filter(Boolean);
+                  for (const c of candidates) {
+                    if (urlPareceArchivoImagen(c)) {
+                      const abs = absolutizarRutaMedia(c);
+                      if (abs) return abs;
+                    }
+                  }
+                  return null;
+                })() :
+                null;
+                const usarImagenTarjetaFeed = thumbImagenFeed || bloqueado && !!imagenPreviewBloqueadaAbs;
+                const uriImagenTarjetaFeed = thumbImagenFeed ? urlCompleta : imagenPreviewBloqueadaAbs;
                 const ocultarDescripcionFeedContenidoThug =
                 bloqueado && (tipo === 'articulo' || tipo === 'audio');
                 const complementario = item.complementario || '';
@@ -1437,21 +1457,25 @@ export default function ContenidoGeneral({ navigation, route }) {
                           activeOpacity={bloqueado ? 1 : 0.9}
                           disabled={bloqueado}>
                           
-                          {videoPreviewAbs ?
+                          {videoPreviewAbs && !bloqueado ?
                           Platform.OS === 'web' ?
                           <CardFeedVideoPreviewWeb uri={videoPreviewAbs} /> :
                           <CardFeedVideoPreviewNative uri={videoPreviewAbs} /> :
                           tipo === 'audio' && !bloqueado ?
                           <CardFeedAudioPreviewTarjeta /> :
-                          thumbImagenFeed ?
+                          usarImagenTarjetaFeed && !!uriImagenTarjetaFeed ?
                           Platform.OS === 'web' ?
-                          <ContenidoFeedImgWeb uri={urlCompleta} velado={bloqueado} /> :
-                          <ContenidoFeedImgNative uri={urlCompleta} velado={bloqueado} /> :
+                          <ContenidoFeedImgWeb uri={uriImagenTarjetaFeed} velado={bloqueado} /> :
+                          <ContenidoFeedImgNative uri={uriImagenTarjetaFeed} velado={bloqueado} /> :
 
                           <Image
                             source={FONDO_THUGS}
-                            style={estilos.cardPreviewPlaceholderFondo}
-                            resizeMode="cover" />
+                            style={[
+                            estilos.cardPreviewPlaceholderFondo,
+                            bloqueado && estilos.cardPreviewPlaceholderFondoBlurWeb]
+                            }
+                            resizeMode="cover"
+                            blurRadius={bloqueado ? Platform.OS === 'ios' ? 20 : 28 : 0} />
                           }
                           
                           {bloqueado ?
@@ -2738,6 +2762,9 @@ const estilos = StyleSheet.create({
     {})
   },
   cardPreviewPlaceholderFondo: { width: '100%', height: 200, borderRadius: 10 },
+  cardPreviewPlaceholderFondoBlurWeb: {
+    ...(Platform.OS === 'web' ? { filter: 'blur(14px)', transform: 'scale(1.04)' } : null)
+  },
   cardPreviewImgModal: {
     width: '100%',
     maxWidth: '100%',

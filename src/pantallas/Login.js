@@ -41,8 +41,8 @@ export default function Login({ navigation }) {
 
   const [request,, promptAsync] = Google.useIdTokenAuthRequest(
     {
-      // Android/iOS: hace falta el cliente Web para que Google devuelva id_token (no solo en navegador).
-      webClientId: GOOGLE_WEB_CLIENT_ID,
+      // En nativo NO usar cliente WEB con redirect custom-scheme (Google devuelve 400 invalid_request).
+      webClientId: Platform.OS === 'web' ? GOOGLE_WEB_CLIENT_ID : undefined,
       redirectUri: webRedirectUri,
       iosClientId: Platform.OS === 'ios' ? GOOGLE_CLIENT_ID : undefined,
       androidClientId: Platform.OS === 'android' ? GOOGLE_CLIENT_ID : undefined
